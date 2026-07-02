@@ -33,7 +33,8 @@ export default function HomeV2() {
           AEO Visibility tracks where your brand appears in AI-generated answers — across Claude, ChatGPT, and Gemini — and tells you exactly what to do about the gaps.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/v2/app"
+          <Link to="/app"
+            onClick={() => localStorage.removeItem('peach_last_result')}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-sm">
             Check my AI visibility →
           </Link>
@@ -138,7 +139,8 @@ export default function HomeV2() {
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <h2 className="text-3xl font-bold text-gray-900 mb-4">Find out where you stand in AI search</h2>
         <p className="text-gray-500 mb-8">Results in under 3 minutes. No setup required.</p>
-        <Link to="/v2/app"
+        <Link to="/app"
+          onClick={() => localStorage.removeItem('peach_last_result')}
           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-4 rounded-xl transition-colors text-base shadow-sm">
           Check my AI visibility →
         </Link>

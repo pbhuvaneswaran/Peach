@@ -71,7 +71,7 @@ export default function Navbar({ version = 'v1' }) {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
-          <Link to={appLink} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+          <Link to="/app" onClick={() => localStorage.removeItem('peach_last_result')} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
             Sign in
           </Link>
           <Link to={pricingLink}

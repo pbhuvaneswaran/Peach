@@ -18,12 +18,14 @@ async function analyzePageAndPrepare(pageData) {
 
 1. "description": 1-2 sentences describing what the product does — problem it solves and who it's for. NO brand names.
 2. "category": the most specific sub-category this product belongs to (e.g. "AI agent platform for solopreneurs", NOT the broad "productivity tool").
-3. "competitors": array of 4 direct competitors within THAT specific sub-category. Rules:
-   - Must compete for the EXACT SAME customer doing the EXACT SAME job — not the broad parent category
-   - If this is AI-first: competitors must also be AI-first tools in the same niche
-   - A buyer must genuinely compare this product vs the competitor on the SAME shortlist
-   - NEVER include: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack, Figma, Google Workspace, Canva — these are broad productivity tools, not niche competitors
-   - If you cannot find 4 true direct competitors, list fewer rather than padding with generic tools
+3. "competitors": array of up to 4 real company/product BRAND NAMES that are direct competitors.
+   CRITICAL: Return only BRAND NAMES of actual companies (e.g. "Zendesk", "Intercom", "Freshdesk") — NEVER return category descriptions (NOT "AI customer service platform", NOT "multi-channel support tool", NOT "intelligent ticketing system").
+   Reasoning: first identify what niche/category this product is in, then think of the best-known companies operating in that same niche that a buyer would compare side-by-side.
+   Rules:
+   - Must be actual company or product names a buyer would search by name on Google
+   - Same niche: same audience, same core job-to-be-done
+   - NEVER list generic tools: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack
+   - If fewer than 4 real competitors exist, list fewer — never pad with category descriptions
 4. "prompts": array of exactly 3 buyer-intent queries someone would type into ChatGPT or Gemini to find this type of product. NO brand or product names. Use the specific sub-category language.
 
 Page title: ${pageData.title}

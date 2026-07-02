@@ -141,7 +141,24 @@ app.post('/api/v3/analyze', async (req, res) => {
     const llmAnswers = await Promise.all(Object.values(llmJobs));
     const llmResults = Object.fromEntries(llmNames.map((name, i) => [name, llmAnswers[i]]));
 
-    const visibility = scoreVisibility({ llmResults, brand, competitors });
+    let visibility = scoreVisibility({ llmResults, brand, competitors });
+
+    // Fallback: if pre-selected competitors all scored 0%, extract real brands from LLM answers
+    const allCompetitorsZero = competitors.every(c => (visibility.aggregatePercentages[c] ?? 0) === 0)
+    if (allCompetitorsZero) {
+      try {
+        const mentionedBrands = await extractCompetitors(llmResults)
+        const realCompetitors = mentionedBrands
+          .filter(b => b.toLowerCase() !== brand.toLowerCase())
+          .slice(0, 4)
+        if (realCompetitors.length > 0) {
+          competitors = realCompetitors
+          visibility = scoreVisibility({ llmResults, brand, competitors })
+        }
+      } catch (err) {
+        console.error('Competitor fallback error:', err.message)
+      }
+    }
 
     // Generate actions from gaps using OpenAI (no Anthropic needed)
     const actions = await generateActionsOpenAI({
@@ -158,7 +175,7 @@ app.post('/api/v3/analyze', async (req, res) => {
       llmsQueried: llmNames,
       visibility,
       categoryDescription,
-      pageData: { url: pageData.url, title: pageData.title, wordCount: pageData.wordCount },
+      pageData: { url: pageData.url, title: pageData.title, wordCount: pageData.wordCount, crawlerText: (pageData.content || '').slice(0, 1500) },
       crawlerStatus,
       actions,
     };
