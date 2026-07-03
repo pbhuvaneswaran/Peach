@@ -119,7 +119,7 @@ app.post('/api/v3/analyze', async (req, res) => {
     const brand = extractBrandFromUrl(url);
 
     // Step 2: single GPT call returns description + competitors + 3 prompts
-    const { categoryDescription, competitors, prompts } = await analyzePageAndPrepare(pageData);
+    const { categoryDescription, category, competitors, prompts } = await analyzePageAndPrepare(pageData);
 
     if (!prompts || prompts.length === 0) {
       return res.status(500).json({ error: 'Failed to generate prompts from page' });
@@ -175,6 +175,7 @@ app.post('/api/v3/analyze', async (req, res) => {
       llmsQueried: llmNames,
       visibility,
       categoryDescription,
+      category,
       pageData: { url: pageData.url, title: pageData.title, wordCount: pageData.wordCount, crawlerText: (pageData.content || '').slice(0, 1500) },
       crawlerStatus,
       actions,

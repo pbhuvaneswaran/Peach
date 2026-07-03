@@ -1,152 +1,301 @@
 import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { ALL_PLATFORMS, PlatformChip, ScanningIndicator } from '../../components/llmPlatforms'
 
-function Step({ num, title, desc }) {
+const CLEAR_LAST_RESULT = () => localStorage.removeItem('peach_last_result')
+
+const SCAN_QUESTIONS = [
+  'Best CRM for a solo founder?',
+  'Top invoicing tools that integrate with Stripe?',
+  'Which project tracker is easiest to set up?',
+]
+
+function TypewriterText({ text, delay = 0 }) {
+  const [display, setDisplay] = useState('')
+
+  useEffect(() => {
+    let typingTimer
+    let resetTimer
+    let charIndex = 0
+
+    const type = () => {
+      typingTimer = setInterval(() => {
+        charIndex++
+        setDisplay(text.slice(0, charIndex))
+        if (charIndex >= text.length) {
+          clearInterval(typingTimer)
+          resetTimer = setTimeout(() => {
+            charIndex = 0
+            setDisplay('')
+            type()
+          }, 2600)
+        }
+      }, 32)
+    }
+
+    const startTimer = setTimeout(type, delay)
+
+    return () => {
+      clearTimeout(startTimer)
+      clearInterval(typingTimer)
+      clearTimeout(resetTimer)
+    }
+  }, [text, delay])
+
   return (
-    <div className="flex gap-4">
-      <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">{num}</div>
-      <div>
-        <h4 className="font-semibold text-gray-900 mb-1">{title}</h4>
-        <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
+    <>
+      {display}
+      <span className="inline-block w-[2px] h-4 bg-[#5B3DF5] ml-0.5 align-middle animate-pulse" />
+    </>
+  )
+}
+
+function QuestionCard({ text, delay }) {
+  return (
+    <div className="bg-white border border-[#E8E2F5] rounded-xl px-4 py-3 text-[#14182B] text-sm leading-relaxed max-w-md min-h-[44px] flex items-center">
+      “<TypewriterText text={text} delay={delay} />”
+    </div>
+  )
+}
+
+function ScanCard() {
+  return (
+    <div className="bg-white border border-[#E8E2F5] rounded-2xl p-8 shadow-sm w-full max-w-lg">
+      <ScanningIndicator />
+      <div className="relative h-12 mb-6 overflow-hidden">
+        {SCAN_QUESTIONS.map((q, i) => (
+          <p key={q} className="question-cycle absolute inset-0 flex items-center text-base text-[#14182B] leading-snug" style={{ '--i': i }}>
+            “{q}”
+          </p>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {ALL_PLATFORMS.map((key, i) => <PlatformChip key={key} platformKey={key} index={i} />)}
       </div>
     </div>
   )
 }
 
-function LLMBadge({ name, color }) {
-  return <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${color}`}>{name}</span>
+function StepIcon({ path }) {
+  return (
+    <svg className="w-5 h-5 text-[#5B3DF5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d={path} />
+    </svg>
+  )
+}
+
+function StepCard({ num, icon, title, desc }) {
+  return (
+    <div className="relative bg-white border border-[#E8E2F5] rounded-2xl p-6 flex-1">
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-3xl font-bold text-[#DCD4F2] tracking-tight">{num}</span>
+        <span className="w-9 h-9 rounded-lg bg-[#F1EDFF] flex items-center justify-center"><StepIcon path={icon} /></span>
+      </div>
+      <h4 className="font-semibold text-[#14182B] mb-1.5">{title}</h4>
+      <p className="text-sm text-[#677085] leading-relaxed">{desc}</p>
+    </div>
+  )
+}
+
+function BentoCard({ className = '', accent, children }) {
+  return (
+    <div className={`bg-white border border-[#E8E2F5] rounded-2xl p-6 transition-all hover:shadow-md hover:border-[#5B3DF5]/30 ${accent ? 'ring-1 ring-[#FFD8C2]' : ''} ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function PersonaIcon({ path }) {
+  return (
+    <svg className="w-5 h-5 text-[#5B3DF5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d={path} />
+    </svg>
+  )
+}
+
+function PersonaCard({ icon, title, desc }) {
+  return (
+    <div className="bg-white border border-[#E8E2F5] rounded-2xl p-6 hover:shadow-md hover:border-[#5B3DF5]/30 transition-all">
+      <span className="w-9 h-9 rounded-lg bg-[#F1EDFF] flex items-center justify-center mb-4"><PersonaIcon path={icon} /></span>
+      <div className="w-6 h-0.5 bg-[#5B3DF5] rounded-full mb-3" />
+      <h4 className="font-semibold text-[#14182B] mb-1.5">{title}</h4>
+      <p className="text-sm text-[#677085] leading-relaxed">{desc}</p>
+    </div>
+  )
+}
+
+const FAQS = [
+  {
+    q: 'What is a citation score?',
+    a: 'Your citation score shows how often AI platforms mention or reference your brand for relevant buyer questions. It’s basically useless — users told us they were frustrated and asked what the point of a single score even is. That’s why we don’t add that to PeachZ.',
+  },
+  {
+    q: 'Which AI platforms does PeachZ track?',
+    a: 'PeachZ is built to monitor visibility across major AI answer engines such as ChatGPT, Gemini, Perplexity, Grok, and Claude.',
+  },
+  {
+    q: 'Is PeachZ an SEO tool?',
+    a: 'Not exactly. SEO helps you rank in search results. PeachZ helps you understand whether AI systems mention, recommend, or cite your brand in generated answers.',
+  },
+  {
+    q: 'Can I compare my visibility with competitors?',
+    a: 'Yes. PeachZ shows which competitors are appearing in the same buyer prompts and where they are winning visibility.',
+  },
+  {
+    q: 'Does PeachZ tell me what to fix?',
+    a: 'Yes. You get clear opportunities around missing content, weak source signals, competitor gaps, and high-value prompts.',
+  },
+]
+
+function FAQItem({ item, open, onToggle }) {
+  return (
+    <div className="bg-white border border-[#E8E2F5] rounded-2xl overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#F8F6FE] transition-colors">
+        <span className="font-semibold text-[#14182B] text-[15px]">{item.q}</span>
+        <span className="w-6 h-6 flex items-center justify-center text-[#5B3DF5] text-lg flex-shrink-0">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <div className="px-5 pb-4 text-sm text-[#677085] leading-relaxed">{item.a}</div>
+      )}
+    </div>
+  )
 }
 
 export default function HomeV2() {
-  return (
-    <div className="bg-white">
-      {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
-        <div className="flex justify-center gap-2 mb-6">
-          <LLMBadge name="Claude" color="bg-orange-100 text-orange-700" />
-          <LLMBadge name="ChatGPT" color="bg-green-100 text-green-700" />
-          <LLMBadge name="Gemini" color="bg-blue-100 text-blue-700" />
-        </div>
-        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight mb-5 max-w-4xl mx-auto tracking-tight">
-          Does your brand show up<br className="hidden md:block" /> when AI is asked about you?
-        </h1>
-        <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-8 leading-relaxed">
-          AEO Visibility tracks where your brand appears in AI-generated answers — across Claude, ChatGPT, and Gemini — and tells you exactly what to do about the gaps.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/app"
-            onClick={() => localStorage.removeItem('peach_last_result')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-sm">
-            Check my AI visibility →
-          </Link>
-          <Link to="/v2/pricing"
-            className="bg-gray-50 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-7 py-3.5 rounded-xl transition-colors text-base">
-            See pricing
-          </Link>
-        </div>
-        <p className="text-xs text-gray-400 mt-4">Results in under 3 minutes · No credit card required</p>
-      </section>
+  const [openFaq, setOpenFaq] = useState(0)
 
-      {/* Stats bar */}
-      <section className="border-y border-gray-100 bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {[['3 AI engines', 'queried per report'], ['10 questions', 'generated per run'], ['< 3 min', 'full report'], ['Real-time', 'live API answers']].map(([v, l]) => (
-            <div key={v}>
-              <div className="text-xl font-bold text-gray-900">{v}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{l}</div>
+  return (
+    <div className="bg-[#FCFAF6]">
+      {/* Hero */}
+      <section className="bg-[#F1EDFF]">
+        <div className="max-w-6xl mx-auto px-6 py-20 grid lg:grid-cols-[1fr_auto] gap-14 items-center">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-[#14182B] leading-tight tracking-tight mb-5">
+              Your customers are not just searching on Google anymore.
+            </h1>
+            <p className="text-[#677085] text-base mb-4">They are asking LLMs:</p>
+            <div className="space-y-2.5 mb-6">
+              <QuestionCard text="What is the best ecommerce tool?" delay={0} />
+              <QuestionCard text="Which tool is better for solopreneurs?" delay={400} />
+              <QuestionCard text="What are the alternatives to [competitor]?" delay={800} />
             </div>
-          ))}
+            <p className="text-[#14182B] text-base mb-2">AI gives them the answer. The question is <span className="font-bold">“Are you on it?”</span></p>
+            <p className="text-[#677085] text-base mb-8">PeachZ tells you what to do to get in LLMs.</p>
+            <div className="text-center">
+              <Link to="/app" onClick={CLEAR_LAST_RESULT}
+                className="inline-block bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-9 py-4 rounded-xl transition-colors text-lg shadow-sm">
+                Check your AI visibility →
+              </Link>
+              <p className="text-xs text-[#677085] mt-4">Free report · Results in under 3 minutes</p>
+            </div>
+          </div>
+
+          <ScanCard />
         </div>
       </section>
 
       {/* How it works */}
-      <section className="max-w-5xl mx-auto px-6 py-20">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
-          <div>
-            <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-3">How it works</p>
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Three steps to your visibility report</h2>
-            <div className="space-y-6">
-              <Step num="1" title="Enter brand + competitors + category"
-                desc="Tell us your brand, 2–3 competitors, and what category you compete in." />
-              <Step num="2" title="We query all three AI engines live"
-                desc="10 buyer-intent questions go to Claude, ChatGPT, and Gemini simultaneously. We parse which brands appear in each answer." />
-              <Step num="3" title="Get scores + gap action plan"
-                desc="See per-LLM visibility scores, where competitors are cited instead of you, and plain-English content actions to close each gap." />
-            </div>
-          </div>
-
-          {/* Mock result card */}
-          <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Overall visibility</span>
-            </div>
-            {[['Your Brand', 38, true], ['Competitor A', 72, false], ['Competitor B', 61, false]].map(([name, pct, isUser]) => (
-              <div key={name}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className={isUser ? 'font-semibold text-indigo-700' : 'text-gray-600'}>{name}</span>
-                  <span className="font-bold">{pct}%</span>
-                </div>
-                <div className="h-2.5 bg-gray-200 rounded-full">
-                  <div className={`h-2.5 rounded-full ${isUser ? 'bg-indigo-500' : 'bg-gray-400'}`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            ))}
-            <div className="pt-2 border-t border-gray-200">
-              <div className="text-xs font-semibold text-gray-500 mb-3">Per AI engine</div>
-              <div className="grid grid-cols-3 gap-2">
-                {[['Claude', 30], ['ChatGPT', 45], ['Gemini', 40]].map(([llm, pct]) => (
-                  <div key={llm} className="bg-white rounded-lg p-2.5 text-center border border-gray-100">
-                    <div className="text-lg font-bold text-indigo-600">{pct}%</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{llm}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mt-2">
-              <p className="text-xs font-semibold text-orange-700 mb-1">Top gap</p>
-              <p className="text-xs text-orange-900">"Best customer support software for Gmail" — competitors cited, you're not. Publish a dedicated integration page.</p>
-            </div>
+      <section className="bg-[#F1EDFF] border-t border-[#E8E2F5] py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <h2 className="text-3xl font-bold text-[#14182B] text-center mb-12">See where AI puts you — in three steps.</h2>
+          <div className="grid md:grid-cols-3 gap-6 relative">
+            <StepCard num="01" icon="M13 10V3L4 14h7v7l9-11h-7z" title="Add your website"
+              desc="Tell PeachZ what you do and who you compete with." />
+            <StepCard num="02" icon="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8-1.5 0-2.91-.32-4.14-.89L3 20l1.06-3.6C3.39 15.13 3 13.6 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" title="We test buyer questions"
+              desc="PeachZ runs the questions your customers are already asking AI." />
+            <StepCard num="03" icon="M9 19V6l7-3v13M9 19l-6 2V8l6-2m0 13l7-3V6m-7 13l7-3" title="Get your visibility report"
+              desc="See where you are cited, where competitors win, and what to fix next." />
           </div>
         </div>
       </section>
 
-      {/* What we track */}
-      <section className="bg-gray-50 border-y border-gray-100 py-20">
+      {/* What you get */}
+      <section className="bg-[#FCFAF6] py-20">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">What you get in every report</h2>
-            <p className="text-gray-500">No raw data dumps. Every output is ready to act on.</p>
+            <h2 className="text-3xl font-bold text-[#14182B] mb-3">What you get in every report</h2>
+            <p className="text-[#677085]">No raw data dumps. Just clear next steps.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
-            {[
-              { icon: '📊', title: 'Visibility score per LLM', desc: 'See your mention rate on Claude, ChatGPT, and Gemini separately — not just an average.' },
-              { icon: '🎯', title: 'Competitor citation gaps', desc: 'Every question where a competitor gets cited and you don\'t — ranked by impact.' },
-              { icon: '✍️', title: 'Content action plan', desc: 'For each gap: a specific, writer-ready recommendation. No vague suggestions.' },
-              { icon: '❓', title: '10 buyer-intent questions', desc: 'Generated by Claude for your exact category — the questions your real buyers ask AI.' },
-              { icon: '🔄', title: 'Real-time LLM answers', desc: 'Live API calls — not cached or simulated data. What AI says today.' },
-              { icon: '📋', title: 'Full question log', desc: 'Every question asked, every answer received — full transparency into the analysis.' },
-            ].map(({ icon, title, desc }) => (
-              <div key={title} className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="text-2xl mb-3">{icon}</div>
-                <h3 className="font-semibold text-gray-900 mb-1.5 text-sm">{title}</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+            <BentoCard className="md:col-span-2">
+              <h3 className="font-semibold text-[#14182B] mb-1.5">Your AI Visibility Score</h3>
+              <p className="text-sm text-[#677085] leading-relaxed mb-4">See how you appear across ChatGPT, Gemini, Perplexity, and Google AI Overviews.</p>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold text-[#5B3DF5]"
+                  style={{ background: `conic-gradient(#5B3DF5 0% 38%, #F1EDFF 38% 100%)` }}>
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-sm">38%</div>
+                </div>
+                <span className="text-xs text-[#677085]">Your current overall score across all tracked engines.</span>
               </div>
-            ))}
+            </BentoCard>
+            <BentoCard accent>
+              <h3 className="font-semibold text-[#14182B] mb-1.5">Competitor Citation Gaps</h3>
+              <p className="text-sm text-[#677085] leading-relaxed">See where competitors are cited and you are missing.</p>
+            </BentoCard>
+            <BentoCard>
+              <h3 className="font-semibold text-[#14182B] mb-1.5">Buyer Questions That Matter</h3>
+              <p className="text-sm text-[#677085] leading-relaxed">Find the exact questions customers ask before choosing a tool.</p>
+            </BentoCard>
+            <BentoCard>
+              <h3 className="font-semibold text-[#14182B] mb-1.5">Real AI Answers</h3>
+              <p className="text-sm text-[#677085] leading-relaxed">Read the real answers generated about your category and brand.</p>
+            </BentoCard>
+            <BentoCard className="md:col-span-2">
+              <h3 className="font-semibold text-[#14182B] mb-1.5">Your Content Action Plan</h3>
+              <p className="text-sm text-[#677085] leading-relaxed">Get specific, writer-ready recommendations on what to create, improve, or prove.</p>
+            </BentoCard>
+            <BentoCard>
+              <h3 className="font-semibold text-[#14182B] mb-1.5">Full Question Log</h3>
+              <p className="text-sm text-[#677085] leading-relaxed">Every prompt, answer, citation, and visibility signal in one place.</p>
+            </BentoCard>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Find out where you stand in AI search</h2>
-        <p className="text-gray-500 mb-8">Results in under 3 minutes. No setup required.</p>
-        <Link to="/app"
-          onClick={() => localStorage.removeItem('peach_last_result')}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-4 rounded-xl transition-colors text-base shadow-sm">
-          Check my AI visibility →
-        </Link>
-        <div className="mt-6 flex items-center justify-center gap-4">
-          <Link to="/v2/pricing" className="text-sm text-gray-500 hover:text-gray-700">See pricing →</Link>
+      {/* Who it's for */}
+      <section className="bg-white py-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <h2 className="text-3xl font-bold text-[#14182B] text-center mb-12">Built for teams that need to be in the answer.</h2>
+          <div className="grid md:grid-cols-2 gap-5">
+            <PersonaCard icon="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              title="Content & SEO" desc="Turn missing AI citations into your next content priorities." />
+            <PersonaCard icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2"
+              title="Growth Teams" desc="See whether AI is sending high-intent buyers to you—or competitors." />
+            <PersonaCard icon="M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 0c0 4.418-4.03 8-9 8s-9-3.582-9-8 4.03-8 9-8 9 3.582 9 8z"
+              title="Founders & Marketers" desc="Know how AI describes your brand before customers do." />
+            <PersonaCard icon="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m5-4a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 00-3-3.87M9 12a4 4 0 00-3 3.87"
+              title="Agencies" desc="Show clients where they appear in AI answers—and where they do not." />
+          </div>
         </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="bg-[#F1EDFF] py-20">
+        <div className="max-w-[760px] mx-auto px-6">
+          <h2 className="text-3xl font-bold text-[#14182B] text-center mb-2">Questions before you check your visibility.</h2>
+          <p className="text-[#677085] text-center mb-10">Everything you need to know about how PeachZ works.</p>
+          <div className="space-y-3">
+            {FAQS.map((item, i) => (
+              <FAQItem key={item.q} item={item} open={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} />
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <p className="text-sm text-[#677085] mb-2">Still curious? Check your AI visibility in under 3 minutes.</p>
+            <Link to="/app" onClick={CLEAR_LAST_RESULT} className="text-sm font-semibold text-[#5B3DF5] hover:text-[#4c30dd]">
+              Get your free report →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="bg-[#FCFAF6] max-w-3xl mx-auto px-6 py-20 text-center">
+        <h2 className="text-3xl font-bold text-[#14182B] mb-4">Find out where you stand in AI search</h2>
+        <p className="text-[#677085] mb-8">Results in under 3 minutes. No setup required.</p>
+        <Link to="/app" onClick={CLEAR_LAST_RESULT}
+          className="bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-bold px-8 py-4 rounded-xl transition-colors text-base shadow-sm">
+          Check your AI visibility →
+        </Link>
       </section>
     </div>
   )

@@ -1,167 +1,117 @@
 import { Link } from 'react-router-dom'
 
-const pillars = [
+const FEATURES = [
   {
-    label: 'Pillar 1 — AEO / GEO Visibility',
-    color: 'indigo',
-    features: [
-      {
-        icon: '📡',
-        title: 'Brand Visibility Tracker',
-        desc: 'Enter your brand + competitors + category. We generate 20–30 buyer-intent questions, send them to Claude, ChatGPT, and Gemini, then score which brands appear in the answers.',
-      },
-      {
-        icon: '🎯',
-        title: 'Competitor Citation Gap',
-        desc: 'Identifies which questions your brand is missing from. Shows which competitor is being cited instead and flags citation patterns — is one competitor dominating a specific question type?',
-      },
-      {
-        icon: '🔮',
-        title: 'Pre-Publish AI Visibility Prediction',
-        desc: 'Before publishing, predict whether your content will get cited by LLMs. Topic and entity coverage check, search intent validation, and heading/FAQ structure suggestions.',
-      },
-      {
-        icon: '✍️',
-        title: 'Optimisation Recommendations',
-        desc: 'Plain-English guidance on what to write, where to publish, how to structure. Output formatted as a content brief — paste directly to your writer.',
-      },
-      {
-        icon: '🧩',
-        title: 'Holistic Page Improvement',
-        desc: 'Goes beyond content gaps. Recommends video embeds, interactive elements, and anything that increases time on page — signals LLMs treat as authority indicators.',
-      },
-      {
-        icon: '📈',
-        title: 'Rank Improvement Forecasting',
-        desc: 'For each recommended action, see the expected improvement. Not just what to fix — what result fixing it will likely produce.',
-      },
-    ],
+    icon: '🔍',
+    title: 'AI Visibility Score',
+    desc: 'Enter your URL — we test your brand across real buyer queries on ChatGPT and Gemini. See exactly what % of AI answers mention you.',
   },
   {
-    label: 'Pillar 2 — SEO Rank Diagnosis',
-    color: 'emerald',
-    features: [
-      {
-        icon: '🔍',
-        title: 'Ranking Drop Diagnosis',
-        desc: 'Paste a blog URL + keyword. We scrape your page, fetch the top 10 competing pages, and Claude produces a plain-English diagnosis ranked by severity — highest impact first.',
-      },
-      {
-        icon: '📋',
-        title: 'Content Gap List',
-        desc: 'Every topic, subtopic, and angle competitors cover that your page is missing. Each gap scored by ranking impact with a suggested heading and recommended word count.',
-      },
-      {
-        icon: '📝',
-        title: 'Writer-Ready Content Brief',
-        desc: 'Gap analysis auto-generates a complete content brief. No extra step between analysis and handing it to your writer.',
-      },
-      {
-        icon: '🔬',
-        title: 'Pre-Publish Content Gap Analysis',
-        desc: 'Before publishing, check your draft against current top-ranking pages. Topic and entity coverage, keyword cannibalization check, and content structure suggestions.',
-      },
-      {
-        icon: '📊',
-        title: 'SERP Structure Analysis',
-        desc: 'Check if the SERP layout changed between two dates — more ads, different features, position zero changes. Explains if a click drop is from ranking or layout.',
-      },
-      {
-        icon: '🏷️',
-        title: 'Schema Markup Check',
-        desc: 'Check if competing pages added schema your page is missing. Flags FAQ, HowTo, Article, and Review schema types.',
-      },
-      {
-        icon: '🏆',
-        title: 'Topical Authority Score',
-        desc: 'Content cluster analysis — which clusters helped competitors win. Topical authority score per domain with actionable metrics to regain ranking.',
-      },
-      {
-        icon: '📉',
-        title: 'Google Trends Integration',
-        desc: 'Pulls trend data for your target keyword. Flags if search interest dropped — which may explain a ranking drop independently of content quality.',
-      },
-    ],
+    icon: '💬',
+    title: 'Real AI Answers',
+    desc: 'Read the exact text ChatGPT and Gemini give when asked about your category. No guessing — see the actual responses word for word.',
   },
   {
-    label: 'Monitoring & Alerts',
-    color: 'orange',
-    features: [
-      {
-        icon: '🚨',
-        title: 'Rank Drop Alerts',
-        desc: 'Daily alerts via email, Telegram, and WhatsApp. Each alert includes rank status, drop details, likely reasons, and short tips — so you know before your client does.',
-      },
-      {
-        icon: '🔔',
-        title: 'Passive Background Monitoring',
-        desc: 'Runs in the background. Sends a notification when rankings drop — no login needed.',
-      },
-      {
-        icon: '🕵️',
-        title: 'Competitor Blog Monitor',
-        desc: 'Tracks competitor blogs and landing pages weekly. Flags every new post and messaging shift, and surfaces keywords competitors rank for that you haven\'t touched.',
-      },
-    ],
+    icon: '🏆',
+    title: 'Competitor Comparison',
+    desc: 'See which brands AI cites instead of you — and how often. Know your competitive position in AI search before your customers do.',
   },
   {
-    label: 'Integrations',
-    color: 'blue',
-    features: [
-      {
-        icon: '🔗',
-        title: 'Google Search Console Integration',
-        desc: 'Connect GSC directly. Pull traffic, impression, CTR, and position data without switching tools. Reporting inside the tool without exporting from GSC.',
-      },
-    ],
+    icon: '🎯',
+    title: 'Gap Opportunities',
+    desc: 'Every query where a competitor appears but you don\'t is a content opportunity. We surface them all, ranked by impact.',
+  },
+  {
+    icon: '⚡',
+    title: 'Action Plan',
+    desc: 'Get 3 specific content pieces you need to create — backed by evidence from actual AI answers, not generic SEO advice.',
+  },
+  {
+    icon: '🤖',
+    title: 'Crawler Access Audit',
+    desc: 'Check if GPTBot, Google-Extended, ClaudeBot, and PerplexityBot can crawl your site. A blocked bot means invisible to that AI.',
+  },
+  {
+    icon: '📄',
+    title: 'AI Crawler Preview',
+    desc: 'See exactly what AI crawlers read from your homepage — the text, structure, and character count. What they see is what they cite.',
+  },
+  {
+    icon: '🌐',
+    title: 'Top Cited Sources',
+    desc: 'Discover which domains AI references most in your category. These are your benchmark sources — and your link targets.',
+  },
+  {
+    icon: '📊',
+    title: 'Multi-Platform Coverage',
+    desc: 'Tested on ChatGPT, Gemini, and Google AI Overview — the three AI surfaces where your customers discover and evaluate brands.',
+  },
+  {
+    icon: '📥',
+    title: 'Export & Share',
+    desc: 'Download your full report as CSV, copy a shareable link, or print — all in one click from the results page.',
+  },
+  {
+    icon: '📈',
+    title: 'Visibility Dashboard',
+    desc: 'Track your AI visibility score across runs. See which content changes moved the needle and which competitor gained ground.',
+  },
+  {
+    icon: '🧠',
+    title: 'Buyer-Intent Queries',
+    desc: 'We auto-generate the exact questions your real customers type into AI — not branded, not generic. Category-specific and accurate.',
   },
 ]
-
-function FeatureCard({ icon, title, desc }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="text-xl mb-3">{icon}</div>
-      <h3 className="font-semibold text-gray-900 mb-1.5 text-sm">{title}</h3>
-      <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
-    </div>
-  )
-}
 
 export default function Features() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-16">
+
+        {/* Header */}
         <div className="text-center mb-14">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Every feature, explained</h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
-            Built from direct feedback from 20+ SEO managers, content marketers, and agency owners.
+          <p className="text-xs font-black text-indigo-500 uppercase tracking-[0.2em] mb-3">What Peach does</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Know exactly where you stand<br className="hidden sm:block" /> in AI search
+          </h1>
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-8">
+            Peach shows you the actual AI answers about your category, which brands are cited, and what content to create to get mentioned.
           </p>
+          <Link
+            to="/app"
+            onClick={() => localStorage.removeItem('peach_last_result')}
+            className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          >
+            Check my AI visibility →
+          </Link>
         </div>
 
-        <div className="space-y-14">
-          {pillars.map(({ label, color, features }) => (
-            <div key={label}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className={`h-0.5 flex-1 bg-${color}-200`} />
-                <span className={`text-xs font-bold text-${color}-700 uppercase tracking-wider`}>{label}</span>
-                <div className={`h-0.5 flex-1 bg-${color}-200`} />
-              </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {features.map((f) => (
-                  <FeatureCard key={f.title} {...f} />
-                ))}
-              </div>
+        {/* 12-card grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {FEATURES.map((f) => (
+            <div
+              key={f.title}
+              className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col gap-3 hover:shadow-md transition-shadow"
+            >
+              <span className="text-3xl">{f.icon}</span>
+              <h3 className="font-bold text-gray-900 text-base">{f.title}</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-16 bg-indigo-600 rounded-2xl p-10 text-center">
-          <h2 className="text-2xl font-bold text-white mb-3">Ready to see where you stand?</h2>
-          <p className="text-indigo-200 mb-6">Full visibility report in under 3 minutes.</p>
-          <Link to="/app" className="bg-white text-indigo-600 font-bold px-6 py-3 rounded-xl hover:bg-indigo-50 transition-colors">
-            Check my AI visibility →
+        {/* Bottom CTA */}
+        <div className="text-center mt-16">
+          <p className="text-gray-500 text-sm mb-4">All of this runs from a single URL input — no setup, no integrations.</p>
+          <Link
+            to="/app"
+            onClick={() => localStorage.removeItem('peach_last_result')}
+            className="inline-block bg-gray-900 hover:bg-gray-800 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
+          >
+            Try it free — no card needed
           </Link>
         </div>
+
       </div>
     </div>
   )

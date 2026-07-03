@@ -128,4 +128,44 @@ Updated after every session. This file is the product thinking behind every majo
 
 ---
 
+## 2026-07-03 — Pricing Page, Features Page, Login Page
+
+**Prompt:** "I want something like [InfuseOS pricing] downloadable for users. Also let's set up the pricing page. Free separately at the bottom, plans at $89/$199/$349, 4 plans total. Update features based on what we've built. Remove Resources from nav."
+
+**Reasoning:** Built three new pages: (1) `/pricing` — 3 tiers (Starter $89 / Growth $199 / Scale $349) + Enterprise row + free section at bottom. Annual toggle (÷12×10). Real LLM logo SVGs inline (no CDN) — OpenAI, Gemini, Google G, Anthropic diamond. FAQs below free section. (2) `/features` — 12 square cards for actual built capabilities: AI Visibility Score, Real AI Answers, Competitor Comparison, Gap Opportunities, Action Plan, Crawler Audit, AI Crawler Preview, Top Cited Sources, Multi-Platform Coverage, Export & Share, Dashboard, Buyer-Intent Queries. (3) Nav cleanup: removed Resources dropdown, kept Features + Pricing only. Also fixed a routing bug — Navbar received `version="v2"` from AppV3 Layout, turning pricingLink into `/v2/pricing` (404). Fix: removed `version="v2"` from `<Navbar />` in AppV3 Layout.
+
+---
+
+## 2026-07-03 — Login Page + Google OAuth
+
+**Prompt:** "see visib ai page [login screenshot]. Also it's PeachZ not Peach. How to get Google OAuth credentials?"
+
+**Reasoning:** Built `/login` page matching VisibAI's design — standalone (no Navbar), email magic link via `supabase.auth.signInWithOtp`, Google button stubbed with "coming soon" message. States: signin / signup / check-email. Added `/signup` route also pointing to Login. Google OAuth walkthrough: Google Cloud Console → create project → APIs & Services → OAuth Consent Screen → Credentials → OAuth 2.0 Client ID → add callback URL in Supabase Auth dashboard → paste client ID + secret → enable Google provider. User will provide credentials; UI already in place.
+
+---
+
+## 2026-07-03 — Blog Outlines in Action Cards
+
+**Prompt:** "while giving the action plan, let's give them a list of blogs and a rough outline as well with H1/H2/H3 structure. Want this as a toggle."
+
+**Reasoning:** Each content action already targets a specific gap — the natural next step is "what to write." Extended `generateActionsOpenAI` to return `blogs: [{title, h1, outline: [{h2, h3s}]}]` per action (2 blog ideas each). Bumped `max_tokens` 900→2500 to fit the extra content. No new API endpoint — `blogs` is just a new field on each action object already in the response. Frontend: added `BlogOutlineCard` component + toggle at bottom of each `ActionCard`. Old cached results without `blogs` silently show nothing (guard: `blogs.length > 0`). The blog outlines are specific to the gap + brand — not generic content templates — so AI engines would want to cite them as credible sources.
+
+---
+
+## 2026-07-04 — 8 Prompts Per Run (was 3)
+
+**Prompt:** "need 8-10 prompt by prompt breakdown"
+
+**Reasoning:** 3 prompts gave too narrow a picture — only best-of queries, missing comparison angles, use-case-specific queries, and audience-specific queries. 8 prompts covers the full buyer journey: best-of lists, direct comparisons, problem-solution queries, audience-specific ("for solopreneurs", "for agencies"), and feature-specific queries. This means 16 LLM calls per run (8 GPT + 8 Gemini). OpenAI handles it in 2 batches of 5 at ~6-8s total. Gemini at 5 RPM free tier is the bottleneck — 8 calls with p-limit 2 means 4 sequential pairs, estimated 20-30s. Total run time moves from ~25s to 35-50s. Updated loading screen step timings to reflect this (ChatGPT step: 8s→14s, Gemini step: 8s→22s), updated the footer note from "20-35 seconds" to "35-50 seconds", and updated the platform chip from "3 buyer questions" to "8 buyer questions". `analyzePageAndPrepare` now generates 8 prompts with varied styles, max_tokens bumped to 1200.
+
+---
+
+## 2026-07-04 — All LLM Answers Per Prompt, Competitor Detection Fix
+
+**Prompt:** "mention 4 answers each here / for copilotverse.io, fiverr is not the competitor, earlier you gave notion, airtable, now fiverr"
+
+**Reasoning:** (1) The "Where AI doesn't mention you" section was showing only the FIRST LLM's answer snippet per prompt (it broke after finding one). Changed to collect ALL LLM answers and render each with its platform chip. Now users see ChatGPT + Gemini (+ Google AIO if enabled) answers side by side for every missed prompt — not just one. (2) Fiverr for CopilotVerse: the prompts generated were too generic ("how to manage a solo startup effectively") — generic prompts make LLMs cite general tools (Fiverr = hire help for your startup). Root fix: added explicit instruction to prompt generation — buyer queries must reflect searching for SOFTWARE/AI tools, not general business advice. Also added Fiverr/Upwork/Toptal/Freelancer to the competitor exclusion list. The distinction: "best AI workspace for solopreneurs" → AI software tools. "how to manage solo business" → Fiverr, Notion, etc.
+
+---
+
 *This file is updated at the end of each session. Going forward: every significant prompt + first reasoning response gets appended here.*

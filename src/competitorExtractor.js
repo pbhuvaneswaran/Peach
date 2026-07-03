@@ -4,29 +4,36 @@ function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-// Single call: returns description + competitors + 3 prompts in one GPT request
+// Single call: returns description + competitors + 8 prompts in one GPT request
 async function analyzePageAndPrepare(pageData) {
   const client = getClient();
   const headingText = (pageData.headings || []).slice(0, 10).map(h => h.text).join(', ');
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
-    max_tokens: 700,
+    max_tokens: 1200,
     messages: [{
       role: 'user',
       content: `Analyze this web page and return a JSON object with exactly 4 fields:
 
 1. "description": 1-2 sentences describing what the product does — problem it solves and who it's for. NO brand names.
 2. "category": the most specific sub-category this product belongs to (e.g. "AI agent platform for solopreneurs", NOT the broad "productivity tool").
-3. "competitors": array of up to 4 real company/product BRAND NAMES that are direct competitors.
-   CRITICAL: Return only BRAND NAMES of actual companies (e.g. "Zendesk", "Intercom", "Freshdesk") — NEVER return category descriptions (NOT "AI customer service platform", NOT "multi-channel support tool", NOT "intelligent ticketing system").
-   Reasoning: first identify what niche/category this product is in, then think of the best-known companies operating in that same niche that a buyer would compare side-by-side.
-   Rules:
-   - Must be actual company or product names a buyer would search by name on Google
-   - Same niche: same audience, same core job-to-be-done
-   - NEVER list generic tools: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack
-   - If fewer than 4 real competitors exist, list fewer — never pad with category descriptions
-4. "prompts": array of exactly 3 buyer-intent queries someone would type into ChatGPT or Gemini to find this type of product. NO brand or product names. Use the specific sub-category language.
+3. "competitors": array of up to 4 real company/product BRAND NAMES that are DIRECT competitors in the SAME specific niche.
+   CRITICAL RULES:
+   - Return only BRAND NAMES of actual software products/companies (e.g. "Zendesk", "Intercom", "Freshdesk")
+   - NEVER return category descriptions (NOT "AI customer service platform")
+   - Same niche = same product type, same audience, same core job-to-be-done
+   - If the product is a SOFTWARE TOOL or AI TOOL, competitors must ALSO be software/AI tools — NEVER list service marketplaces, freelance platforms, or agencies
+   - NEVER list: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack, Fiverr, Upwork, Toptal, Freelancer, 99designs
+   - If fewer than 4 real direct competitors exist, list fewer — never pad
+4. "prompts": array of exactly 8 buyer-intent queries someone would type into ChatGPT or Gemini to find this SPECIFIC type of product. Cover different angles: best-of lists, comparisons, use-case-specific, problem-solution, audience-specific.
+   RULES FOR PROMPTS:
+   - NO brand or product names in the query
+   - Queries must reflect someone searching for SOFTWARE or an AI TOOL — not generic business advice
+   - Bad example: "how to manage a solo business effectively" (too generic — returns advice, not tools)
+   - Good example: "best AI workspace tool for solopreneurs to automate tasks" (returns specific software)
+   - Each query must naturally lead an AI to recommend a software product, not a service or general tip
+   - Vary the query style: "best X for Y", "top X tools", "X vs Y", "how to X using AI tool", "AI software for X"
 
 Page title: ${pageData.title}
 Headings: ${headingText}
@@ -46,7 +53,7 @@ Return ONLY valid JSON, no explanation:
       categoryDescription: result.description || '',
       category: result.category || '',
       competitors: (result.competitors || []).slice(0, 4),
-      prompts: (result.prompts || []).slice(0, 3),
+      prompts: (result.prompts || []).slice(0, 8),
     };
   } catch {
     throw new Error('Failed to analyze page — could not parse GPT response');

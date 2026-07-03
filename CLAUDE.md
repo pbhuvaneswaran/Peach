@@ -4,20 +4,27 @@
 
 ---
 
-## Latest Instructions (2026-07-02)
+## Latest Instructions (2026-07-04)
 
 - **Product name is "Peach"** (was Visibility.ai). Navbar + Footer show "Peach", no AEO badge.
 - **URL-only input.** Keyword mode was removed. `/app` only accepts website URLs.
 - **One version only.** Version toggle (V1/V2/V3) has been removed. `main.jsx` renders AppV3 directly.
-- **3 prompts per run** (was 8) — reduces API calls from 16 to 6, keeps latency under 30s.
+- **8 prompts per run** — covers best-of, comparison, use-case, audience-specific angles. 16 LLM calls total (8 GPT + 8 Gemini).
 - **1 combined OpenAI prep call** returns description + competitors + prompts together (was 3 separate calls).
 - **Gemini p-limit = 2** to avoid rate limit cascades on the 5 RPM free tier key.
 - **Google AIO is a 3rd platform** via Serper API (`SERPER_API_KEY` already set). Chip in UI, opt-in.
 - **Run logging** saves every run to `output/runs/<timestamp>.json` for fine-tuning.
 - **localStorage persistence** — results survive navigation. Cleared only when user clicks "← New report".
-- **Competitor prompt uses sub-category approach** — GPT must identify the specific sub-category before listing competitors, explicitly blocking Notion/ClickUp/Miro/Airtable/Asana/Trello.
+- **Competitor prompt uses sub-category approach** — GPT must identify the specific sub-category before listing competitors, explicitly blocking Notion/ClickUp/Miro/Airtable/Asana/Trello/Fiverr/Upwork and other non-software platforms.
+- **Prompt generation is software-specific** — GPT is instructed that buyer queries must reflect searching for SOFTWARE/AI tools, not generic business advice (fixes Fiverr showing up for AI tools).
 - **Action generation uses OpenAI** (gpt-4o-mini), not Anthropic. No Anthropic key needed for any core feature.
-- **GEMINI_MODEL must be `gemini-2.5-flash`** — key is Google Gemini Advanced format (AQ.Ab8R...), not AI Studio.
+- **Action cards include blog outlines** — each action has `blogs` array with 2 blog post ideas, each with title + H1 + H2/H3 outline. Toggle reveals them in the UI.
+- **GEMINI_MODEL must be `gemini-2.5-flash`** — key is Google Gemini Advanced format, not AI Studio.
+- **Pricing page built** — 3 tiers (Starter $89 / Growth $199 / Scale $349) + Enterprise + free section. Annual toggle. Real LLM logo SVGs.
+- **Features page built** — `/features` — 12 square cards showing actual product capabilities.
+- **Login page built** — `/login` — email magic link (Supabase OTP) + Google OAuth stub. No Navbar, standalone page.
+- **Export buttons** — Share (copy URL), CSV download, PDF (modal → pricing), Print. In results header.
+- **"Where AI doesn't mention you"** section shows answers from ALL queried LLMs per prompt (not just one).
 
 ---
 
@@ -46,7 +53,7 @@
 2. analyzePageAndPrepare(pageData)                 → 1 GPT call returns:
    - categoryDescription (no brand name)
    - competitors[] (4 direct, sub-category specific)
-   - prompts[] (3 buyer-intent queries, no brand names)
+   - prompts[] (8 buyer-intent queries, varied angles, no brand names)
 3. queryAllQuestionsGPT + queryAllQuestionsGemini  → parallel, p-limit 5 / 2
    + queryAllQuestionsGoogleAIO (if SERPER_API_KEY set, opt-in chip)
 4. scoreVisibility(llmResults, brand, competitors) → scores
@@ -82,7 +89,7 @@ Dashboard accessed via "View Dashboard →" link in results header (not in main 
 | File | Purpose |
 |------|---------|
 | `server.js` | Express port 3001. Routes: POST /api/v3/analyze, GET /api/runs, GET /api/health |
-| `src/competitorExtractor.js` | `analyzePageAndPrepare()` — single GPT call: description + category + competitors + 3 prompts. Sub-category approach, explicit exclusion of generic tools. |
+| `src/competitorExtractor.js` | `analyzePageAndPrepare()` — single GPT call: description + category + competitors + 8 prompts. Sub-category approach, explicit exclusion of generic tools + freelance platforms. |
 | `src/actionGenerator.js` | `generateActionsOpenAI()` — gpt-4o-mini generates 3 actions from visibility gaps with LLM answer evidence |
 | `src/runLogger.js` | Saves full run JSON to `output/runs/`. Non-blocking. |
 | `src/webReader.js` | axios + cheerio. Fetches and parses web pages. |
@@ -119,13 +126,13 @@ client/src/
 ## API Keys (.env)
 
 ```
-GEMINI_API_KEY=AQ.Ab8RN6LpWBTOEd9...    # Gemini Advanced key
+GEMINI_API_KEY=<your-gemini-key>          # Gemini Advanced key (AQ.Ab8R... format, NOT AI Studio)
 GEMINI_MODEL=gemini-2.5-flash             # MUST be 2.5-flash
-OPENAI_API_KEY=sk-proj-...                # paid key, used for ALL generation + AEO queries
-SERPER_API_KEY=9e800560...                # Google AIO via Serper
-SUPABASE_URL=https://arkwwkqepnnrpzsnqdra.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_7qSM7K...
-SUPABASE_SERVICE_KEY=sb_secret_wswvuNe...
+OPENAI_API_KEY=<your-openai-key>          # paid key, used for ALL generation + AEO queries
+SERPER_API_KEY=<your-serper-key>          # Google AIO via Serper
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_ANON_KEY=<your-supabase-anon-key>
+SUPABASE_SERVICE_KEY=<your-supabase-service-key>
 ANTHROPIC_API_KEY=                        # empty — blog analysis skipped silently
 DODO_API_KEY=                             # Dodo Payments (replacing Stripe, not wired yet)
 DODO_WEBHOOK_SECRET=
@@ -138,22 +145,24 @@ PORT=3001
 
 | Feature | Status |
 |---------|--------|
-| Supabase auth (login/signup) | AuthContext + supabase.js created, Login page not finished |
-| Supabase run storage | Schema designed, not wired — localStorage used as bridge |
-| Dodo Payments checkout | Keys stored, no checkout flow yet |
+| Supabase auth (login/signup) | Login page built (magic link works); Google OAuth UI stubbed — needs credentials wired in Supabase dashboard |
+| Supabase run storage | localStorage used as bridge — Supabase schema not wired yet |
+| Dodo Payments checkout | Key in .env, no checkout flow yet |
 | Scheduled monitoring (weekly re-runs) | Not started |
-| PDF/CSV export | Not started |
+| PDF report download | Blocked behind auth — modal shows "sign up" |
 
 ---
 
-## Pricing Tiers (USD, planned)
+## Pricing Tiers (USD, live on /pricing)
 
-| Tier | Price/mo | LLMs | Runs/mo |
-|------|----------|------|---------|
-| Base | $49 | ChatGPT + Gemini | 100 |
-| Agency | $149 | ChatGPT + Gemini | 500 |
-| Premium (future) | $199 | + Claude | TBD |
-| Agency Pro | $299 | All | 2,000 |
+| Tier | Price/mo | Annual/mo | Platforms | Prompts/mo |
+|------|----------|-----------|-----------|------------|
+| Starter | $89 | $74 | ChatGPT + Gemini + Google AIO | 40 |
+| Growth | $199 | $166 | + Perplexity | 80 |
+| Scale | $349 | $291 | + Claude | 150 |
+| Enterprise | Custom | — | All + custom | Unlimited |
+
+Free: 1 run, no account needed. CTA at bottom of /pricing.
 
 ## Competitive Differentiator
 

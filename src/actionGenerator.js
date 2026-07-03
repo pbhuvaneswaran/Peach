@@ -70,10 +70,10 @@ async function generateActionsOpenAI({ gaps, brand, llmResults }) {
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
-    max_tokens: 900,
+    max_tokens: 6000,
     messages: [{
       role: 'user',
-      content: `You are an AEO (Answer Engine Optimization) strategist. "${brand}" is not being cited by AI engines for these buyer queries. Based on the evidence of what AI says about competitors, generate 3 specific content actions "${brand}" should take to start appearing in AI answers.
+      content: `You are an AEO (Answer Engine Optimization) strategist. "${brand}" is not being cited by AI engines for these buyer queries. Based on the evidence of what AI says about competitors, generate one content action per gap — covering ALL gaps listed below (aim for 6-7 actions total if enough gaps exist, minimum one per unique gap).
 
 GAPS — queries where competitors appear but "${brand}" doesn't:
 ${gapEvidence}
@@ -83,9 +83,14 @@ For each action return:
 - action: one clear sentence — exactly what content to create or add
 - why: 2 sentences explaining WHY this will get "${brand}" cited, referencing the AI evidence above as proof
 - priority: "high" | "medium" | "low"
+- blogs: array of 2 blog post ideas that would directly help "${brand}" get cited by AI for this query. Each blog must have:
+  - title: catchy, specific blog title (not generic)
+  - h1: the exact H1 heading to use on the page
+  - outline: array of 3 sections, each with { "h2": string, "h3s": ["...","..."] } — 2 H3s per H2
+  The outline must be specific to the gap and brand, structured so AI engines would want to cite it as a credible source.
 
 Return ONLY valid JSON array, no explanation:
-[{"gap":"...","action":"...","why":"...","priority":"high"}]`,
+[{"gap":"...","action":"...","why":"...","priority":"high","blogs":[{"title":"...","h1":"...","outline":[{"h2":"...","h3s":["...","..."]}]}]}]`,
     }],
   });
 

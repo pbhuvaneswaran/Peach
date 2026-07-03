@@ -135,8 +135,40 @@ export function PromptTable({ prompts, llmsQueried, visibility, brand, competito
   )
 }
 
+function BlogOutlineCard({ blog, index }) {
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Blog idea {index + 1}</p>
+      <p className="text-sm font-bold text-gray-900 mb-1">{blog.title}</p>
+      <p className="text-xs text-indigo-600 font-semibold mb-3 flex items-center gap-1.5">
+        <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-black text-[10px]">H1</span>
+        {blog.h1}
+      </p>
+      <div className="space-y-2.5">
+        {(blog.outline || []).map((section, si) => (
+          <div key={si}>
+            <p className="text-xs font-bold text-gray-700 flex items-start gap-1.5 mb-1">
+              <span className="bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-black text-[10px] flex-shrink-0 mt-0.5">H2</span>
+              {section.h2}
+            </p>
+            {(section.h3s || []).map((h3, hi) => (
+              <p key={hi} className="text-xs text-gray-500 ml-8 flex items-start gap-1.5 mt-0.5">
+                <span className="text-gray-300 font-black text-[10px] flex-shrink-0 mt-0.5">H3</span>
+                {h3}
+              </p>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function ActionCard({ action, index }) {
+  const [showBlogs, setShowBlogs] = useState(false)
+  const blogs = action.blogs || []
   const priorityColor = { high: 'bg-red-100 text-red-700', medium: 'bg-amber-100 text-amber-700', low: 'bg-gray-100 text-gray-600' }
+
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6">
       <div className="flex items-start justify-between gap-4 mb-3">
@@ -158,9 +190,40 @@ export function ActionCard({ action, index }) {
         <p className="text-sm text-gray-700 leading-relaxed">{action.why}</p>
       </div>
       {action.format && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-3">
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Best format:</span>
           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">{action.format}</span>
+        </div>
+      )}
+
+      {blogs.length > 0 && (
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Blog posts to create</p>
+          <div className="space-y-2 mb-3">
+            {blogs.map((blog, bi) => (
+              <div key={bi} className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{bi + 1}</span>
+                <p className="text-sm font-semibold text-gray-800">{blog.title}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowBlogs(!showBlogs)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors"
+          >
+            <span>📝</span>
+            {showBlogs ? 'Hide' : 'View full outlines'} (H1 · H2 · H3)
+            <svg className={`w-3 h-3 transition-transform ${showBlogs ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showBlogs && (
+            <div className="mt-3 space-y-3">
+              {blogs.map((blog, bi) => (
+                <BlogOutlineCard key={bi} blog={blog} index={bi} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
