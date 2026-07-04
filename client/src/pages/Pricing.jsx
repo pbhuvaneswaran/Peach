@@ -282,10 +282,10 @@ export default function Pricing() {
               {ALL_PLATFORMS.map((key, i) => <PlatformChip key={key} platformKey={key} index={i} />)}
             </div>
           </div>
-          <p className="text-[10px] text-[#677085] mb-10">Platform names and logos are trademarks of their respective owners. PeachZ is not affiliated with or endorsed by these companies.</p>
+          <p className="text-[10px] text-[#677085] mb-10">Platform names and logos are trademarks of their respective owners. Peach is not affiliated with or endorsed by these companies.</p>
 
           <Link
-            to="/app"
+            to="/login"
             onClick={() => localStorage.removeItem('peach_last_result')}
             className="inline-block bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-8 py-3.5 rounded-xl transition-colors"
           >

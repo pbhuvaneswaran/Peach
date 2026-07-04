@@ -31,7 +31,7 @@ export default function Navbar({ version = 'v1' }) {
           <Link to="/login" className="text-sm font-medium text-[#677085] hover:text-[#14182B] transition-colors">
             Sign in
           </Link>
-          <Link to="/app"
+          <Link to="/login"
             className="bg-[#5B3DF5] hover:bg-[#4c30dd] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
             Try for free
           </Link>
@@ -52,7 +52,7 @@ export default function Navbar({ version = 'v1' }) {
           <Link to={featuresLink} onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-[#14182B] hover:text-[#5B3DF5]">Features</Link>
           <Link to={pricingLink} onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-[#14182B] hover:text-[#5B3DF5]">Pricing</Link>
           <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-[#14182B] hover:text-[#5B3DF5]">Sign in</Link>
-          <Link to="/app" onClick={() => setMobileOpen(false)}
+          <Link to="/login" onClick={() => setMobileOpen(false)}
             className="block w-full text-center bg-[#5B3DF5] text-white text-sm font-semibold px-4 py-2.5 rounded-lg mt-2">
             Try for free
           </Link>

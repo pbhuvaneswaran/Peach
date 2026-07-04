@@ -78,7 +78,7 @@ export default function Features() {
             Peach shows you the actual AI answers about your category, which brands are cited, and what content to create to get mentioned.
           </p>
           <Link
-            to="/app"
+            to="/login"
             onClick={() => localStorage.removeItem('peach_last_result')}
             className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
@@ -104,7 +104,7 @@ export default function Features() {
         <div className="text-center mt-16">
           <p className="text-gray-500 text-sm mb-4">All of this runs from a single URL input — no setup, no integrations.</p>
           <Link
-            to="/app"
+            to="/login"
             onClick={() => localStorage.removeItem('peach_last_result')}
             className="inline-block bg-gray-900 hover:bg-gray-800 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
           >

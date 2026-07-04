@@ -26,7 +26,7 @@ const INSIGHT_ICONS = {
 }
 
 const INSIGHTS = [
-  { icon: 'target', text: 'AI answers often recommend only a few brands. PeachZ shows whether yours is one of them.' },
+  { icon: 'target', text: 'AI answers often recommend only a few brands. Peach shows whether yours is one of them.' },
   { icon: 'search', text: 'Ranking on Google does not guarantee visibility in AI answers. AI may recommend a different source entirely.' },
   { icon: 'layers', text: 'Your competitors may be winning prompts you have never tracked. We are looking for those gaps now.' },
   { icon: 'focus', text: 'The best opportunities are usually specific. Think "best tool for small agencies," not just "best tool."' },
@@ -1591,7 +1591,7 @@ function CompetitorDifferentiator({ result, competitor }) {
           <blockquote className={`text-sm text-[#14182B]/90 bg-[#F1EDFF] rounded-lg px-4 py-3 leading-relaxed mb-3 ${showFull ? '' : 'line-clamp-3'}`}>
             “{best.snippet}”
           </blockquote>
-          <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">What PeachZ recommends borrowing</p>
+          <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">What Peach recommends borrowing</p>
           <p className="text-sm text-[#14182B]/90 leading-relaxed mb-3">Use direct, practical language around the problem your buyer is trying to solve—not only product features.</p>
           <button onClick={() => setShowFull(!showFull)} className="text-sm font-semibold text-[#5B3DF5] hover:underline">
             {showFull ? 'Show less ←' : 'See full competitor answer →'}
