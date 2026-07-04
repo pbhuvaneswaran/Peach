@@ -3,15 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { generateBuyerQuestions } from './src/questionGenerator.js';
-import { queryAllQuestionsClaude } from './src/claudeClient_aeo.js';
 import { queryAllQuestionsGPT } from './src/openaiClient_aeo.js';
 import { queryAllQuestionsGemini } from './src/geminiClient_aeo.js';
 import { queryAllQuestionsGoogleAIO } from './src/googleAIOClient.js';
 import { scoreVisibility } from './src/visibilityScorer.js';
-import { recommendForGaps } from './src/gapRecommender.js';
-import { dummyVisibilityResult } from './src/dummyVisibility.js';
-import { runDiagnosis } from './index.js';
 import { readWebPage } from './src/webReader.js';
 import { analyzePageAndPrepare, extractCompetitors } from './src/competitorExtractor.js';
 import { generateActionsOpenAI } from './src/actionGenerator.js';
@@ -26,45 +21,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post('/api/visibility', async (req, res) => {
-  const { brand, competitors, category, demo, llms: requestedLLMs } = req.body;
-
-  if (!brand || !category || !Array.isArray(competitors) || competitors.length === 0) {
-    return res.status(400).json({ error: 'brand, category, and competitors[] are required' });
-  }
-
-  if (demo || !hasKey('ANTHROPIC_API_KEY')) {
-    return res.json(dummyVisibilityResult({ brand, competitors, category }));
-  }
-
-  try {
-    const questions = await generateBuyerQuestions({ brand, competitors, category });
-
-    const enabledLLMs = requestedLLMs || ['claude', 'chatgpt', 'gemini'];
-    const llmJobs = {};
-    if (enabledLLMs.includes('claude') && hasKey('ANTHROPIC_API_KEY')) {
-      llmJobs.claude = queryAllQuestionsClaude(questions);
-    }
-    if (enabledLLMs.includes('chatgpt') && hasKey('OPENAI_API_KEY')) {
-      llmJobs.chatgpt = queryAllQuestionsGPT(questions);
-    }
-    if (enabledLLMs.includes('gemini') && hasKey('GEMINI_API_KEY')) {
-      llmJobs.gemini = queryAllQuestionsGemini(questions);
-    }
-
-    const llmNames = Object.keys(llmJobs);
-    const llmAnswers = await Promise.all(Object.values(llmJobs));
-    const llmResults = Object.fromEntries(llmNames.map((name, i) => [name, llmAnswers[i]]));
-
-    const visibility = scoreVisibility({ llmResults, brand, competitors });
-    const gapRecommendations = await recommendForGaps({ gaps: visibility.gaps, brand, category });
-
-    res.json({ brand, competitors, category, questions, llmsQueried: llmNames, visibility, gapRecommendations });
-  } catch (err) {
-    console.error('Visibility error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 function isUrlInput(str) {
   return /^https?:\/\//i.test(str) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/|$)/.test(str);
@@ -128,7 +84,7 @@ app.post('/api/v3/analyze', async (req, res) => {
     // Step 3: query all LLMs in parallel
     const enabledLLMs = requestedLLMs || ['chatgpt', 'gemini'];
     const llmJobs = {};
-    if (enabledLLMs.includes('claude') && hasKey('ANTHROPIC_API_KEY')) llmJobs.claude = queryAllQuestionsClaude(prompts);
+    // claude: not wired (ANTHROPIC_API_KEY intentionally empty)
     if (enabledLLMs.includes('chatgpt') && hasKey('OPENAI_API_KEY')) llmJobs.chatgpt = queryAllQuestionsGPT(prompts);
     if (enabledLLMs.includes('gemini') && hasKey('GEMINI_API_KEY')) llmJobs.gemini = queryAllQuestionsGemini(prompts);
     if (enabledLLMs.includes('googleaio') && hasKey('SERPER_API_KEY')) llmJobs.googleaio = queryAllQuestionsGoogleAIO(prompts);
@@ -195,19 +151,6 @@ app.post('/api/v3/analyze', async (req, res) => {
   }
 });
 
-app.post('/api/diagnose', async (req, res) => {
-  const { url, keyword } = req.body;
-  if (!url && !keyword) {
-    return res.status(400).json({ error: 'url or keyword is required' });
-  }
-  try {
-    const report = await runDiagnosis({ blogUrl: url, keyword });
-    res.json(report);
-  } catch (err) {
-    console.error('Diagnosis error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 app.get('/api/runs', (_req, res) => {
   const dir = path.join(process.cwd(), 'output', 'runs');
