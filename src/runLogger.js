@@ -3,7 +3,8 @@ import path from 'path';
 
 function saveRun(data) {
   try {
-    const dir = path.join(process.cwd(), 'output', 'runs');
+    const base = process.env.VERCEL === '1' ? '/tmp' : path.join(process.cwd(), 'output');
+    const dir = path.join(base, 'runs');
     fs.mkdirSync(dir, { recursive: true });
 
     const slug = (data.input || data.keyword || 'run')

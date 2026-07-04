@@ -273,5 +273,10 @@ app.get('/api/health', (_req, res) =>
   })
 );
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// Local dev only — Vercel imports this file and uses the exported app
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+}
+
+export default app;

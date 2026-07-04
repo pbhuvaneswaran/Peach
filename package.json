@@ -4,9 +4,11 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
     "server": "node server.js",
-    "dev": "concurrently \"node server.js\" \"cd client && npm run dev\""
+    "dev": "concurrently \"node server.js\" \"cd client && npm run dev\"",
+    "build": "cd client && npm install && npm run build",
+    "vercel-build": "cd client && npm install && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
