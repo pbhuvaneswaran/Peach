@@ -40,8 +40,18 @@ export default function Login() {
   }
 
   const handleGoogle = async () => {
-    // TODO: wire Google OAuth once credentials are added to Supabase dashboard
-    setError('Google sign-in coming soon — use email for now.')
+    setError('')
+    setLoading(true)
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/app` },
+      })
+      if (err) throw err
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Try again.')
+      setLoading(false)
+    }
   }
 
   return (
