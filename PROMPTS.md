@@ -168,4 +168,12 @@ Updated after every session. This file is the product thinking behind every majo
 
 ---
 
-*This file is updated at the end of each session. Going forward: every significant prompt + first reasoning response gets appended here.*
+*This file is updated automatically after every user prompt going forward.*
+
+---
+
+## 2026-07-07 — Domain Change: trypeachx → gotopeach
+
+**Prompt:** "I have changed trypeachx to gotopeach — let's change everything. Also after every time I prompt here, CLAUDE.md and PROMPTS.md should be automatically saved."
+
+**Reasoning:** `trypeachx` was only ever a Vercel subdomain — it was never hardcoded in the source files, so no mass-replace was needed. The only hardcoded reference to a Peach domain was `hello@peach.so` in Pricing.jsx → updated to `hello@gotopeach.com`. Updated CLAUDE.md with new domain note. Created the auto-save rule in memory and CLAUDE.md: after every prompt, append to PROMPTS.md and update CLAUDE.md if new decisions were made.

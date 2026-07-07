@@ -4,6 +4,13 @@
 
 ---
 
+## Latest Instructions (2026-07-07)
+
+- **Domain is `gotopeach.com`** (was `trypeachx` Vercel subdomain). All email/URL references use `gotopeach.com`. Contact email: `hello@gotopeach.com`.
+- **Auto-save rule:** After every user prompt in a Claude Code session, append the prompt + a short summary of the response to `PROMPTS.md` in the project root, and update `CLAUDE.md` with any new decisions or instructions.
+
+---
+
 ## Latest Instructions (2026-07-04)
 
 - **Product name is "Peach"** (was Visibility.ai). Navbar + Footer show "Peach", no AEO badge.

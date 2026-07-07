@@ -251,7 +251,7 @@ export default function Pricing() {
                 ))}
               </ul>
               <a
-                href="mailto:hello@peach.so"
+                href="mailto:hello@gotopeach.com"
                 className="inline-block text-center text-sm font-semibold py-3 px-6 rounded-xl border border-[#5B3DF5] text-[#5B3DF5] hover:bg-[#F1EDFF] transition-colors"
               >
                 Talk to us →
