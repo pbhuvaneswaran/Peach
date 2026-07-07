@@ -179,7 +179,7 @@ export default function HomeV2() {
           <p className="bg-[#FFF1E7] rounded-lg px-4 py-3.5 text-[#14182B] text-base font-semibold leading-snug mb-8">
             Peach shows you how to earn more <span style={{ color: ACCENT }}>mentions, citations, and recommendations</span> across AI search.
           </p>
-          <Link to="/login" onClick={CLEAR_LAST_RESULT}
+          <Link to="/app" onClick={CLEAR_LAST_RESULT}
             className="inline-block text-white font-semibold px-9 py-4 rounded-xl transition-colors text-lg shadow-sm"
             style={{ background: ACCENT }}
             onMouseEnter={e => e.currentTarget.style.background = ACCENT_HOVER}
@@ -277,7 +277,7 @@ export default function HomeV2() {
           </div>
           <div className="text-center mt-10">
             <p className="text-sm text-[#677085] mb-2">Still curious? Check your AI visibility in under 3 minutes.</p>
-            <Link to="/login" onClick={CLEAR_LAST_RESULT} className="text-sm font-semibold text-[#3355FF] hover:text-[#2645E0]">
+            <Link to="/app" onClick={CLEAR_LAST_RESULT} className="text-sm font-semibold text-[#3355FF] hover:text-[#2645E0]">
               Get your free report →
             </Link>
           </div>
@@ -288,7 +288,7 @@ export default function HomeV2() {
       <section className="bg-[#FCFAF6] max-w-3xl mx-auto px-6 py-20 text-center">
         <h2 className="text-3xl font-bold text-[#14182B] mb-4">Find out where you stand in AI search</h2>
         <p className="text-[#677085] mb-8">Results in under 3 minutes. No setup required.</p>
-        <Link to="/login" onClick={CLEAR_LAST_RESULT}
+        <Link to="/app" onClick={CLEAR_LAST_RESULT}
           className="bg-[#3355FF] hover:bg-[#2645E0] text-white font-bold px-8 py-4 rounded-xl transition-colors text-base shadow-sm">
           Check your AI visibility →
         </Link>
