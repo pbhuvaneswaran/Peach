@@ -202,8 +202,6 @@ function ReportActions({ result, onReset }) {
         Print
       </button>
 
-      <Link to="/dashboard" className="text-xs font-medium text-[#667085] hover:text-[#14182B] ml-1">Dashboard</Link>
-
       <button onClick={onReset} className="flex items-center gap-1 text-sm font-semibold text-[#5B3DF5] hover:text-[#4c30dd] ml-2">
         ← New report
       </button>
