@@ -1,4 +1,4 @@
-# SEO Rank Doctor
+# Peach
 
 A Node.js CLI tool for auditing blog pages, analyzing SEO performance, and researching top competitors using OpenAI / Gemini and Serper.
 
