@@ -78,15 +78,26 @@ export function ScanningIndicator({ label = 'Scanning AI answer engines' }) {
   )
 }
 
-export function PlatformChip({ platformKey, index, small }) {
+const PLATFORM_TINTS = {
+  chatgpt: '#EAF7EE',
+  gemini: '#EEF1FE',
+  perplexity: '#E7F6F5',
+  googleaio: '#FEF6E9',
+  claude: '#FDF0EB',
+}
+
+export function PlatformChip({ platformKey, index, small, colorful }) {
   const { Icon, label } = PLATFORM_ICONS[platformKey]
+  const tint = colorful ? PLATFORM_TINTS[platformKey] : undefined
   return (
     <div
-      className={`chip-scan group relative flex items-center gap-1.5 bg-white border border-[#E8E2F5] rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_14px_rgba(91,61,245,0.15)] ${small ? 'px-2 py-1' : 'px-3 py-1.5'}`}
-      style={{ '--i': index }}
+      className={`chip-scan group relative flex items-center gap-1.5 border rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_14px_rgba(91,61,245,0.15)] ${
+        colorful ? 'border-transparent' : 'bg-white border-[#E8E2F5]'
+      } ${small ? 'px-2 py-1' : colorful ? 'px-3.5 py-2' : 'px-3 py-1.5'}`}
+      style={{ '--i': index, backgroundColor: tint }}
     >
-      <Icon size={small ? 14 : 18} />
-      <span className={`font-medium text-[#14182B] whitespace-nowrap ${small ? 'text-[11px]' : 'text-xs'}`}>{label}</span>
+      <Icon size={small ? 14 : colorful ? 20 : 18} />
+      <span className={`font-semibold text-[#14182B] whitespace-nowrap ${small ? 'text-[11px]' : colorful ? 'text-sm' : 'text-xs'}`}>{label}</span>
       <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#14182B] text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10">
         Track visibility in {label}
       </span>
