@@ -177,3 +177,30 @@ Updated after every session. This file is the product thinking behind every majo
 **Prompt:** "I have changed trypeachx to gotopeach — let's change everything. Also after every time I prompt here, CLAUDE.md and PROMPTS.md should be automatically saved."
 
 **Reasoning:** `trypeachx` was only ever a Vercel subdomain — it was never hardcoded in the source files, so no mass-replace was needed. The only hardcoded reference to a Peach domain was `hello@peach.so` in Pricing.jsx → updated to `hello@gotopeach.com`. Updated CLAUDE.md with new domain note. Created the auto-save rule in memory and CLAUDE.md: after every prompt, append to PROMPTS.md and update CLAUDE.md if new decisions were made.
+
+---
+
+## 2026-07-08 — Results Page Tab Redesign + Bug Fixes
+
+**Prompts (session):**
+- "lets change some major output stuff" → screenshots of Profound.io-style dashboard
+- "need prompt library for list of keywords / need brand keywords / also the user should enter the prompts / see citations tab / see site audit"
+- "this was the error — Unexpected token 'A', An error o... is not valid JSON"
+- "yes, build"
+- "update claude md, prompts md, and push all to git"
+
+**Reasoning:**
+
+**Tab redesign:** Replaced 4-tab layout (Overview / AI Answers / Site Audit / Action plan) with a 6-tab layout matching the Profound.io-style dashboard: Overview · Prompts · Competitors · Citations · Growth Actions · Site Audit. All new tabs are built purely from existing `result` data — no new backend calls.
+
+**Prompts tab:** Prompt library table shows all 8 auto-generated prompts with LLM status dots (green=cited, red=not cited per platform), visibility %, and cited domain count. Custom prompts can be added via "+ Add prompt" modal (intent, priority, persona fields) or "⚡ Generate prompts" modal. Both stored in localStorage. Brand keywords section below with chip UI, 20-keyword cap.
+
+**Competitors tab:** Per-competitor card with citation rate, bar vs brand rate, and up to 2 evidence quote snippets from actual LLM answers.
+
+**Citations tab:** Full domain analysis — KPI row (influential domains, cited URLs, competitor citations, third-party opportunities), platform citation mix stacked bars per LLM, citation source split bar, paginated top domains table with ownership classification (your domain / competitor / third-party), top cited prompts table.
+
+**JSON crash fix:** The "Unexpected token 'A'" error was Vercel returning an HTML timeout page when the 16-LLM-call request hit the 60s serverless limit. Fix: frontend now reads response as text first, wraps JSON.parse in try/catch, shows clean error. Added 15s per-question timeout on GPT and Gemini calls via Promise.race. Added 90s AbortController on the client fetch.
+
+**CTA fix:** All "Check your AI visibility" buttons across Home, Features, Blog, Pricing now go to `/app` directly. The bug was that `AppV3.jsx` uses `HomeV2` (pages/v2/Home.jsx) — the original pages/Home.jsx was already fixed but v2/Home.jsx still had `/login` links.
+
+**Google OAuth:** Wired via Supabase `signInWithOAuth`. Requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel env (VITE_ prefix so Vite bakes them into the JS bundle at build time).

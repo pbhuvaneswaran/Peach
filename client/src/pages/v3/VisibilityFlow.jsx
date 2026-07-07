@@ -10,11 +10,13 @@ const EXAMPLES = [
   { label: 'intercom.com', value: 'intercom.com' },
 ]
 
-const OUTPUT_TABS = ['Overview', 'AI Answers', 'Site Audit', 'Action plan']
+const OUTPUT_TABS = ['Overview', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Site Audit']
 
 const TAB_SUBLABELS = {
+  'Prompts': 'Prompt library',
+  'Citations': 'Sources & domains',
+  'Growth Actions': 'Get cited in AI answers',
   'Site Audit': 'AI readiness',
-  'Action plan': 'Get cited in AI answers',
 }
 
 const INSIGHT_ICONS = {
@@ -1312,6 +1314,635 @@ function WhatToFixFirst({ brand, onBuildActionPlan }) {
   )
 }
 
+// ─── Tab: Prompts ─────────────────────────────────────────────────────────────
+
+const LS_CUSTOM_PROMPTS = 'peach_custom_prompts'
+const LS_BRAND_KEYWORDS = 'peach_brand_keywords'
+
+function AddPromptModal({ onClose, onSave }) {
+  const [text, setText] = useState('')
+  const [intent, setIntent] = useState('Other')
+  const [priority, setPriority] = useState('Medium')
+  const [persona, setPersona] = useState('')
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-[#14182B]">Add prompt</h3>
+          <button onClick={onClose} className="text-[#667085] hover:text-[#14182B]">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p className="text-sm text-[#667085] mb-5">Save a buyer question you already know you want to track.</p>
+        <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Prompt</label>
+        <textarea value={text} onChange={e => setText(e.target.value)} rows={4}
+          placeholder="What is the best AI SEO platform for agencies?"
+          className="w-full border border-[#E7E2F0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5] resize-none mb-4" />
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Intent</label>
+            <select value={intent} onChange={e => setIntent(e.target.value)}
+              className="w-full border border-[#E7E2F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]">
+              {['Awareness','Consideration','Decision','Other'].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Priority</label>
+            <select value={priority} onChange={e => setPriority(e.target.value)}
+              className="w-full border border-[#E7E2F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]">
+              {['High','Medium','Low'].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Persona</label>
+          <input value={persona} onChange={e => setPersona(e.target.value)} placeholder="agency owner"
+            className="w-full border border-[#E7E2F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]" />
+        </div>
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-gray-50">Cancel</button>
+          <button disabled={!text.trim()} onClick={() => { onSave({ text: text.trim(), intent, priority, persona, custom: true }); onClose() }}
+            className="px-4 py-2 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd] disabled:opacity-40">Save prompt</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function GeneratePromptsModal({ existing, onClose, onSave }) {
+  const [batch, setBatch] = useState(10)
+  const suggestions = existing.slice(0, batch)
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-[#14182B]">Generate prompts</h3>
+          <button onClick={onClose} className="text-[#667085] hover:text-[#14182B]">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p className="text-sm text-[#667085] mb-5">Choose how many buyer questions to draft. You can review, remove, or skip any prompt before saving.</p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-semibold text-[#14182B]">Batch size</label>
+            <span className="text-sm font-bold text-[#14182B] border border-[#E7E2F0] rounded-lg px-3 py-1">{batch}</span>
+          </div>
+          <div className="flex gap-3 mb-3">
+            {[5, 8, existing.length || 10].map(n => (
+              <button key={n} onClick={() => setBatch(n)}
+                className={`flex-1 py-2 rounded-xl border text-sm font-semibold transition-colors ${batch === n ? 'border-[#14182B] bg-[#14182B] text-white' : 'border-[#E7E2F0] text-[#667085] hover:border-[#14182B]'}`}>
+                {batch === n && '✓ '}{n}
+              </button>
+            ))}
+          </div>
+          <input type="range" min={1} max={existing.length || 10} value={batch} onChange={e => setBatch(Number(e.target.value))}
+            className="w-full accent-[#14182B]" />
+          <div className="flex justify-between text-xs text-[#667085] mt-1"><span>1</span><span>{existing.length || 10}</span></div>
+        </div>
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-gray-50">Cancel</button>
+          <button onClick={() => {
+            suggestions.forEach(p => onSave({ text: p, intent: 'Other', priority: 'Medium', persona: '', custom: true }))
+            onClose()
+          }} className="px-4 py-2 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd]">
+            Generate {batch} prompt{batch !== 1 ? 's' : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LLMStatusDots({ prompt, visibility, brand, llmsQueried }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {(llmsQueried || []).map(llm => {
+        const detail = visibility?.perLLM?.[llm]?.details?.find(d => d.question === prompt)
+        const cited = detail?.mentions?.[brand] === true
+        const colors = { chatgpt: cited ? '#10B981' : '#EF4444', gemini: cited ? '#3B82F6' : '#EF4444', googleaio: cited ? '#F59E0B' : '#EF4444' }
+        const color = colors[llm] || (cited ? '#10B981' : '#EF4444')
+        const labels = { chatgpt: 'GPT', gemini: 'Gemini', googleaio: 'AIO' }
+        return (
+          <span key={llm} title={`${labels[llm] || llm}: ${cited ? 'cited' : 'not cited'}`}
+            className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border"
+            style={{ color, borderColor: color + '40', background: color + '12' }}>
+            <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: color }} />
+            {labels[llm] || llm}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function PromptsTab({ result }) {
+  const [customPrompts, setCustomPrompts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_CUSTOM_PROMPTS)) || [] } catch { return [] }
+  })
+  const [keywords, setKeywords] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_BRAND_KEYWORDS)) || [] } catch { return [] }
+  })
+  const [kwInput, setKwInput] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [showGenerate, setShowGenerate] = useState(false)
+  const [page, setPage] = useState(0)
+  const PER_PAGE = 10
+
+  const saveCustom = (p) => {
+    const next = [...customPrompts, p]
+    setCustomPrompts(next)
+    localStorage.setItem(LS_CUSTOM_PROMPTS, JSON.stringify(next))
+  }
+  const removeCustom = (i) => {
+    const next = customPrompts.filter((_, idx) => idx !== i)
+    setCustomPrompts(next)
+    localStorage.setItem(LS_CUSTOM_PROMPTS, JSON.stringify(next))
+  }
+  const addKeyword = () => {
+    if (!kwInput.trim() || keywords.length >= 20) return
+    const next = [...keywords, kwInput.trim()]
+    setKeywords(next)
+    localStorage.setItem(LS_BRAND_KEYWORDS, JSON.stringify(next))
+    setKwInput('')
+  }
+  const removeKeyword = (i) => {
+    const next = keywords.filter((_, idx) => idx !== i)
+    setKeywords(next)
+    localStorage.setItem(LS_BRAND_KEYWORDS, JSON.stringify(next))
+  }
+
+  const basePrompts = (result.prompts || []).map(p => ({ text: p, custom: false }))
+  const allPrompts = [...basePrompts, ...customPrompts]
+  const paged = allPrompts.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
+  const totalPages = Math.ceil(allPrompts.length / PER_PAGE)
+
+  const getVisibilityPct = (prompt) => {
+    const llms = result.llmsQueried || []
+    if (!llms.length) return 0
+    const cited = llms.filter(llm => {
+      const d = result.visibility?.perLLM?.[llm]?.details?.find(x => x.question === prompt)
+      return d?.mentions?.[result.brand] === true
+    }).length
+    return Math.round((cited / llms.length) * 100)
+  }
+
+  const getDomainCount = (prompt) => {
+    const domainRegex = /\b([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:com|io|ai|co|org|net|app|dev))\b/g
+    const seen = new Set()
+    for (const llm of (result.llmsQueried || [])) {
+      const d = result.visibility?.perLLM?.[llm]?.details?.find(x => x.question === prompt)
+      if (d?.answer) for (const m of d.answer.matchAll(domainRegex)) seen.add(m[1].toLowerCase())
+    }
+    return seen.size
+  }
+
+  return (
+    <div>
+      {showAdd && <AddPromptModal onClose={() => setShowAdd(false)} onSave={saveCustom} />}
+      {showGenerate && <GeneratePromptsModal existing={result.prompts || []} onClose={() => setShowGenerate(false)} onSave={saveCustom} />}
+
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-[#14182B]">Prompt library</h2>
+          <p className="text-sm text-[#667085]">Manage saved prompts for AI visibility coverage.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowGenerate(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl bg-white hover:bg-[#F8F6FE] text-[#14182B]">
+            ⚡ Generate prompts
+          </button>
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd]">
+            + Add prompt
+          </button>
+        </div>
+      </div>
+
+      {/* Prompt table */}
+      <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden mb-8">
+        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
+          style={{ gridTemplateColumns: '1fr 200px 80px 60px 40px' }}>
+          <span>Prompt</span>
+          <span>Platforms</span>
+          <span className="text-right">Visibility</span>
+          <span className="text-right">Sources</span>
+          <span />
+        </div>
+        {paged.length === 0 && (
+          <p className="text-sm text-[#667085] text-center py-10">No prompts yet. Add one above or run an analysis.</p>
+        )}
+        {paged.map((p, i) => (
+          <div key={i} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA] transition-colors"
+            style={{ gridTemplateColumns: '1fr 200px 80px 60px 40px' }}>
+            <div className="flex items-center gap-2 pr-4 min-w-0">
+              <span className="text-sm text-[#14182B] truncate">{p.text}</span>
+              {p.custom && <span className="text-[10px] font-bold text-[#5B3DF5] bg-[#F1EDFF] px-1.5 py-0.5 rounded-full shrink-0">custom</span>}
+            </div>
+            <div>
+              {p.custom
+                ? <span className="text-xs text-[#9CA3B8]">Not yet run</span>
+                : <LLMStatusDots prompt={p.text} visibility={result.visibility} brand={result.brand} llmsQueried={result.llmsQueried} />}
+            </div>
+            <div className="text-right">
+              {p.custom
+                ? <span className="text-xs text-[#9CA3B8]">—</span>
+                : <span className={`text-sm font-bold ${getVisibilityPct(p.text) > 0 ? 'text-[#10B981]' : 'text-[#667085]'}`}>{getVisibilityPct(p.text)}%</span>}
+            </div>
+            <div className="text-right">
+              {p.custom
+                ? <span className="text-xs text-[#9CA3B8]">—</span>
+                : <span className="text-sm text-[#667085]">{getDomainCount(p.text)}</span>}
+            </div>
+            <div className="text-right">
+              {p.custom && (
+                <button onClick={() => removeCustom(customPrompts.indexOf(p))} className="text-[#9CA3B8] hover:text-red-400 p-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-5 py-3 text-xs text-[#667085]">
+          <span>Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, allPrompts.length)} of {allPrompts.length}</span>
+          <div className="flex items-center gap-2">
+            <span>Rows per page <strong>10</strong></span>
+            <span>Page {page + 1} of {totalPages}</span>
+            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Brand keywords */}
+      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-bold text-[#14182B]">Brand keywords</h3>
+            <span title="Used to generate buyer-like prompts" className="text-[#9CA3B8] cursor-help">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+          </div>
+          <button className="px-3 py-1.5 text-xs font-semibold bg-[#5B3DF5] text-white rounded-lg hover:bg-[#4c30dd]">Generate keywords</button>
+        </div>
+        <p className="text-xs text-[#667085] mb-4">Used to generate buyer-like prompts.</p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {keywords.map((kw, i) => (
+            <span key={i} className="flex items-center gap-1.5 text-xs font-medium bg-[#F8F6FE] border border-[#E7E2F0] text-[#14182B] px-3 py-1.5 rounded-full">
+              {kw}
+              <button onClick={() => removeKeyword(i)} className="text-[#9CA3B8] hover:text-red-400">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input value={kwInput} onChange={e => setKwInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addKeyword()}
+            placeholder="Add a keyword angle" className="flex-1 border border-[#E7E2F0] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]" />
+          <button onClick={addKeyword} disabled={keywords.length >= 20}
+            className="px-3 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-[#F8F6FE] disabled:opacity-40">+ Add</button>
+        </div>
+        <p className="text-xs text-[#667085] mt-3">{keywords.length} / 20 keywords · {keywords.length > 0 ? 'Saved' : 'None yet'}</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab: Competitors ─────────────────────────────────────────────────────────
+
+function CompetitorsTab({ result }) {
+  const { visibility, competitors = [], brand, llmsQueried = [] } = result
+
+  const competitorData = competitors.map(comp => {
+    let totalCited = 0, totalQuestions = 0
+    const evidence = []
+    for (const llm of llmsQueried) {
+      const details = visibility?.perLLM?.[llm]?.details || []
+      for (const d of details) {
+        totalQuestions++
+        if (d.mentions?.[comp]) {
+          totalCited++
+          if (evidence.length < 2) evidence.push({ llm, question: d.question, snippet: extractSnippet(d.answer, comp) })
+        }
+      }
+    }
+    const pct = totalQuestions ? Math.round((totalCited / totalQuestions) * 100) : 0
+    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence }
+  }).sort((a, b) => b.pct - a.pct)
+
+  const brandData = (() => {
+    let cited = 0, total = 0
+    for (const llm of llmsQueried) {
+      const details = visibility?.perLLM?.[llm]?.details || []
+      for (const d of details) { total++; if (d.mentions?.[brand]) cited++ }
+    }
+    return { pct: total ? Math.round((cited / total) * 100) : 0, cited, total }
+  })()
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h2 className="text-xl font-bold text-[#14182B] mb-1">Competitor visibility</h2>
+        <p className="text-sm text-[#667085]">How often each brand appears in AI answers across all prompts and platforms.</p>
+      </div>
+
+      {/* Summary row */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+          <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Your brand</p>
+          <p className="text-3xl font-bold text-[#14182B]">{brandData.pct}%</p>
+          <p className="text-xs text-[#667085] mt-1">{brandData.cited} of {brandData.total} answers</p>
+        </div>
+        {competitorData.slice(0, 3).map(c => (
+          <div key={c.name} className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+            <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">{c.name}</p>
+            <p className={`text-3xl font-bold ${c.pct > brandData.pct ? 'text-red-500' : 'text-[#14182B]'}`}>{c.pct}%</p>
+            <p className="text-xs text-[#667085] mt-1">{c.cited} of {c.total} answers</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Competitor detail cards */}
+      <div className="space-y-6">
+        {competitorData.map(c => (
+          <div key={c.name} className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#F1EDFF] flex items-center justify-center text-sm font-bold text-[#5B3DF5]">
+                  {c.name[0].toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-bold text-[#14182B]">{c.name}</p>
+                  <p className="text-xs text-[#667085]">{c.cited} mentions across {llmsQueried.length} platform{llmsQueried.length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-2xl font-bold ${c.pct > brandData.pct ? 'text-red-500' : 'text-[#10B981]'}`}>{c.pct}%</p>
+                <p className="text-xs text-[#667085]">citation rate</p>
+              </div>
+            </div>
+            {/* Bar */}
+            <div className="relative h-2 bg-[#F0EBF8] rounded-full mb-4">
+              <div className="absolute left-0 top-0 h-2 rounded-full bg-[#5B3DF5]" style={{ width: `${c.pct}%` }} />
+              <div className="absolute top-0 h-2 rounded-full bg-[#10B981] opacity-30" style={{ left: 0, width: `${brandData.pct}%` }} />
+            </div>
+            {c.evidence.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Where AI cited them</p>
+                {c.evidence.map((ev, i) => (
+                  <div key={i} className="bg-[#FAFAFA] border border-[#F0EBF8] rounded-xl p-4">
+                    <p className="text-xs font-semibold text-[#5B3DF5] mb-1">{ev.llm === 'chatgpt' ? 'ChatGPT' : ev.llm === 'gemini' ? 'Gemini' : ev.llm} · "{ev.question}"</p>
+                    <p className="text-sm text-[#14182B] leading-relaxed">…{ev.snippet}…</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {c.pct === 0 && <p className="text-sm text-[#10B981]">✓ Not cited in any AI answer in this run.</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab: Citations ───────────────────────────────────────────────────────────
+
+function classifyDomain(domain, brand, competitors) {
+  const d = domain.toLowerCase()
+  if (brand && d.includes(brand.toLowerCase())) return 'your'
+  if (competitors?.some(c => d.includes(c.toLowerCase()))) return 'competitor'
+  return 'third-party'
+}
+
+function CitationsTab({ result }) {
+  const { visibility, brand, competitors = [], llmsQueried = [], prompts = [] } = result
+  const [citePage, setCitePage] = useState(0)
+  const CITE_PER_PAGE = 10
+
+  const domainRegex = /\b([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:com|io|ai|co|org|net|app|dev))\b/g
+
+  // Build full domain map (no slice)
+  const fullMap = {}
+  for (const [llm, llmData] of Object.entries(visibility?.perLLM || {})) {
+    for (const { question, answer } of llmData.details || []) {
+      if (!answer) continue
+      const seen = new Set()
+      for (const m of answer.matchAll(domainRegex)) {
+        const d = m[1].toLowerCase()
+        if (seen.has(d)) continue
+        seen.add(d)
+        if (!fullMap[d]) fullMap[d] = { domain: d, count: 0, llms: new Set(), questions: new Set(), type: classifyDomain(d, brand, competitors) }
+        fullMap[d].count++
+        fullMap[d].llms.add(llm)
+        fullMap[d].questions.add(question)
+      }
+    }
+  }
+  const allDomains = Object.values(fullMap).sort((a, b) => b.count - a.count)
+  const totalCitations = allDomains.reduce((s, d) => s + d.count, 0)
+  const influentialCount = allDomains.length
+  const competitorCitations = allDomains.filter(d => d.type === 'competitor').reduce((s, d) => s + d.count, 0)
+  const thirdPartyCitations = allDomains.filter(d => d.type === 'third-party').reduce((s, d) => s + d.count, 0)
+
+  // Per-LLM breakdown for platform citation mix
+  const perLLMDomains = {}
+  for (const llm of llmsQueried) {
+    const map = {}
+    for (const { answer } of (visibility?.perLLM?.[llm]?.details || [])) {
+      if (!answer) continue
+      const seen = new Set()
+      for (const m of answer.matchAll(domainRegex)) {
+        const d = m[1].toLowerCase()
+        if (seen.has(d)) continue
+        seen.add(d)
+        const type = classifyDomain(d, brand, competitors)
+        map[type] = (map[type] || 0) + 1
+      }
+    }
+    perLLMDomains[llm] = map
+  }
+
+  // Top cited prompts (by total domain citations per prompt)
+  const promptCitations = prompts.map(q => {
+    let total = 0, yourCount = 0
+    for (const llm of llmsQueried) {
+      const d = visibility?.perLLM?.[llm]?.details?.find(x => x.question === q)
+      if (!d?.answer) continue
+      const seen = new Set()
+      for (const m of d.answer.matchAll(domainRegex)) {
+        const dom = m[1].toLowerCase()
+        if (seen.has(dom)) continue
+        seen.add(dom)
+        total++
+        if (classifyDomain(dom, brand, competitors) === 'your') yourCount++
+      }
+    }
+    return { question: q, total, your: yourCount }
+  }).sort((a, b) => b.total - a.total)
+
+  const pagedDomains = allDomains.slice(citePage * CITE_PER_PAGE, (citePage + 1) * CITE_PER_PAGE)
+  const totalCitePages = Math.ceil(allDomains.length / CITE_PER_PAGE)
+
+  const llmLabel = { chatgpt: 'ChatGPT', gemini: 'Gemini', googleaio: 'Google AIO' }
+  const typeColors = { your: '#10B981', competitor: '#EF4444', 'third-party': '#6366F1' }
+  const typeLabels = { your: 'Your domain', competitor: 'Competitor domains', 'third-party': 'Third-party sources' }
+
+  return (
+    <div>
+      {/* KPI row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: 'Influential domains', value: influentialCount, icon: '🌐' },
+          { label: 'Cited URLs', value: totalCitations, icon: '🔗' },
+          { label: 'Competitor citations', value: competitorCitations, icon: '⚔️' },
+          { label: 'Third-party opportunities', value: thirdPartyCitations, icon: '💡' },
+        ].map(({ label, value, icon }) => (
+          <div key={label} className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+            <p className="text-xs text-[#667085] mb-1 flex items-center gap-1"><span>{icon}</span>{label}</p>
+            <p className="text-3xl font-bold text-[#14182B]">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Platform citation mix */}
+      {llmsQueried.length > 0 && (
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 mb-6">
+          <h3 className="text-base font-bold text-[#14182B] mb-1">Platform citation mix</h3>
+          <p className="text-xs text-[#667085] mb-5">Your domain, competitor domain, and third-party source citations by answer engine.</p>
+          <div className="space-y-4">
+            {llmsQueried.map(llm => {
+              const d = perLLMDomains[llm] || {}
+              const total = (d.your || 0) + (d.competitor || 0) + (d['third-party'] || 0) || 1
+              return (
+                <div key={llm}>
+                  <p className="text-xs font-semibold text-[#667085] mb-1.5">{llmLabel[llm] || llm}</p>
+                  <div className="flex h-5 rounded-full overflow-hidden">
+                    {['your', 'competitor', 'third-party'].map(type => {
+                      const w = Math.round(((d[type] || 0) / total) * 100)
+                      return w > 0 ? <div key={type} style={{ width: `${w}%`, background: typeColors[type] }} title={`${typeLabels[type]}: ${d[type] || 0}`} /> : null
+                    })}
+                  </div>
+                  <div className="flex gap-4 mt-1.5">
+                    {['your', 'competitor', 'third-party'].map(type => (
+                      <span key={type} className="text-[10px] text-[#667085] flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: typeColors[type] }} />{typeLabels[type]}: {d[type] || 0}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Citation source split */}
+      {totalCitations > 0 && (
+        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-[#14182B]">Citation source split</h3>
+            <span className="text-xs text-[#667085]">{totalCitations} total citations</span>
+          </div>
+          <div className="flex h-3 rounded-full overflow-hidden mb-2">
+            {['your', 'competitor', 'third-party'].map(type => {
+              const count = allDomains.filter(d => d.type === type).reduce((s, d) => s + d.count, 0)
+              const w = Math.round((count / totalCitations) * 100)
+              return w > 0 ? <div key={type} style={{ width: `${w}%`, background: typeColors[type] }} title={`${typeLabels[type]}: ${w}%`} /> : null
+            })}
+          </div>
+          <div className="flex gap-6">
+            {['your', 'competitor', 'third-party'].map(type => {
+              const count = allDomains.filter(d => d.type === type).reduce((s, d) => s + d.count, 0)
+              const w = Math.round((count / totalCitations) * 100)
+              return (
+                <span key={type} className="text-xs text-[#667085] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: typeColors[type] }} />
+                  {typeLabels[type]} · {w}%
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Top cited domains */}
+      <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-[#E7E2F0]">
+          <h3 className="text-base font-bold text-[#14182B]">Influential domains</h3>
+          <p className="text-xs text-[#667085]">Top source domains by citation share.</p>
+        </div>
+        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
+          style={{ gridTemplateColumns: '40px 1fr 140px 140px 80px 80px' }}>
+          <span>Rank</span><span>Domain</span><span>Ownership</span><span>Platforms</span><span className="text-right">Share</span><span className="text-right">Citations</span>
+        </div>
+        {pagedDomains.map((d, i) => {
+          const share = totalCitations ? Math.round((d.count / totalCitations) * 100) : 0
+          return (
+            <div key={d.domain} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA]"
+              style={{ gridTemplateColumns: '40px 1fr 140px 140px 80px 80px' }}>
+              <span className="text-sm font-bold text-[#9CA3B8]">{citePage * CITE_PER_PAGE + i + 1}</span>
+              <span className="text-sm font-medium text-[#14182B]">{d.domain}</span>
+              <span className="text-xs" style={{ color: typeColors[d.type] }}>{typeLabels[d.type]}</span>
+              <div className="flex gap-1">
+                {[...d.llms].map(llm => (
+                  <span key={llm} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F1EDFF] text-[#5B3DF5]">
+                    {llmLabel[llm]?.[0] || llm[0].toUpperCase()}
+                  </span>
+                ))}
+              </div>
+              <span className="text-sm text-right text-[#667085]">{share}%</span>
+              <span className="text-sm text-right font-semibold text-[#14182B]">{d.count}</span>
+            </div>
+          )
+        })}
+        <div className="flex items-center justify-between px-5 py-3 text-xs text-[#667085]">
+          <span>Page {citePage + 1} of {totalCitePages} · {allDomains.length} rows</span>
+          <div className="flex gap-2">
+            <button disabled={citePage === 0} onClick={() => setCitePage(p => p - 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button disabled={citePage >= totalCitePages - 1} onClick={() => setCitePage(p => p + 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Top cited prompts */}
+      <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#E7E2F0]">
+          <h3 className="text-base font-bold text-[#14182B]">Top cited prompts</h3>
+          <p className="text-xs text-[#667085]">Prompts producing the most website citations.</p>
+        </div>
+        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
+          style={{ gridTemplateColumns: '40px 1fr 140px 100px 80px' }}>
+          <span>Rank</span><span>Prompt</span><span>Platforms</span><span className="text-right">Your domain</span><span className="text-right">Total</span>
+        </div>
+        {promptCitations.map((p, i) => (
+          <div key={i} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA]"
+            style={{ gridTemplateColumns: '40px 1fr 140px 100px 80px' }}>
+            <span className="text-sm font-bold text-[#9CA3B8]">{i + 1}</span>
+            <span className="text-sm text-[#14182B] pr-4">{p.question}</span>
+            <div className="flex gap-1">
+              {llmsQueried.map(llm => (
+                <span key={llm} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F1EDFF] text-[#5B3DF5]">
+                  {llmLabel[llm]?.[0] || llm[0].toUpperCase()}
+                </span>
+              ))}
+            </div>
+            <span className="text-sm text-right text-[#667085]">{p.your}</span>
+            <span className="text-sm text-right font-semibold text-[#14182B]">{p.total}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function SiteAuditTab({ result, onBuildActionPlan }) {
   const category = result.category
   const description = result.categoryDescription || ''
@@ -1803,7 +2434,7 @@ function UrlModeResult({ result, resultTime, onReset }) {
                 activeTab === tab ? 'text-[#14182B]' : 'text-[#667085] hover:text-[#14182B]'
               }`}>
               <span className="flex items-center gap-1.5">
-                {tab === 'Action plan' && <span className="text-[#5B3DF5]">✳</span>}
+                {tab === 'Growth Actions' && <span className="text-[#5B3DF5]">✳</span>}
                 {tab}
               </span>
               {TAB_SUBLABELS[tab] && (
@@ -1819,17 +2450,23 @@ function UrlModeResult({ result, resultTime, onReset }) {
         {activeTab === 'Overview' && (
           <OverviewTab
             result={result}
-            onViewActionPlan={() => setActiveTab('Action plan')}
-            onComparePositioning={() => setActiveTab('AI Answers')}
+            onViewActionPlan={() => setActiveTab('Growth Actions')}
+            onComparePositioning={() => setActiveTab('Prompts')}
           />
         )}
-        {activeTab === 'AI Answers' && (
-          <AIAnswersTab result={result} onBuildActionPlan={() => setActiveTab('Action plan')} />
+        {activeTab === 'Prompts' && (
+          <PromptsTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
         )}
+        {activeTab === 'Competitors' && (
+          <CompetitorsTab result={result} />
+        )}
+        {activeTab === 'Citations' && (
+          <CitationsTab result={result} />
+        )}
+        {activeTab === 'Growth Actions' && <ActionPlanTab result={result} />}
         {activeTab === 'Site Audit' && (
-          <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Action plan')} />
+          <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
         )}
-        {activeTab === 'Action plan' && <ActionPlanTab result={result} />}
       </div>
     </div>
   )

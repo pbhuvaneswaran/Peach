@@ -4,6 +4,20 @@
 
 ---
 
+## Latest Instructions (2026-07-08)
+
+- **Results page tabs redesigned** — 6 tabs: Overview · Prompts · Competitors · Citations · Growth Actions · Site Audit (was 4 tabs: Overview · AI Answers · Site Audit · Action plan).
+- **Prompts tab** — Prompt library table with LLM status dots (cited/not cited per platform), visibility %, source count, pagination. "+ Add prompt" modal (fields: text, intent, priority, persona). "⚡ Generate prompts" modal. Brand keywords section with chip input, stored in `localStorage` keys `peach_custom_prompts` and `peach_brand_keywords`.
+- **Competitors tab** — Per-competitor citation rate cards with evidence quotes from LLM answers.
+- **Citations tab** — KPI row (influential domains, cited URLs, competitor citations, third-party opportunities), platform citation mix stacked bars, citation source split bar, top cited domains table (paginated), top cited prompts table. All data derived client-side from `result.visibility.perLLM`.
+- **Growth Actions tab** — Renamed from "Action plan", same content.
+- **JSON/markdown guard** — Frontend fetch now reads response as text first, JSON.parse in try/catch, shows clean error on server failures. 90s AbortController timeout.
+- **Per-question LLM timeout** — 15s timeout on each GPT + Gemini question call to prevent stalling the full request.
+- **CTA buttons** — All "Check your AI visibility" CTAs go directly to `/app`, no login wall. Sign in links still point to `/login`.
+- **Google OAuth** — Wired via `supabase.auth.signInWithOAuth({ provider: 'google' })`. Supabase project: `arkwwkqepnnrpzsnqdra.supabase.co`. Vercel env needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (VITE_ prefix required for frontend).
+
+---
+
 ## Latest Instructions (2026-07-07)
 
 - **Domain is `gotopeach.com`** (was `trypeachx` Vercel subdomain). All email/URL references use `gotopeach.com`. Contact email: `hello@gotopeach.com`.
