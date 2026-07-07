@@ -12,6 +12,7 @@ async function askChatGPT(question) {
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: question }],
       max_tokens: 512,
+      temperature: 0,
     }),
     new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
   ]);
