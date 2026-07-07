@@ -283,7 +283,7 @@ export function BlogPost() {
         <div className="mt-10 bg-indigo-50 border border-indigo-200 rounded-2xl p-6 text-center">
           <h3 className="font-bold text-indigo-900 mb-2">Check your AI visibility</h3>
           <p className="text-sm text-indigo-700 mb-4">See exactly where your brand shows up in AI search — in under 3 minutes.</p>
-          <Link to="/login" className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm">
+          <Link to="/app" className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm">
             Try it free →
           </Link>
         </div>

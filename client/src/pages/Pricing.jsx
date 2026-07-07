@@ -29,7 +29,7 @@ const PLANS = [
       'Email support',
     ],
     cta: 'Get started',
-    ctaLink: '/login',
+    ctaLink: '/app',
   },
   {
     name: 'Growth',
@@ -50,7 +50,7 @@ const PLANS = [
       'Priority support',
     ],
     cta: 'Get started',
-    ctaLink: '/login',
+    ctaLink: '/app',
   },
   {
     name: 'Scale',
@@ -68,7 +68,7 @@ const PLANS = [
       'Dedicated onboarding call',
     ],
     cta: 'Get started',
-    ctaLink: '/login',
+    ctaLink: '/app',
   },
 ]
 
