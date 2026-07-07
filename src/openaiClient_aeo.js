@@ -7,11 +7,14 @@ function getClient() {
 
 async function askChatGPT(question) {
   const client = getClient();
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: question }],
-    max_tokens: 512,
-  });
+  const response = await Promise.race([
+    client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: question }],
+      max_tokens: 512,
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+  ]);
   return response.choices[0].message.content || '';
 }
 

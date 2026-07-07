@@ -1866,12 +1866,19 @@ export default function V3VisibilityFlow() {
     setReportReady(false)
     setResult(null)
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 90000)
       const res = await fetch('/api/v3/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: val, llms: ['chatgpt', 'gemini'] }),
+        signal: controller.signal,
       })
-      const data = await res.json()
+      clearTimeout(timeout)
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) }
+      catch { throw new Error('Server error — please try again in a moment.') }
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       localStorage.setItem('peach_last_result', JSON.stringify(data))
       localStorage.setItem('peach_last_result_time', String(Date.now()))
@@ -1879,7 +1886,11 @@ export default function V3VisibilityFlow() {
       setResultTime(Date.now())
       setReportReady(true)
     } catch (err) {
-      setError(err.message)
+      if (err.name === 'AbortError') {
+        setError('Analysis is taking longer than expected. Please try again.')
+      } else {
+        setError(err.message)
+      }
       setLoading(false)
     }
   }

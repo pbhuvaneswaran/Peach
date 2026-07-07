@@ -8,7 +8,10 @@ function getClient() {
 async function askGemini(question) {
   const genAI = getClient();
   const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' });
-  const result = await model.generateContent(question);
+  const result = await Promise.race([
+    model.generateContent(question),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+  ]);
   return result.response.text() || '';
 }
 
