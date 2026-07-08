@@ -152,6 +152,36 @@ app.post('/api/v3/analyze', async (req, res) => {
 });
 
 
+// Lightweight endpoint: run just LLM queries for given prompts (no web scraping, no prep)
+app.post('/api/v3/check-prompts', async (req, res) => {
+  const { brand, prompts, llms: requestedLLMs } = req.body;
+  if (!brand || !Array.isArray(prompts) || prompts.length === 0) {
+    return res.status(400).json({ error: 'brand and prompts[] are required' });
+  }
+  if (!hasKey('OPENAI_API_KEY')) {
+    return res.status(400).json({ error: 'OPENAI_API_KEY not configured' });
+  }
+
+  try {
+    const enabledLLMs = requestedLLMs || ['chatgpt', 'gemini'];
+    const llmJobs = {};
+    if (enabledLLMs.includes('chatgpt') && hasKey('OPENAI_API_KEY')) llmJobs.chatgpt = queryAllQuestionsGPT(prompts);
+    if (enabledLLMs.includes('gemini') && hasKey('GEMINI_API_KEY')) llmJobs.gemini = queryAllQuestionsGemini(prompts);
+    if (enabledLLMs.includes('googleaio') && hasKey('SERPER_API_KEY')) llmJobs.googleaio = queryAllQuestionsGoogleAIO(prompts);
+
+    const llmNames = Object.keys(llmJobs);
+    const llmAnswers = await Promise.all(Object.values(llmJobs));
+    const llmResults = Object.fromEntries(llmNames.map((name, i) => [name, llmAnswers[i]]));
+
+    const visibility = scoreVisibility({ llmResults, brand, competitors: [] });
+
+    res.json({ llmsQueried: llmNames, llmResults, visibility });
+  } catch (err) {
+    console.error('check-prompts error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/runs', (_req, res) => {
   const dir = path.join(process.cwd(), 'output', 'runs');
   let files = [];

@@ -19,6 +19,39 @@ const TAB_SUBLABELS = {
   'Site Audit': 'AI readiness',
 }
 
+const TAB_ICONS = {
+  Overview: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  ),
+  Prompts: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h.01M12 10h.01M16 10h.01M21 16c0 1.1-.9 2-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" />
+    </svg>
+  ),
+  Competitors: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a4 4 0 00-5.6-3.7M9 20H4v-2a4 4 0 015.6-3.7M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a2 2 0 11-4 0 2 2 0 014 0zM7 12a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  ),
+  Citations: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+    </svg>
+  ),
+  'Growth Actions': (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
+  'Site Audit': (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  ),
+}
+
 const INSIGHT_ICONS = {
   target: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-5a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z',
   search: 'M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z',
@@ -146,7 +179,7 @@ function downloadCSV(result) {
 
 // ─── Report Actions ───────────────────────────────────────────────────────────
 
-function ReportActions({ result, onReset }) {
+function ReportActions({ result, onReset, sidebar = false }) {
   const [copied, setCopied] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -162,6 +195,56 @@ function ReportActions({ result, onReset }) {
     await navigator.clipboard.writeText(window.location.href)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  if (sidebar) {
+    const sideBtn = 'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#667085] hover:bg-[#F8F6FE] hover:text-[#14182B] rounded-lg transition-colors'
+    return (
+      <div className="space-y-0.5 print:hidden">
+        <button onClick={handleShare} className={sideBtn}>
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
+          </svg>
+          {copied ? 'Copied!' : 'Share report'}
+        </button>
+        <div ref={exportRef} className="relative">
+          <button onClick={() => setShowExportMenu(v => !v)} className={sideBtn}>
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
+            </svg>
+            Export
+          </button>
+          {showExportMenu && (
+            <div className="absolute bottom-full left-0 mb-1 w-36 bg-white border border-[#E7E2F0] rounded-xl shadow-lg py-1.5 z-50">
+              <button onClick={() => { downloadCSV(result); setShowExportMenu(false) }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#14182B] hover:bg-[#F8F6FE]">CSV</button>
+              <button onClick={() => { setShowPdfModal(true); setShowExportMenu(false) }}
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#14182B] hover:bg-[#F8F6FE]">PDF</button>
+            </div>
+          )}
+        </div>
+        <button onClick={onReset} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#5B3DF5] hover:bg-[#F1EDFF] rounded-lg transition-colors">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m13.657-6.657l-.707.707M7.05 16.95l-.707.707m11.314 0l-.707-.707M7.05 7.05l-.707-.707" />
+          </svg>
+          New report
+        </button>
+        {showPdfModal && (
+          <div className="absolute left-full ml-2 bottom-0 w-64 bg-white border border-[#E7E2F0] rounded-xl shadow-lg p-4 z-50">
+            <p className="text-sm font-semibold text-[#14182B] mb-1">Download PDF report</p>
+            <p className="text-xs text-[#667085] mb-3">Sign up to download full PDF reports for your brand</p>
+            <div className="flex gap-2">
+              <Link to="/pricing" className="flex-1 text-center bg-[#5B3DF5] text-white text-xs font-semibold px-3 py-2 rounded-lg">
+                Create account
+              </Link>
+              <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#F8F6FE]">
+                Not now
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   const btnClass = 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#E7E2F0] rounded-lg bg-white hover:bg-[#F8F6FE] text-[#14182B] transition-colors'
@@ -1433,6 +1516,103 @@ function LLMStatusDots({ prompt, visibility, brand, llmsQueried }) {
   )
 }
 
+// ─── Run Confirm Modal ────────────────────────────────────────────────────────
+
+function RunConfirmModal({ promptCount, llmsQueried, onConfirm, onClose }) {
+  const llmCount = llmsQueried.length
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E7E2F0]">
+          <h3 className="text-base font-bold text-[#14182B]">Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now?</h3>
+          <button onClick={onClose} className="text-[#9CA3B8] hover:text-[#14182B]">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-3 text-sm text-[#4B5563]">
+          <p>Run now checks {promptCount === 1 ? 'this prompt' : 'these prompts'} across {llmCount} AI platform{llmCount !== 1 ? 's' : ''} and will use {promptCount * llmCount} AI checks.</p>
+          <p className="font-semibold text-[#14182B]">{promptCount * llmCount} AI check{promptCount * llmCount !== 1 ? 's' : ''} will be used.</p>
+        </div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#E7E2F0] bg-[#FAFAFA]">
+          <button onClick={onClose}
+            className="px-4 py-2.5 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-white">
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="px-4 py-2.5 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd]">
+            Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Running Coverage Panel ───────────────────────────────────────────────────
+
+function RunningCoveragePanel({ llmsQueried, platformStatuses, completedCount }) {
+  const total = llmsQueried.length
+  const pct = total === 0 ? 0 : Math.round((completedCount / total) * 100)
+  const allDone = completedCount === total
+
+  const llmLabels = { chatgpt: 'ChatGPT', gemini: 'Gemini', googleaio: 'Google AIO' }
+  const llmIcons = {
+    chatgpt: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor"><path d="M22.28 9.16a5.83 5.83 0 00-.5-4.79 5.9 5.9 0 00-6.33-2.83A5.88 5.88 0 009.1 0 5.9 5.9 0 003.27 4a5.86 5.86 0 00-3.92 2.84 5.9 5.9 0 00.73 6.91 5.84 5.84 0 00.5 4.79 5.9 5.9 0 006.33 2.83A5.87 5.87 0 0012.17 24a5.9 5.9 0 005.83-4.09 5.86 5.86 0 003.92-2.84 5.9 5.9 0 00-.64-6.91z"/></svg>,
+    gemini: <svg viewBox="0 0 24 24" className="w-5 h-5"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#4285F4"/><stop offset="100%" stopColor="#9B72CB"/></linearGradient></defs><path d="M12 2L6 12l6 10 6-10z" fill="url(#g1)"/></svg>,
+    googleaio: <svg viewBox="0 0 24 24" className="w-5 h-5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#EA4335"/><path d="M12 6v12" stroke="white" strokeWidth="2"/><path d="M6 12h12" stroke="white" strokeWidth="2"/></svg>,
+  }
+
+  return (
+    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-8 mb-8">
+      {/* Spinner */}
+      <div className="flex flex-col items-center mb-6">
+        <div className={`w-12 h-12 rounded-full border-4 mb-4 ${allDone ? 'border-[#10B981]' : 'border-[#5B3DF5] border-t-transparent animate-spin'}`} />
+        <h3 className="text-lg font-bold text-[#14182B] mb-1">
+          {allDone ? 'Coverage complete' : 'Reading AI answers in parallel'}
+        </h3>
+        <p className="text-sm text-[#667085] text-center">
+          {allDone ? 'Results updated in prompt table below.' : 'Running saved prompts across ' + llmsQueried.map(l => llmLabels[l] || l).join(', ') + '.'}
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div className="max-w-md mx-auto mb-6">
+        <div className="bg-[#F3F4F6] rounded-full overflow-hidden mb-2 h-2.5">
+          <div className="h-2.5 rounded-full bg-[#14182B] transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex justify-between text-xs text-[#667085]">
+          <span>{allDone ? 'Complete' : 'Processing'}</span>
+          <span>{pct}%</span>
+        </div>
+        <p className="text-xs text-[#9CA3B8] text-center mt-1">{completedCount} of {total} checks complete</p>
+      </div>
+
+      {/* Per-platform status */}
+      <div className="flex gap-4 justify-center flex-wrap">
+        {llmsQueried.map(llm => {
+          const status = platformStatuses[llm] || 'queued'
+          const statusColors = { queued: '#9CA3B8', running: '#F59E0B', done: '#10B981' }
+          const statusLabels = { queued: 'Queued', running: 'Running', done: 'Done' }
+          const color = statusColors[status]
+          return (
+            <div key={llm} className="flex-1 min-w-[140px] max-w-[200px] border border-[#E7E2F0] rounded-xl px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[#14182B]">
+                {llmIcons[llm]}
+                <span className="text-sm font-semibold">{llmLabels[llm] || llm}</span>
+              </div>
+              <span className="text-xs font-semibold flex items-center gap-1" style={{ color }}>
+                {status === 'running' && <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z"/></svg>}
+                {status === 'done' && '✓ '}
+                {statusLabels[status]}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function PromptsTab({ result }) {
   const [customPrompts, setCustomPrompts] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_CUSTOM_PROMPTS)) || [] } catch { return [] }
@@ -1444,6 +1624,9 @@ function PromptsTab({ result }) {
   const [showAdd, setShowAdd] = useState(false)
   const [showGenerate, setShowGenerate] = useState(false)
   const [page, setPage] = useState(0)
+  const [runConfirmPrompts, setRunConfirmPrompts] = useState(null) // array of prompt texts to run
+  const [runState, setRunState] = useState(null) // null | { platformStatuses, completedCount, prompts }
+  const [customResults, setCustomResults] = useState({}) // promptText → { pct, domainCount, llmsQueried }
   const PER_PAGE = 10
 
   const saveCustom = (p) => {
@@ -1455,6 +1638,66 @@ function PromptsTab({ result }) {
     const next = customPrompts.filter((_, idx) => idx !== i)
     setCustomPrompts(next)
     localStorage.setItem(LS_CUSTOM_PROMPTS, JSON.stringify(next))
+  }
+
+  const startRun = async (prompts) => {
+    const llmsQueried = result.llmsQueried || ['chatgpt', 'gemini']
+    // initialise all platforms as queued
+    const initStatuses = Object.fromEntries(llmsQueried.map(l => [l, 'queued']))
+    setRunState({ platformStatuses: initStatuses, completedCount: 0, prompts })
+    setRunConfirmPrompts(null)
+
+    // stagger platform status animations
+    const delay = (ms) => new Promise(r => setTimeout(r, ms))
+    const animateRun = async () => {
+      for (let i = 0; i < llmsQueried.length; i++) {
+        const llm = llmsQueried[i]
+        await delay(400 * i)
+        setRunState(prev => ({
+          ...prev,
+          platformStatuses: { ...prev.platformStatuses, [llm]: 'running' },
+        }))
+      }
+    }
+    animateRun()
+
+    try {
+      const res = await fetch('/api/v3/check-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: result.brand, prompts, llms: llmsQueried }),
+      })
+      const data = await res.json()
+
+      // mark all platforms done
+      const doneStatuses = Object.fromEntries(llmsQueried.map(l => [l, 'done']))
+      setRunState(prev => ({ ...prev, platformStatuses: doneStatuses, completedCount: llmsQueried.length }))
+
+      // extract results per prompt
+      const newResults = { ...customResults }
+      const domainRegex = /\b([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:com|io|ai|co|org|net|app|dev))\b/g
+      for (const promptText of prompts) {
+        const cited = llmsQueried.filter(llm => {
+          const d = data.visibility?.perLLM?.[llm]?.details?.find(x => x.question === promptText)
+          return d?.mentions?.[result.brand] === true
+        }).length
+        const pct = Math.round((cited / llmsQueried.length) * 100)
+        const seen = new Set()
+        for (const llm of llmsQueried) {
+          const d = data.visibility?.perLLM?.[llm]?.details?.find(x => x.question === promptText)
+          if (d?.answer) for (const m of d.answer.matchAll(domainRegex)) seen.add(m[1].toLowerCase())
+        }
+        newResults[promptText] = { pct, domainCount: seen.size, llmsQueried, ran: true }
+      }
+      setCustomResults(newResults)
+
+      // dismiss panel after short delay
+      await delay(1800)
+      setRunState(null)
+    } catch (err) {
+      setRunState(null)
+      alert('Run failed: ' + err.message)
+    }
   }
   const addKeyword = () => {
     if (!kwInput.trim() || keywords.length >= 20) return
@@ -1494,10 +1737,20 @@ function PromptsTab({ result }) {
     return seen.size
   }
 
+  const pendingCustom = customPrompts.filter(p => !customResults[p.text]?.ran)
+
   return (
     <div>
       {showAdd && <AddPromptModal onClose={() => setShowAdd(false)} onSave={saveCustom} />}
       {showGenerate && <GeneratePromptsModal existing={result.prompts || []} onClose={() => setShowGenerate(false)} onSave={saveCustom} />}
+      {runConfirmPrompts && (
+        <RunConfirmModal
+          promptCount={runConfirmPrompts.length}
+          llmsQueried={result.llmsQueried || ['chatgpt', 'gemini']}
+          onClose={() => setRunConfirmPrompts(null)}
+          onConfirm={() => startRun(runConfirmPrompts)}
+        />
+      )}
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
@@ -1506,6 +1759,13 @@ function PromptsTab({ result }) {
           <p className="text-sm text-[#667085]">Manage saved prompts for AI visibility coverage.</p>
         </div>
         <div className="flex items-center gap-2">
+          {pendingCustom.length > 0 && !runState && (
+            <button onClick={() => setRunConfirmPrompts(pendingCustom.map(p => p.text))}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl bg-white hover:bg-[#F8F6FE] text-[#14182B]">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Running coverage
+            </button>
+          )}
           <button onClick={() => setShowGenerate(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl bg-white hover:bg-[#F8F6FE] text-[#14182B]">
             ⚡ Generate prompts
@@ -1517,10 +1777,19 @@ function PromptsTab({ result }) {
         </div>
       </div>
 
+      {/* Running coverage panel */}
+      {runState && (
+        <RunningCoveragePanel
+          llmsQueried={result.llmsQueried || ['chatgpt', 'gemini']}
+          platformStatuses={runState.platformStatuses}
+          completedCount={runState.completedCount}
+        />
+      )}
+
       {/* Prompt table */}
       <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden mb-8">
         <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
-          style={{ gridTemplateColumns: '1fr 200px 80px 60px 40px' }}>
+          style={{ gridTemplateColumns: '1fr 200px 80px 60px 80px' }}>
           <span>Prompt</span>
           <span>Platforms</span>
           <span className="text-right">Visibility</span>
@@ -1532,33 +1801,58 @@ function PromptsTab({ result }) {
         )}
         {paged.map((p, i) => (
           <div key={i} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA] transition-colors"
-            style={{ gridTemplateColumns: '1fr 200px 80px 60px 40px' }}>
+            style={{ gridTemplateColumns: '1fr 200px 80px 60px 80px' }}>
             <div className="flex items-center gap-2 pr-4 min-w-0">
               <span className="text-sm text-[#14182B] truncate">{p.text}</span>
               {p.custom && <span className="text-[10px] font-bold text-[#5B3DF5] bg-[#F1EDFF] px-1.5 py-0.5 rounded-full shrink-0">custom</span>}
             </div>
-            <div>
-              {p.custom
-                ? <span className="text-xs text-[#9CA3B8]">Not yet run</span>
-                : <LLMStatusDots prompt={p.text} visibility={result.visibility} brand={result.brand} llmsQueried={result.llmsQueried} />}
-            </div>
-            <div className="text-right">
-              {p.custom
-                ? <span className="text-xs text-[#9CA3B8]">—</span>
-                : <span className={`text-sm font-bold ${getVisibilityPct(p.text) > 0 ? 'text-[#10B981]' : 'text-[#667085]'}`}>{getVisibilityPct(p.text)}%</span>}
-            </div>
-            <div className="text-right">
-              {p.custom
-                ? <span className="text-xs text-[#9CA3B8]">—</span>
-                : <span className="text-sm text-[#667085]">{getDomainCount(p.text)}</span>}
-            </div>
-            <div className="text-right">
-              {p.custom && (
-                <button onClick={() => removeCustom(customPrompts.indexOf(p))} className="text-[#9CA3B8] hover:text-red-400 p-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-              )}
-            </div>
+            {(() => {
+              const cr = p.custom ? customResults[p.text] : null
+              const hasRun = cr?.ran
+              return (
+                <>
+                  <div>
+                    {p.custom && !hasRun
+                      ? <span className="text-xs text-[#9CA3B8]">Not yet run</span>
+                      : <LLMStatusDots
+                          prompt={p.text}
+                          visibility={hasRun ? { perLLM: Object.fromEntries((cr.llmsQueried || []).map(llm => [llm, { details: [{ question: p.text, mentions: { [result.brand]: cr.pct > 0 } }] }])) } : result.visibility}
+                          brand={result.brand}
+                          llmsQueried={hasRun ? cr.llmsQueried : result.llmsQueried}
+                        />
+                    }
+                  </div>
+                  <div className="text-right">
+                    {p.custom && !hasRun
+                      ? <span className="text-xs text-[#9CA3B8]">—</span>
+                      : <span className={`text-sm font-bold ${(hasRun ? cr.pct : getVisibilityPct(p.text)) > 0 ? 'text-[#10B981]' : 'text-[#667085]'}`}>
+                          {hasRun ? cr.pct : getVisibilityPct(p.text)}%
+                        </span>
+                    }
+                  </div>
+                  <div className="text-right">
+                    {p.custom && !hasRun
+                      ? <span className="text-xs text-[#9CA3B8]">—</span>
+                      : <span className="text-sm text-[#667085]">{hasRun ? cr.domainCount : getDomainCount(p.text)}</span>
+                    }
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    {p.custom && !hasRun && !runState && (
+                      <button onClick={() => setRunConfirmPrompts([p.text])}
+                        title="Run this prompt now"
+                        className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd] border border-[#D8D0FA] rounded-lg px-2 py-1 hover:bg-[#F1EDFF]">
+                        Run
+                      </button>
+                    )}
+                    {p.custom && (
+                      <button onClick={() => removeCustom(customPrompts.indexOf(p))} className="text-[#9CA3B8] hover:text-red-400 p-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         ))}
 
@@ -2408,63 +2702,125 @@ function ActionPlanTab({ result }) {
 
 function UrlModeResult({ result, resultTime, onReset }) {
   const [activeTab, setActiveTab] = useState('Overview')
+  const agg = result.visibility?.aggregatePercentages || {}
+  const brandPct = agg[result.brand] ?? 0
 
   return (
-    <div>
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[#14182B] mb-1.5">AI Visibility Report</h1>
-          <p className="text-sm text-[#667085]">
-            {result.brand} · {result.prompts.length} buyer question{result.prompts.length === 1 ? '' : 's'} · {result.llmsQueried.map(l => LLM_COLORS[l]?.label || l).join(' + ')}
-          </p>
-          <span className="inline-block mt-2.5 text-xs font-semibold text-[#5B3DF5] bg-[#F1EDFF] px-2.5 py-1 rounded-full">
-            {formatReportAge(resultTime)}
-          </span>
+    <div className="flex gap-0 min-h-screen">
+      {/* ── Sidebar ── */}
+      <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r border-[#E7E2F0] bg-white sticky top-0 h-screen overflow-y-auto">
+        {/* Brand card */}
+        <div className="px-4 pt-6 pb-5 border-b border-[#F0EBF8]">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-[#5B3DF5]/10 flex items-center justify-center text-sm font-bold text-[#5B3DF5]">
+              {result.brand?.[0]?.toUpperCase() || '?'}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#14182B] truncate">{result.brand}</p>
+              <p className="text-[10px] text-[#9CA3B8]">AI Visibility Report</p>
+            </div>
+          </div>
+          {/* Score ring */}
+          <div className="flex items-center gap-3 bg-[#F8F6FE] rounded-xl px-3 py-2.5">
+            <div className="relative w-10 h-10 shrink-0">
+              <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#E3D9FB" strokeWidth="3.5" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#5B3DF5" strokeWidth="3.5"
+                  strokeDasharray={`${(brandPct / 100) * 87.96} 87.96`}
+                  strokeLinecap="round" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-[#5B3DF5]">{brandPct}%</span>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#14182B]">Visibility score</p>
+              <p className="text-[10px] text-[#9CA3B8]">{formatReportAge(resultTime)}</p>
+            </div>
+          </div>
         </div>
-        <ReportActions result={result} onReset={onReset} />
-      </div>
 
-      <div className="sticky top-0 z-40 bg-[#FCFAF6]/95 backdrop-blur-sm">
-        <div className="flex gap-8 border-b border-[#E7E2F0] overflow-x-auto">
+        {/* Nav */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5">
           {OUTPUT_TABS.map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`relative flex flex-col items-start py-3 text-sm font-semibold whitespace-nowrap transition-colors ${
-                activeTab === tab ? 'text-[#14182B]' : 'text-[#667085] hover:text-[#14182B]'
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                activeTab === tab
+                  ? 'bg-[#F1EDFF] text-[#5B3DF5]'
+                  : 'text-[#667085] hover:bg-[#F8F6FE] hover:text-[#14182B]'
               }`}>
-              <span className="flex items-center gap-1.5">
-                {tab === 'Growth Actions' && <span className="text-[#5B3DF5]">✳</span>}
-                {tab}
+              <span className={activeTab === tab ? 'text-[#5B3DF5]' : 'text-[#9CA3B8]'}>
+                {TAB_ICONS[tab]}
               </span>
-              {TAB_SUBLABELS[tab] && (
-                <span className="text-[10px] font-medium text-[#9CA3B8] normal-case">{TAB_SUBLABELS[tab]}</span>
-              )}
-              {activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#5B3DF5] rounded-full" />}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{tab}</p>
+                {TAB_SUBLABELS[tab] && (
+                  <p className="text-[10px] text-[#9CA3B8] font-normal truncate">{TAB_SUBLABELS[tab]}</p>
+                )}
+              </div>
             </button>
           ))}
-        </div>
-      </div>
+        </nav>
 
-      <div className="pt-8">
-        {activeTab === 'Overview' && (
-          <OverviewTab
-            result={result}
-            onViewActionPlan={() => setActiveTab('Growth Actions')}
-            onComparePositioning={() => setActiveTab('Prompts')}
-          />
-        )}
-        {activeTab === 'Prompts' && (
-          <PromptsTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
-        )}
-        {activeTab === 'Competitors' && (
-          <CompetitorsTab result={result} />
-        )}
-        {activeTab === 'Citations' && (
-          <CitationsTab result={result} />
-        )}
-        {activeTab === 'Growth Actions' && <ActionPlanTab result={result} />}
-        {activeTab === 'Site Audit' && (
-          <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
-        )}
+        {/* Bottom actions */}
+        <div className="px-3 py-4 border-t border-[#F0EBF8] space-y-1">
+          <ReportActions result={result} onReset={onReset} sidebar />
+        </div>
+      </aside>
+
+      {/* ── Main Content ── */}
+      <div className="flex-1 min-w-0">
+        {/* Top bar — mobile tabs + export */}
+        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+          <div className="lg:hidden">
+            <p className="text-lg font-bold text-[#14182B]">{result.brand}</p>
+            <p className="text-xs text-[#667085]">{formatReportAge(resultTime)}</p>
+          </div>
+          <div className="hidden lg:block">
+            <h2 className="text-xl font-bold text-[#14182B]">{activeTab}</h2>
+            {TAB_SUBLABELS[activeTab] && <p className="text-xs text-[#9CA3B8]">{TAB_SUBLABELS[activeTab]}</p>}
+          </div>
+          <div className="hidden lg:block ml-auto">
+            <ReportActions result={result} onReset={onReset} />
+          </div>
+        </div>
+
+        {/* Mobile horizontal tab strip */}
+        <div className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[#E7E2F0] px-4 overflow-x-auto">
+          <div className="flex gap-5">
+            {OUTPUT_TABS.map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`relative py-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+                  activeTab === tab ? 'text-[#5B3DF5]' : 'text-[#667085]'
+                }`}>
+                {tab}
+                {activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#5B3DF5] rounded-full" />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab content */}
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-16">
+          {activeTab === 'Overview' && (
+            <OverviewTab
+              result={result}
+              onViewActionPlan={() => setActiveTab('Growth Actions')}
+              onComparePositioning={() => setActiveTab('Prompts')}
+            />
+          )}
+          {activeTab === 'Prompts' && (
+            <PromptsTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
+          )}
+          {activeTab === 'Competitors' && (
+            <CompetitorsTab result={result} />
+          )}
+          {activeTab === 'Citations' && (
+            <CitationsTab result={result} />
+          )}
+          {activeTab === 'Growth Actions' && <ActionPlanTab result={result} />}
+          {activeTab === 'Site Audit' && (
+            <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
+          )}
+        </div>
       </div>
     </div>
   )
@@ -2543,9 +2899,7 @@ export default function V3VisibilityFlow() {
   if (result) {
     return (
       <div className="min-h-screen bg-[#FCFAF6]">
-        <div className="max-w-[1180px] mx-auto px-6 py-10">
-          <UrlModeResult result={result} resultTime={resultTime} onReset={handleReset} />
-        </div>
+        <UrlModeResult result={result} resultTime={resultTime} onReset={handleReset} />
       </div>
     )
   }
