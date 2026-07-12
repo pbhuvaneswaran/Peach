@@ -2829,7 +2829,11 @@ function UrlModeResult({ result, resultTime, onReset }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function V3VisibilityFlow() {
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(() => {
+    const prefill = localStorage.getItem('peach_prefill_url') || ''
+    localStorage.removeItem('peach_prefill_url')
+    return prefill
+  })
   const [loading, setLoading] = useState(false)
   const [reportReady, setReportReady] = useState(false)
   const [error, setError] = useState('')
