@@ -93,10 +93,10 @@ export default function Login() {
         ) : (
           <>
             <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">
-              {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+              {mode === 'signin' ? 'Sign in to see your results' : 'Create a free account'}
             </h2>
             <p className="text-sm text-gray-400 text-center mb-7">
-              {mode === 'signin' ? 'Sign in to your Peach account' : 'Start tracking your AI visibility'}
+              {mode === 'signin' ? 'Sign in to run your AI visibility check' : 'Free to start — see if AI recommends your brand'}
             </p>
 
             <form onSubmit={handleEmail} className="space-y-3 mb-5">

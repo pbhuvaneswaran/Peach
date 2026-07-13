@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { LLM_COLORS } from '../../components/llmConfig'
 import { PLATFORM_ICONS } from '../../components/llmPlatforms'
+import { supabase } from '../../lib/supabase'
 
 const EXAMPLES = [
   { label: 'copilotverse.io', value: 'copilotverse.io' },
@@ -2829,6 +2830,7 @@ function UrlModeResult({ result, resultTime, onReset }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function V3VisibilityFlow() {
+  const navigate = useNavigate()
   const [input, setInput] = useState(() => {
     const prefill = localStorage.getItem('peach_prefill_url') || ''
     localStorage.removeItem('peach_prefill_url')
@@ -2856,6 +2858,14 @@ export default function V3VisibilityFlow() {
     setError('')
     const val = input.trim()
     if (!val) return setError('Enter your website URL.')
+
+    // Auth gate — redirect to sign up if not logged in
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      localStorage.setItem('peach_prefill_url', val)
+      navigate('/login')
+      return
+    }
 
     setLoading(true)
     setReportReady(false)
