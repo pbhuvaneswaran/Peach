@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import { LLM_COLORS } from '../../components/llmConfig'
 import { PLATFORM_ICONS } from '../../components/llmPlatforms'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 
 const EXAMPLES = [
   { label: 'copilotverse.io', value: 'copilotverse.io' },
@@ -184,7 +185,28 @@ function ReportActions({ result, onReset, sidebar = false }) {
   const [copied, setCopied] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailAddr, setEmailAddr] = useState('')
+  const { user } = useAuth()
   const exportRef = useRef(null)
+
+  const handleEmailReport = async () => {
+    const addr = emailAddr.trim() || user?.email || ''
+    if (!addr) return
+    setEmailSending(true)
+    try {
+      const r = await fetch('/api/email-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: addr, result }),
+      })
+      if (r.ok) { setEmailSent(true); setTimeout(() => setShowEmailModal(false), 1500) }
+      else { const d = await r.json(); alert(d.error || 'Failed to send') }
+    } catch { alert('Failed to send email') }
+    finally { setEmailSending(false) }
+  }
 
   useEffect(() => {
     const handler = (e) => { if (exportRef.current && !exportRef.current.contains(e.target)) setShowExportMenu(false) }
@@ -198,15 +220,50 @@ function ReportActions({ result, onReset, sidebar = false }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  const EmailModal = () => (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 className="text-base font-bold text-[#172554] mb-1">Email this report</h3>
+        <p className="text-xs text-[#667085] mb-4">We'll send a summary with your score, gaps, and recommended actions.</p>
+        <input
+          type="email"
+          value={emailAddr}
+          onChange={e => setEmailAddr(e.target.value)}
+          placeholder={user?.email || 'you@company.com'}
+          className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleEmailReport}
+            disabled={emailSending}
+            className="flex-1 bg-[#2563EB] text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-[#1D4ED8] disabled:opacity-60 transition-colors"
+          >
+            {emailSent ? '✓ Sent!' : emailSending ? 'Sending…' : 'Send report'}
+          </button>
+          <button onClick={() => setShowEmailModal(false)} className="text-sm text-[#667085] px-4 py-2.5 rounded-xl hover:bg-[#EFF6FF]">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (sidebar) {
-    const sideBtn = 'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#667085] hover:bg-[#F8F6FE] hover:text-[#14182B] rounded-lg transition-colors'
+    const sideBtn = 'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554] rounded-lg transition-colors'
     return (
       <div className="space-y-0.5 print:hidden">
+        {showEmailModal && <EmailModal />}
         <button onClick={handleShare} className={sideBtn}>
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
           </svg>
           {copied ? 'Copied!' : 'Share report'}
+        </button>
+        <button onClick={() => setShowEmailModal(true)} className={sideBtn}>
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Email report
         </button>
         <div ref={exportRef} className="relative">
           <button onClick={() => setShowExportMenu(v => !v)} className={sideBtn}>
@@ -216,29 +273,29 @@ function ReportActions({ result, onReset, sidebar = false }) {
             Export
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full left-0 mb-1 w-36 bg-white border border-[#E7E2F0] rounded-xl shadow-lg py-1.5 z-50">
+            <div className="absolute bottom-full left-0 mb-1 w-36 bg-white border border-[#BFDBFE] rounded-xl shadow-lg py-1.5 z-50">
               <button onClick={() => { downloadCSV(result); setShowExportMenu(false) }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#14182B] hover:bg-[#F8F6FE]">CSV</button>
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">CSV</button>
               <button onClick={() => { setShowPdfModal(true); setShowExportMenu(false) }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#14182B] hover:bg-[#F8F6FE]">PDF</button>
+                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">PDF</button>
             </div>
           )}
         </div>
-        <button onClick={onReset} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#5B3DF5] hover:bg-[#F1EDFF] rounded-lg transition-colors">
+        <button onClick={onReset} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2563EB] hover:bg-[#DBEAFE] rounded-lg transition-colors">
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m13.657-6.657l-.707.707M7.05 16.95l-.707.707m11.314 0l-.707-.707M7.05 7.05l-.707-.707" />
           </svg>
           New report
         </button>
         {showPdfModal && (
-          <div className="absolute left-full ml-2 bottom-0 w-64 bg-white border border-[#E7E2F0] rounded-xl shadow-lg p-4 z-50">
-            <p className="text-sm font-semibold text-[#14182B] mb-1">Download PDF report</p>
+          <div className="absolute left-full ml-2 bottom-0 w-64 bg-white border border-[#BFDBFE] rounded-xl shadow-lg p-4 z-50">
+            <p className="text-sm font-semibold text-[#172554] mb-1">Download PDF report</p>
             <p className="text-xs text-[#667085] mb-3">Sign up to download full PDF reports for your brand</p>
             <div className="flex gap-2">
-              <Link to="/pricing" className="flex-1 text-center bg-[#5B3DF5] text-white text-xs font-semibold px-3 py-2 rounded-lg">
+              <Link to="/pricing" className="flex-1 text-center bg-[#2563EB] text-white text-xs font-semibold px-3 py-2 rounded-lg">
                 Create account
               </Link>
-              <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#F8F6FE]">
+              <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#EFF6FF]">
                 Not now
               </button>
             </div>
@@ -248,10 +305,17 @@ function ReportActions({ result, onReset, sidebar = false }) {
     )
   }
 
-  const btnClass = 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#E7E2F0] rounded-lg bg-white hover:bg-[#F8F6FE] text-[#14182B] transition-colors'
+  const btnClass = 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#BFDBFE] rounded-lg bg-white hover:bg-[#EFF6FF] text-[#172554] transition-colors'
 
   return (
     <div className="flex items-center gap-2 print:hidden">
+      {showEmailModal && <EmailModal />}
+      <button onClick={() => setShowEmailModal(true)} className={btnClass}>
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        Email report
+      </button>
       <button onClick={handleShare} className={btnClass}>
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
@@ -270,11 +334,11 @@ function ReportActions({ result, onReset, sidebar = false }) {
           </svg>
         </button>
         {showExportMenu && (
-          <div className="absolute top-full right-0 mt-2 w-36 bg-white border border-[#E7E2F0] rounded-xl shadow-lg py-1.5 z-50">
+          <div className="absolute top-full right-0 mt-2 w-36 bg-white border border-[#BFDBFE] rounded-xl shadow-lg py-1.5 z-50">
             <button onClick={() => { downloadCSV(result); setShowExportMenu(false) }}
-              className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#14182B] hover:bg-[#F8F6FE]">CSV</button>
+              className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">CSV</button>
             <button onClick={() => { setShowPdfModal(true); setShowExportMenu(false) }}
-              className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#14182B] hover:bg-[#F8F6FE]">PDF</button>
+              className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">PDF</button>
           </div>
         )}
       </div>
@@ -286,19 +350,19 @@ function ReportActions({ result, onReset, sidebar = false }) {
         Print
       </button>
 
-      <button onClick={onReset} className="flex items-center gap-1 text-sm font-semibold text-[#5B3DF5] hover:text-[#4c30dd] ml-2">
+      <button onClick={onReset} className="flex items-center gap-1 text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8] ml-2">
         ← New report
       </button>
 
       {showPdfModal && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-[#E7E2F0] rounded-xl shadow-lg p-4 z-50">
-          <p className="text-sm font-semibold text-[#14182B] mb-1">Download PDF report</p>
+        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-[#BFDBFE] rounded-xl shadow-lg p-4 z-50">
+          <p className="text-sm font-semibold text-[#172554] mb-1">Download PDF report</p>
           <p className="text-xs text-[#667085] mb-3">Sign up to download full PDF reports for your brand</p>
           <div className="flex gap-2">
-            <Link to="/pricing" className="flex-1 text-center bg-[#5B3DF5] text-white text-xs font-semibold px-3 py-2 rounded-lg">
+            <Link to="/pricing" className="flex-1 text-center bg-[#2563EB] text-white text-xs font-semibold px-3 py-2 rounded-lg">
               Create account
             </Link>
-            <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#F8F6FE]">
+            <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#EFF6FF]">
               Not now
             </button>
           </div>
@@ -313,9 +377,9 @@ function ReportActions({ result, onReset, sidebar = false }) {
 function PlatformMomentChip({ platformKey }) {
   const { Icon, label } = PLATFORM_ICONS[platformKey]
   return (
-    <div className="chip-scan inline-flex items-center gap-2 bg-white border border-[#E8E2F5] rounded-full px-3 py-1.5 mt-2.5" style={{ '--i': 0 }}>
+    <div className="chip-scan inline-flex items-center gap-2 bg-white border border-[#BFDBFE] rounded-full px-3 py-1.5 mt-2.5" style={{ '--i': 0 }}>
       <Icon size={16} />
-      <span className="text-xs font-semibold text-[#14182B]">{label}</span>
+      <span className="text-xs font-semibold text-[#172554]">{label}</span>
       <span className="text-xs text-[#677085]">· Checking 8 buyer questions</span>
     </div>
   )
@@ -324,7 +388,7 @@ function PlatformMomentChip({ platformKey }) {
 function StepRow({ step, state, isLast }) {
   return (
     <div className="relative flex items-start gap-4 pb-5 last:pb-0">
-      {!isLast && <span className="absolute left-[9px] top-6 bottom-0 w-px bg-[#E8E2F5]" />}
+      {!isLast && <span className="absolute left-[9px] top-6 bottom-0 w-px bg-[#BFDBFE]" />}
       <div className="relative z-10 flex-shrink-0 mt-0.5">
         {state === 'done' && (
           <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
@@ -336,20 +400,20 @@ function StepRow({ step, state, isLast }) {
         {state === 'active' && (
           <div className="relative w-5 h-5">
             <div className="absolute inset-0 rounded-full border-2 border-[#E3D9FB]" />
-            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#5B3DF5]" style={{ animation: 'spin 1.4s linear infinite' }} />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#2563EB]" style={{ animation: 'spin 1.4s linear infinite' }} />
           </div>
         )}
         {state === 'upcoming' && (
-          <div className="w-5 h-5 rounded-full border-2 border-[#E3D9FB] bg-[#F8F6FE]" />
+          <div className="w-5 h-5 rounded-full border-2 border-[#E3D9FB] bg-[#EFF6FF]" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className={`text-[15px] font-semibold transition-colors duration-300 ${state === 'upcoming' ? 'text-[#9CA3B8]' : 'text-[#14182B]'}`}>
+          <p className={`text-[15px] font-semibold transition-colors duration-300 ${state === 'upcoming' ? 'text-[#9CA3B8]' : 'text-[#172554]'}`}>
             {step.label}
           </p>
           {state === 'active' && (
-            <span className="text-[10px] font-bold text-[#5B3DF5] uppercase tracking-wide flex-shrink-0">Working</span>
+            <span className="text-[10px] font-bold text-[#2563EB] uppercase tracking-wide flex-shrink-0">Working</span>
           )}
         </div>
         {state === 'done' && (
@@ -409,12 +473,12 @@ function AnalysisProgress({ input, done, onViewReport }) {
     <div className="min-h-screen bg-[#FCFAF6] flex items-center justify-center py-16">
       <div className="w-full max-w-[820px] mx-auto px-6 animate-fade-in-up">
         <div className="text-center mb-8">
-          <p className="text-xs font-bold text-[#5B3DF5] uppercase tracking-widest mb-2">Analysing</p>
-          <h2 className="text-3xl font-bold text-[#14182B] mb-2">{domain || 'your website'}</h2>
+          <p className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-2">Analysing</p>
+          <h2 className="text-3xl font-bold text-[#172554] mb-2">{domain || 'your website'}</h2>
           <p className="text-[#677085] text-[15px]">We're checking how AI understands, mentions, and recommends your brand.</p>
         </div>
 
-        <div className="bg-white border border-[#E8E2F5] rounded-[22px] p-8 mb-5">
+        <div className="bg-white border border-[#BFDBFE] rounded-[22px] p-8 mb-5">
           {STEPS.map((step, i) => {
             const state = i < displayStep ? 'done' : i === displayStep ? 'active' : 'upcoming'
             return <StepRow key={step.label} step={step} state={state} isLast={i === STEPS.length - 1} />
@@ -422,27 +486,27 @@ function AnalysisProgress({ input, done, onViewReport }) {
         </div>
 
         {done ? (
-          <div className="bg-white border border-[#E8E2F5] rounded-[22px] p-8 text-center">
+          <div className="bg-white border border-[#BFDBFE] rounded-[22px] p-8 text-center">
             <div className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-lg font-bold text-[#14182B] mb-1">Report ready — opening now…</p>
+            <p className="text-lg font-bold text-[#172554] mb-1">Report ready — opening now…</p>
             <p className="text-sm text-[#677085]">Taking you to your AI visibility report.</p>
           </div>
         ) : (
           <div className={`bg-[#FFF1E6] rounded-[22px] p-6 border border-[#FFD8C2] transition-opacity duration-500 ${insightVisible ? 'opacity-100' : 'opacity-0'}`}>
             <p className="text-[10px] font-black text-[#B4632A] uppercase tracking-[0.2em] mb-3">While we check</p>
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-[#5B3DF5] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d={INSIGHT_ICONS[insight.icon]} />
               </svg>
-              <p className="text-sm font-medium text-[#14182B] leading-relaxed">{insight.text}</p>
+              <p className="text-sm font-medium text-[#172554] leading-relaxed">{insight.text}</p>
             </div>
             <div className="flex gap-1.5 justify-center mt-4">
               {INSIGHTS.map((_, i) => (
-                <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === insightIndex ? 'w-4 bg-[#5B3DF5]' : 'w-1.5 bg-[#F0C9AE]'}`} />
+                <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === insightIndex ? 'w-4 bg-[#2563EB]' : 'w-1.5 bg-[#F0C9AE]'}`} />
               ))}
             </div>
           </div>
@@ -463,12 +527,12 @@ function CircularProgress({ pct, size = 56, stroke = 5 }) {
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#F1EDFF" strokeWidth={stroke} fill="none" />
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#5B3DF5" strokeWidth={stroke} fill="none"
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="#DBEAFE" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="#2563EB" strokeWidth={stroke} fill="none"
           strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-[#5B3DF5]">{pct}%</span>
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-[#2563EB]">{pct}%</span>
     </div>
   )
 }
@@ -477,31 +541,31 @@ function SummaryRow({ citedCount, totalPrompts, gapsCount, topCompetitor, onView
   const pct = totalPrompts > 0 ? Math.round((citedCount / totalPrompts) * 100) : 0
   return (
     <div className="grid md:grid-cols-3 gap-5 mb-14">
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 flex items-center justify-between transition-all hover:border-[#5B3DF5]/40 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 flex items-center justify-between transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
         <div>
           <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">Your AI visibility</p>
-          <p className="text-3xl font-bold text-[#14182B]">{citedCount} / {totalPrompts}</p>
+          <p className="text-3xl font-bold text-[#172554]">{citedCount} / {totalPrompts}</p>
           <p className="text-sm text-[#667085] mt-1">buyer questions where AI mentioned you</p>
         </div>
         <CircularProgress pct={pct} />
       </div>
 
-      <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-6 transition-all hover:border-[#5B3DF5]/40 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-6 transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
         <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-2">Biggest gap</p>
-        <p className="text-3xl font-bold text-[#14182B]">{gapsCount}</p>
+        <p className="text-3xl font-bold text-[#172554]">{gapsCount}</p>
         <p className="text-sm text-[#667085] mt-1 mb-3">high-intent prompt{gapsCount === 1 ? '' : 's'} where competitors were cited instead</p>
         {gapsCount > 0 && (
           <button onClick={onViewGap} className="text-xs font-semibold text-[#B4632A] hover:underline">View gap ↓</button>
         )}
       </div>
 
-      <div className="bg-[#F1EDFF] border border-[#DCD1F7] rounded-2xl p-6 transition-all hover:border-[#5B3DF5]/40 hover:-translate-y-0.5 hover:shadow-md">
-        <p className="text-[11px] font-bold text-[#5B3DF5] uppercase tracking-wide mb-2">Top competitor</p>
+      <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-6 transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
+        <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wide mb-2">Top competitor</p>
         <div className="flex items-center gap-3 mb-1">
-          <div className="w-9 h-9 rounded-full bg-white border border-[#DCD1F7] flex items-center justify-center text-sm font-bold text-[#5B3DF5] flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-white border border-[#DCD1F7] flex items-center justify-center text-sm font-bold text-[#2563EB] flex-shrink-0">
             {topCompetitor ? topCompetitor[0].charAt(0).toUpperCase() : '—'}
           </div>
-          <p className="text-xl font-bold text-[#14182B] truncate">{topCompetitor ? topCompetitor[0] : 'None cited'}</p>
+          <p className="text-xl font-bold text-[#172554] truncate">{topCompetitor ? topCompetitor[0] : 'None cited'}</p>
         </div>
         <p className="text-sm text-[#667085]">{topCompetitor ? `cited in ${topCompetitor[1]}% of answers checked` : 'No competitors cited yet'}</p>
       </div>
@@ -515,7 +579,7 @@ function MissedPromptCard({ item, brand }) {
   const platform = primary ? PLATFORM_ICONS[primary.llm] : null
 
   return (
-    <div id="missed-prompt-card" className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden border-t-4 border-t-[#FFB27A] scroll-mt-24">
+    <div id="missed-prompt-card" className="bg-white border border-[#BFDBFE] rounded-2xl overflow-hidden border-t-4 border-t-[#FFB27A] scroll-mt-24">
       <div className="p-6">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
@@ -525,14 +589,14 @@ function MissedPromptCard({ item, brand }) {
             <span className="text-[11px] font-bold text-[#E08A45] uppercase tracking-wide">Missed buyer question</span>
           </div>
           {platform && (
-            <span className="inline-flex items-center gap-1.5 bg-[#F8F6FE] border border-[#E7E2F0] rounded-full px-2.5 py-1 flex-shrink-0">
+            <span className="inline-flex items-center gap-1.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-full px-2.5 py-1 flex-shrink-0">
               <platform.Icon size={14} />
-              <span className="text-xs font-medium text-[#14182B]">{platform.label}</span>
+              <span className="text-xs font-medium text-[#172554]">{platform.label}</span>
             </span>
           )}
         </div>
 
-        <p className="text-lg font-bold text-[#14182B] leading-snug mb-4">“{item.prompt}”</p>
+        <p className="text-lg font-bold text-[#172554] leading-snug mb-4">"{item.prompt}"</p>
 
         <div className="bg-[#FFF1E7] rounded-lg px-3 py-2 mb-4">
           <p className="text-sm font-semibold text-[#B4632A]">{brand} was not cited in this answer.</p>
@@ -540,17 +604,17 @@ function MissedPromptCard({ item, brand }) {
 
         {primary && (
           <>
-            <blockquote className={`text-[15px] text-[#14182B]/90 leading-relaxed border-l-4 border-[#E7E2F0] pl-4 ${expanded ? '' : 'line-clamp-3'}`}>
-              “{stripMarkdown(primary.answer)}”
+            <blockquote className={`text-[15px] text-[#172554]/90 leading-relaxed border-l-4 border-[#BFDBFE] pl-4 ${expanded ? '' : 'line-clamp-3'}`}>
+              "{stripMarkdown(primary.answer)}"
             </blockquote>
-            <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd] mt-2">
+            <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] mt-2">
               {expanded ? 'Show less ←' : 'Read full answer →'}
             </button>
           </>
         )}
 
         {item.competitorsSeen?.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap mt-5 pt-4 border-t border-[#E7E2F0]">
+          <div className="flex items-center gap-2 flex-wrap mt-5 pt-4 border-t border-[#BFDBFE]">
             <span className="text-sm text-[#667085]">Cited instead:</span>
             {item.competitorsSeen.map(c => (
               <span key={c} className="text-xs font-semibold bg-[#FFE4CE] text-[#B4632A] px-2.5 py-1 rounded-full">{c}</span>
@@ -573,24 +637,24 @@ function ActionPanel({ item, action, onViewActionPlan }) {
   }
 
   return (
-    <div className="bg-[#F1EDFF] border border-[#DCD1F7] rounded-2xl p-6 h-full flex flex-col">
-      <h3 className="text-lg font-bold text-[#14182B] mb-4">What could get you cited here</h3>
+    <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-6 h-full flex flex-col">
+      <h3 className="text-lg font-bold text-[#172554] mb-4">What could get you cited here</h3>
       <ul className="space-y-3 mb-6 flex-1">
         {bullets.map((b, i) => (
           <li key={i} className="flex items-start gap-2.5">
-            <svg className="w-4 h-4 text-[#5B3DF5] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-[15px] text-[#14182B]/90 leading-relaxed">{b}</span>
+            <span className="text-[15px] text-[#172554]/90 leading-relaxed">{b}</span>
           </li>
         ))}
       </ul>
       <div className="bg-white/70 border border-[#DCD1F7] rounded-xl px-4 py-3 mb-5">
-        <p className="text-[11px] font-bold text-[#5B3DF5] uppercase tracking-wide mb-1">Suggested content angle</p>
-        <p className="text-sm text-[#14182B] font-medium">“{item.prompt}”</p>
+        <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wide mb-1">Suggested content angle</p>
+        <p className="text-sm text-[#172554] font-medium">"{item.prompt}"</p>
       </div>
       <button onClick={onViewActionPlan}
-        className="inline-flex items-center justify-center gap-1.5 bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-5 py-3 rounded-xl transition-colors text-sm">
+        className="inline-flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-3 rounded-xl transition-colors text-sm">
         View full action plan →
       </button>
     </div>
@@ -605,37 +669,37 @@ function CompetitorInsightCard({ comp, result, onComparePositioning }) {
   const tags = ['Marketplace', 'Quick hiring', 'Specialist services', 'Freelancers'].slice(0, 4)
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 transition-all hover:border-[#5B3DF5]/40 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#F1EDFF] rounded-full flex items-center justify-center text-sm font-bold text-[#5B3DF5]">
+          <div className="w-10 h-10 bg-[#DBEAFE] rounded-full flex items-center justify-center text-sm font-bold text-[#2563EB]">
             {comp.charAt(0).toUpperCase()}
           </div>
           <div>
-            <button className="text-[15px] font-bold text-[#14182B] hover:text-[#5B3DF5] transition-colors">{comp}</button>
+            <button className="text-[15px] font-bold text-[#172554] hover:text-[#2563EB] transition-colors">{comp}</button>
             <p className="text-sm text-[#667085]">Cited in {evidence.length} of {result.prompts?.length} buyer questions</p>
           </div>
         </div>
-        <span className="text-sm font-bold text-[#5B3DF5] bg-[#F1EDFF] px-2.5 py-1 rounded-full flex-shrink-0">{agg[comp]}% mention rate</span>
+        <span className="text-sm font-bold text-[#2563EB] bg-[#DBEAFE] px-2.5 py-1 rounded-full flex-shrink-0">{agg[comp]}% mention rate</span>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-4">
         {tags.map(t => (
-          <span key={t} className="text-xs font-medium text-[#667085] bg-[#F8F6FE] border border-[#E7E2F0] px-2.5 py-1 rounded-full">{t}</span>
+          <span key={t} className="text-xs font-medium text-[#667085] bg-[#EFF6FF] border border-[#BFDBFE] px-2.5 py-1 rounded-full">{t}</span>
         ))}
       </div>
 
       <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">What {LLM_COLORS[best.llm]?.label || 'AI'} highlighted</p>
-      <blockquote className="text-sm text-[#14182B]/90 bg-[#F1EDFF] rounded-lg px-4 py-3 leading-relaxed mb-4">
-        “{best.snippet}”
+      <blockquote className="text-sm text-[#172554]/90 bg-[#DBEAFE] rounded-lg px-4 py-3 leading-relaxed mb-4">
+        "{best.snippet}"
       </blockquote>
 
       <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-1">Why this matters for you</p>
-      <p className="text-sm text-[#14182B]/90 leading-relaxed mb-4">
+      <p className="text-sm text-[#172554]/90 leading-relaxed mb-4">
         {comp} is being associated with language your content may not yet own. Closing that gap is how you get cited instead.
       </p>
 
-      <button onClick={onComparePositioning} className="text-sm font-semibold text-[#5B3DF5] hover:text-[#4c30dd]">
+      <button onClick={onComparePositioning} className="text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8]">
         Compare your positioning →
       </button>
     </div>
@@ -645,14 +709,14 @@ function CompetitorInsightCard({ comp, result, onComparePositioning }) {
 function NextBestMove({ item, onGenerateBrief }) {
   return (
     <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-8 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5B3DF5]" />
+      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#2563EB]" />
       <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-3">Next best move</p>
-      <h3 className="text-2xl font-bold text-[#14182B] leading-snug mb-3">Create one page for the prompt you are missing.</h3>
-      <p className="text-[15px] text-[#14182B]/90 leading-relaxed mb-6 max-w-2xl">
-        Your highest-impact opportunity is content that directly answers “{item.prompt}” — the exact language AI is already using to cite competitors instead of you.
+      <h3 className="text-2xl font-bold text-[#172554] leading-snug mb-3">Create one page for the prompt you are missing.</h3>
+      <p className="text-[15px] text-[#172554]/90 leading-relaxed mb-6 max-w-2xl">
+        Your highest-impact opportunity is content that directly answers "{item.prompt}" — the exact language AI is already using to cite competitors instead of you.
       </p>
       <button onClick={onGenerateBrief}
-        className="inline-flex items-center gap-1.5 bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
+        className="inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
         Generate content brief →
       </button>
       <p className="text-xs text-[#667085]">Based on live AI answers and competitor citations.</p>
@@ -715,7 +779,7 @@ function OverviewTab({ result, onViewActionPlan, onComparePositioning }) {
         </div>
       ) : featured && (
         <div className="mb-14">
-          <h2 className="text-2xl font-bold text-[#14182B] mb-1.5">Where AI does not mention you</h2>
+          <h2 className="text-2xl font-bold text-[#172554] mb-1.5">Where AI does not mention you</h2>
           <p className="text-[#667085] mb-6">Here is the buyer question where competitors appeared and you did not.</p>
           <div className="grid lg:grid-cols-2 gap-6 items-stretch">
             <MissedPromptCard item={featured} brand={brand} />
@@ -726,7 +790,7 @@ function OverviewTab({ result, onViewActionPlan, onComparePositioning }) {
 
       {topCompetitors.length > 0 && (
         <div className="mb-14">
-          <h2 className="text-2xl font-bold text-[#14182B] mb-1.5">Why AI is citing your competitors</h2>
+          <h2 className="text-2xl font-bold text-[#172554] mb-1.5">Why AI is citing your competitors</h2>
           <p className="text-[#667085] mb-6">The themes and language patterns AI associates with them.</p>
           <div className="space-y-5">
             {topCompetitors.map(comp => (
@@ -755,7 +819,7 @@ function EngineFilter({ value, onChange, llmsQueried }) {
         return (
           <button key={opt} onClick={() => onChange(opt)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold border transition-colors ${
-              active ? 'bg-[#F1EDFF] border-[#5B3DF5] text-[#5B3DF5]' : 'bg-white border-[#E7E2F0] text-[#667085] hover:border-[#DCD1F7]'
+              active ? 'bg-[#DBEAFE] border-[#2563EB] text-[#2563EB]' : 'bg-white border-[#BFDBFE] text-[#667085] hover:border-[#DCD1F7]'
             }`}>
             {platform && <platform.Icon size={15} />}
             {opt === 'all' ? 'All engines' : platform?.label}
@@ -770,22 +834,22 @@ function AnswerSummaryRow({ citedCount, total, missedCount, topCompetitor }) {
   const pct = total > 0 ? Math.round((citedCount / total) * 100) : 0
   return (
     <div className="grid md:grid-cols-3 gap-5 mb-10">
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 flex items-center justify-between">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 flex items-center justify-between">
         <div>
           <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">Your mention rate</p>
-          <p className="text-3xl font-bold text-[#14182B]">{citedCount} / {total}</p>
+          <p className="text-3xl font-bold text-[#172554]">{citedCount} / {total}</p>
           <p className="text-sm text-[#667085] mt-1">You appeared in {citedCount} buyer question{citedCount === 1 ? '' : 's'} checked.</p>
         </div>
         <CircularProgress pct={pct} />
       </div>
       <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-6">
         <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-2">Missed questions</p>
-        <p className="text-3xl font-bold text-[#14182B]">{missedCount}</p>
+        <p className="text-3xl font-bold text-[#172554]">{missedCount}</p>
         <p className="text-sm text-[#667085] mt-1">Questions where AI did not mention your brand.</p>
       </div>
-      <div className="bg-[#F1EDFF] border border-[#DCD1F7] rounded-2xl p-6">
-        <p className="text-[11px] font-bold text-[#5B3DF5] uppercase tracking-wide mb-2">Most cited competitor</p>
-        <p className="text-xl font-bold text-[#14182B] mb-1 truncate">{topCompetitor ? topCompetitor.name : 'None cited'}</p>
+      <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-6">
+        <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wide mb-2">Most cited competitor</p>
+        <p className="text-xl font-bold text-[#172554] mb-1 truncate">{topCompetitor ? topCompetitor.name : 'None cited'}</p>
         <p className="text-sm text-[#667085]">
           {topCompetitor ? `Appeared in ${topCompetitor.count} of ${total} buyer question${total === 1 ? '' : 's'}.` : 'No competitors cited yet.'}
         </p>
@@ -799,15 +863,15 @@ function AnswerQuoteCard({ llm, answer }) {
   const platform = PLATFORM_ICONS[llm]
   if (!platform || !answer) return null
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-xl p-4">
+    <div className="bg-white border border-[#BFDBFE] rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">
         <platform.Icon size={16} />
-        <span className="text-sm font-semibold text-[#14182B]">What {platform.label} said</span>
+        <span className="text-sm font-semibold text-[#172554]">What {platform.label} said</span>
       </div>
-      <div className={`text-sm text-[#14182B]/85 leading-relaxed prose prose-sm max-w-none prose-p:my-1 ${expanded ? '' : 'line-clamp-3'}`}>
+      <div className={`text-sm text-[#172554]/85 leading-relaxed prose prose-sm max-w-none prose-p:my-1 ${expanded ? '' : 'line-clamp-3'}`}>
         <ReactMarkdown>{answer}</ReactMarkdown>
       </div>
-      <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd] mt-2">
+      <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] mt-2">
         {expanded ? 'Show less ←' : 'Read full answer →'}
       </button>
     </div>
@@ -819,7 +883,7 @@ function ExpandedDetail({ row, engineFilter, onBuildActionPlan }) {
   const competitorList = row.competitorsSurfaced.length > 0 ? row.competitorsSurfaced.join(' and ') : 'Competitors'
 
   return (
-    <div className="px-6 pb-6 bg-[#FBFAFE] border-t border-[#E7E2F0] grid lg:grid-cols-2 gap-6">
+    <div className="px-6 pb-6 bg-[#FBFAFE] border-t border-[#BFDBFE] grid lg:grid-cols-2 gap-6">
       <div className="space-y-3 pt-5">
         <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">AI answers</p>
         {engines.map(llm => (
@@ -833,8 +897,8 @@ function ExpandedDetail({ row, engineFilter, onBuildActionPlan }) {
             <p className="text-sm text-emerald-900/80 leading-relaxed">Keep this page fresh — AI models re-crawl sources over time, so staying accurate here protects the citation.</p>
           </div>
         ) : (
-          <div className="bg-[#F1EDFF] border border-[#DCD1F7] rounded-xl p-5 h-full flex flex-col">
-            <p className="text-sm font-bold text-[#14182B] mb-3">Why you were missed</p>
+          <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-xl p-5 h-full flex flex-col">
+            <p className="text-sm font-bold text-[#172554] mb-3">Why you were missed</p>
             <ul className="space-y-2 mb-5 flex-1">
               {[
                 'Your site does not clearly target this use case',
@@ -842,17 +906,17 @@ function ExpandedDetail({ row, engineFilter, onBuildActionPlan }) {
                 'No dedicated page or proof point supports this topic',
               ].map((reason, i) => (
                 <li key={i} className="flex items-start gap-2.5">
-                  <svg className="w-4 h-4 text-[#5B3DF5] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-4M18 2l4 4-9 9H9v-4l9-9z" />
                   </svg>
-                  <span className="text-sm text-[#14182B]/90 leading-relaxed">{reason}</span>
+                  <span className="text-sm text-[#172554]/90 leading-relaxed">{reason}</span>
                 </li>
               ))}
             </ul>
             <div className="border-t border-[#DCD1F7] pt-4">
-              <p className="text-xs font-bold text-[#5B3DF5] uppercase tracking-wide mb-1">Recommended next move</p>
-              <p className="text-sm text-[#14182B] mb-3">Create or improve a page around: “{row.prompt}”</p>
-              <button onClick={onBuildActionPlan} className="text-sm font-semibold text-[#5B3DF5] hover:text-[#4c30dd]">
+              <p className="text-xs font-bold text-[#2563EB] uppercase tracking-wide mb-1">Recommended next move</p>
+              <p className="text-sm text-[#172554] mb-3">Create or improve a page around: "{row.prompt}"</p>
+              <button onClick={onBuildActionPlan} className="text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8]">
                 Build action plan →
               </button>
             </div>
@@ -868,7 +932,7 @@ function QuestionRow({ row, expanded, onToggle, activeCompetitor, onCompetitorCl
     <div>
       <button onClick={onToggle}
         className="w-full text-left px-6 py-5 min-h-[72px] flex items-center gap-4 hover:bg-[#FBFAFE] transition-colors">
-        <span className="flex-1 text-base font-semibold text-[#14182B]">{row.prompt}</span>
+        <span className="flex-1 text-base font-semibold text-[#172554]">{row.prompt}</span>
 
         <div className="w-32 flex-shrink-0">
           {row.mentioned ? (
@@ -893,7 +957,7 @@ function QuestionRow({ row, expanded, onToggle, activeCompetitor, onCompetitorCl
             <span key={c} role="button" tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onCompetitorClick(c) }}
               className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
-                activeCompetitor === c ? 'bg-[#5B3DF5] text-white' : 'bg-[#F1EDFF] text-[#5B3DF5] hover:bg-[#E3D9FB]'
+                activeCompetitor === c ? 'bg-[#2563EB] text-white' : 'bg-[#DBEAFE] text-[#2563EB] hover:bg-[#E3D9FB]'
               }`}>
               {c}
             </span>
@@ -918,13 +982,13 @@ function QuestionRow({ row, expanded, onToggle, activeCompetitor, onCompetitorCl
 function QuestionCoverageList({ rows, expandedIdx, setExpandedIdx, activeCompetitor, setActiveCompetitor, onBuildActionPlan, engineFilter }) {
   if (rows.length === 0) {
     return (
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-8 text-center text-sm text-[#667085]">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-8 text-center text-sm text-[#667085]">
         No buyer questions match this filter.
       </div>
     )
   }
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl divide-y divide-[#E7E2F0] overflow-hidden">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl divide-y divide-[#BFDBFE] overflow-hidden">
       {rows.map((row) => (
         <QuestionRow key={row.prompt} row={row}
           expanded={expandedIdx === row.prompt} onToggle={() => setExpandedIdx(expandedIdx === row.prompt ? null : row.prompt)}
@@ -943,18 +1007,18 @@ function CompetitorPresenceMap({ brand, compData, total, onCompetitorClick }) {
   const radius = 95
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-7">
-      <h2 className="text-xl font-bold text-[#14182B] mb-1">Competitor presence map</h2>
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-7">
+      <h2 className="text-xl font-bold text-[#172554] mb-1">Competitor presence map</h2>
       <p className="text-[#667085] mb-6">Which brands AI brings up when your brand is absent.</p>
       <div className="grid lg:grid-cols-[260px_1fr] gap-8 items-start">
         <div>
           <div className="relative mx-auto" style={{ width: 250, height: 250 }}>
             {[80, 55, 32].map(r => (
-              <div key={r} className="absolute border border-[#E7E2F0] rounded-full"
+              <div key={r} className="absolute border border-[#BFDBFE] rounded-full"
                 style={{ width: r * 2, height: r * 2, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
             ))}
             <div className="absolute flex flex-col items-center gap-1" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10 }}>
-              <div className="w-14 h-14 rounded-full bg-[#5B3DF5] flex items-center justify-center text-white text-[10px] font-bold text-center leading-tight px-1">
+              <div className="w-14 h-14 rounded-full bg-[#2563EB] flex items-center justify-center text-white text-[10px] font-bold text-center leading-tight px-1">
                 {brand.length > 8 ? brand.slice(0, 7) + '…' : brand}
               </div>
             </div>
@@ -976,10 +1040,10 @@ function CompetitorPresenceMap({ brand, compData, total, onCompetitorClick }) {
                     style={{ width: size, height: size }}>
                     {comp.count} / {total}
                     {hovered === comp.name && (
-                      <div className="absolute bottom-full mb-2 w-44 bg-[#14182B] text-white text-[11px] rounded-lg px-3 py-2 leading-relaxed z-20 text-left">
+                      <div className="absolute bottom-full mb-2 w-44 bg-[#172554] text-white text-[11px] rounded-lg px-3 py-2 leading-relaxed z-20 text-left">
                         <p className="font-semibold mb-0.5">{comp.name}</p>
                         <p className="text-white/80">{comp.count} of {total} questions</p>
-                        {comp.prompts.slice(0, 2).map(p => <p key={p} className="text-white/70 truncate mt-0.5">“{p}”</p>)}
+                        {comp.prompts.slice(0, 2).map(p => <p key={p} className="text-white/70 truncate mt-0.5">"{p}"</p>)}
                       </div>
                     )}
                   </div>
@@ -997,9 +1061,9 @@ function CompetitorPresenceMap({ brand, compData, total, onCompetitorClick }) {
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-3">Competitor mentions</p>
           <div className="space-y-2">
             {compData.map(comp => (
-              <div key={comp.name} className={`rounded-xl p-4 transition-all ${comp.name === topName ? 'bg-[#FFF1E7] border border-[#F5DCC4]' : 'border border-[#E7E2F0] hover:border-[#DCD1F7]'}`}>
+              <div key={comp.name} className={`rounded-xl p-4 transition-all ${comp.name === topName ? 'bg-[#FFF1E7] border border-[#F5DCC4]' : 'border border-[#BFDBFE] hover:border-[#DCD1F7]'}`}>
                 <div className="flex items-center justify-between gap-3">
-                  <button onClick={() => onCompetitorClick(comp.name)} className="font-semibold text-[#14182B] hover:text-[#5B3DF5] transition-colors text-left">
+                  <button onClick={() => onCompetitorClick(comp.name)} className="font-semibold text-[#172554] hover:text-[#2563EB] transition-colors text-left">
                     {comp.name}
                   </button>
                   <span className="text-sm text-[#667085] flex-shrink-0">
@@ -1025,14 +1089,14 @@ function HighestPriorityOpportunity({ topCompetitor, brand, llmsQueried, onSeeHo
   const engineNames = llmsQueried.map(l => LLM_COLORS[l]?.label || l).join(' and ')
   return (
     <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-8 relative overflow-hidden mt-10">
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5B3DF5]" />
+      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#2563EB]" />
       <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-3">Highest-priority opportunity</p>
-      <h3 className="text-2xl font-bold text-[#14182B] leading-snug mb-3">Own the conversation {topCompetitor.name} is winning.</h3>
-      <p className="text-[15px] text-[#14182B]/90 leading-relaxed mb-6 max-w-2xl">
+      <h3 className="text-2xl font-bold text-[#172554] leading-snug mb-3">Own the conversation {topCompetitor.name} is winning.</h3>
+      <p className="text-[15px] text-[#172554]/90 leading-relaxed mb-6 max-w-2xl">
         AI cited {topCompetitor.name} because it is strongly associated with the buyer questions above. Build content that connects {brand} to that same need.
       </p>
       <button onClick={onSeeHowToGetCited}
-        className="inline-flex items-center gap-1.5 bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
+        className="inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
         See how to get cited →
       </button>
       <p className="text-xs text-[#667085]">Based on live AI answers across {engineNames}.</p>
@@ -1085,10 +1149,10 @@ function AIAnswersTab({ result, onBuildActionPlan }) {
 
       <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-[#14182B] mb-1.5">Buyer question coverage</h2>
+          <h2 className="text-2xl font-bold text-[#172554] mb-1.5">Buyer question coverage</h2>
           <p className="text-[#667085]">See which high-intent questions mention your brand—and who appears instead.</p>
         </div>
-        <span className="text-xs font-semibold text-[#667085] bg-[#F8F6FE] border border-[#E7E2F0] px-3 py-1.5 rounded-full whitespace-nowrap">
+        <span className="text-xs font-semibold text-[#667085] bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-1.5 rounded-full whitespace-nowrap">
           {total} question{total === 1 ? '' : 's'} tested · {llmsQueried.length} AI engine{llmsQueried.length === 1 ? '' : 's'}
         </span>
       </div>
@@ -1098,8 +1162,8 @@ function AIAnswersTab({ result, onBuildActionPlan }) {
       {activeCompetitor && (
         <div className="flex items-center gap-2 mb-4">
           <span className="text-sm text-[#667085]">Filtered to prompts mentioning</span>
-          <span className="text-xs font-semibold bg-[#5B3DF5] text-white px-2.5 py-1 rounded-full">{activeCompetitor}</span>
-          <button onClick={() => setActiveCompetitor(null)} className="text-xs font-semibold text-[#5B3DF5] hover:underline">Clear</button>
+          <span className="text-xs font-semibold bg-[#2563EB] text-white px-2.5 py-1 rounded-full">{activeCompetitor}</span>
+          <button onClick={() => setActiveCompetitor(null)} className="text-xs font-semibold text-[#2563EB] hover:underline">Clear</button>
         </div>
       )}
 
@@ -1137,7 +1201,7 @@ function ClarityIndicator({ level }) {
   return (
     <div className="flex items-center gap-1.5">
       {[0, 1, 2].map(i => (
-        <div key={i} className={`h-1.5 flex-1 rounded-full ${i < doneCount ? 'bg-[#5B3DF5]' : 'bg-[#E7E2F0]'}`} />
+        <div key={i} className={`h-1.5 flex-1 rounded-full ${i < doneCount ? 'bg-[#2563EB]' : 'bg-[#BFDBFE]'}`} />
       ))}
     </div>
   )
@@ -1146,15 +1210,15 @@ function ClarityIndicator({ level }) {
 function SiteAuditSummaryRow({ clarityLevel, clarityLabel, allowedCount, totalBots, opportunityTitle, opportunityNote, onViewCrawlerDetails, onSeeRecommendation }) {
   return (
     <div className="grid md:grid-cols-3 gap-5 mb-10">
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
         <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">AI understanding</p>
-        <p className="text-xl font-bold text-[#14182B] mb-3">{clarityLabel}</p>
+        <p className="text-xl font-bold text-[#172554] mb-3">{clarityLabel}</p>
         <ClarityIndicator level={clarityLevel} />
         <p className="text-sm text-[#667085] mt-3">
           {clarityLevel === 'clear' ? 'AI has a specific read on your category.' : 'AI can access your site, but your offer is described too broadly.'}
         </p>
       </div>
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
         <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">Crawler access</p>
         <div className="flex items-center gap-2 mb-2">
           <span className="w-6 h-6 rounded-full bg-[#E2F8ED] flex items-center justify-center flex-shrink-0">
@@ -1162,14 +1226,14 @@ function SiteAuditSummaryRow({ clarityLevel, clarityLabel, allowedCount, totalBo
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           </span>
-          <p className="text-xl font-bold text-[#14182B]">{allowedCount} / {totalBots} allowed</p>
+          <p className="text-xl font-bold text-[#172554]">{allowedCount} / {totalBots} allowed</p>
         </div>
         <p className="text-sm text-[#667085] mb-2">Major AI crawlers can reach your website.</p>
-        <button onClick={onViewCrawlerDetails} className="text-xs font-semibold text-[#5B3DF5] hover:underline">View details ↓</button>
+        <button onClick={onViewCrawlerDetails} className="text-xs font-semibold text-[#2563EB] hover:underline">View details ↓</button>
       </div>
       <div className="bg-[#FFF0E5] border border-[#F5DCC4] rounded-2xl p-6">
         <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-2">Biggest opportunity</p>
-        <p className="text-xl font-bold text-[#14182B] mb-2">{opportunityTitle}</p>
+        <p className="text-xl font-bold text-[#172554] mb-2">{opportunityTitle}</p>
         <p className="text-sm text-[#667085] mb-2">{opportunityNote}</p>
         <button onClick={onSeeRecommendation} className="text-xs font-semibold text-[#B4632A] hover:underline">See recommendation →</button>
       </div>
@@ -1179,25 +1243,25 @@ function SiteAuditSummaryRow({ clarityLevel, clarityLabel, allowedCount, totalBo
 
 function AIUnderstandingCard({ category, description, clarityLevel, clarityLabel }) {
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 h-full flex flex-col">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 h-full flex flex-col">
       {category && (
         <div className="mb-4">
           <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-1">Detected category</p>
-          <p className="text-base font-semibold text-[#14182B]">{category}</p>
+          <p className="text-base font-semibold text-[#172554]">{category}</p>
         </div>
       )}
       {description && (
         <div className="mb-5">
           <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">Key message AI picked up</p>
-          <blockquote className="bg-[#F1EDFF] rounded-xl px-4 py-3 text-sm text-[#14182B]/90 leading-relaxed">
-            “{description}”
+          <blockquote className="bg-[#DBEAFE] rounded-xl px-4 py-3 text-sm text-[#172554]/90 leading-relaxed">
+            "{description}"
           </blockquote>
         </div>
       )}
       <div className="mt-auto">
         <div className="flex items-center justify-between mb-1.5">
           <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide">Clarity</p>
-          <span className="text-xs font-semibold text-[#5B3DF5]">{clarityLabel}</span>
+          <span className="text-xs font-semibold text-[#2563EB]">{clarityLabel}</span>
         </div>
         <ClarityIndicator level={clarityLevel} />
         <p className="text-sm text-[#667085] mt-2 leading-relaxed">
@@ -1219,15 +1283,15 @@ function RawCrawlerPreview({ pageData }) {
   const previewText = expanded || !isLong ? pageData.crawlerText : pageData.crawlerText.slice(0, 420) + '…'
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 h-full flex flex-col">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-sm font-bold text-[#14182B]">Raw page content read by crawlers</h3>
-        <span className="text-xs font-semibold text-[#667085] bg-[#F8F6FE] border border-[#E7E2F0] px-2 py-1 rounded-full flex-shrink-0 whitespace-nowrap">
+        <h3 className="text-sm font-bold text-[#172554]">Raw page content read by crawlers</h3>
+        <span className="text-xs font-semibold text-[#667085] bg-[#EFF6FF] border border-[#BFDBFE] px-2 py-1 rounded-full flex-shrink-0 whitespace-nowrap">
           {pageData.wordCount?.toLocaleString()} words indexed
         </span>
       </div>
       <div className="relative flex-1">
-        <div className={`bg-[#F8F7F5] border border-[#E7E2F0] rounded-xl p-4 text-sm text-[#14182B]/80 leading-relaxed ${!expanded ? 'max-h-40 overflow-hidden' : ''}`}>
+        <div className={`bg-[#F8F7F5] border border-[#BFDBFE] rounded-xl p-4 text-sm text-[#172554]/80 leading-relaxed ${!expanded ? 'max-h-40 overflow-hidden' : ''}`}>
           {previewText}
         </div>
         {!expanded && isLong && (
@@ -1235,7 +1299,7 @@ function RawCrawlerPreview({ pageData }) {
         )}
       </div>
       {isLong && (
-        <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd] mt-3 self-start">
+        <button onClick={() => setExpanded(!expanded)} className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] mt-3 self-start">
           {expanded ? 'Show less ←' : 'Show full crawler preview →'}
         </button>
       )}
@@ -1252,15 +1316,15 @@ function CrawlerAccessCard({ bot, status, siteUrl }) {
   const blocked = status === 'blocked'
 
   return (
-    <div className="relative bg-white border border-[#E7E2F0] rounded-xl p-5 overflow-hidden">
+    <div className="relative bg-white border border-[#BFDBFE] rounded-xl p-5 overflow-hidden">
       <div className={`absolute top-0 left-0 right-0 h-1 ${allowed ? 'bg-[#8FD9AE]' : blocked ? 'bg-[#E08A45]' : 'bg-[#D8D2EE]'}`} />
       <div className="flex items-center justify-between mb-2 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {platform && <platform.Icon size={18} />}
-          <span className="font-semibold text-[#14182B] truncate">{platform?.label || bot}</span>
+          <span className="font-semibold text-[#172554] truncate">{platform?.label || bot}</span>
         </div>
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0 ${
-          allowed ? 'bg-[#E2F8ED] text-emerald-700' : blocked ? 'bg-[#FFF0E5] text-[#B4632A]' : 'bg-[#F1EDFF] text-[#667085]'
+          allowed ? 'bg-[#E2F8ED] text-emerald-700' : blocked ? 'bg-[#FFF0E5] text-[#B4632A]' : 'bg-[#DBEAFE] text-[#667085]'
         }`}>
           {allowed && (
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1275,7 +1339,7 @@ function CrawlerAccessCard({ bot, status, siteUrl }) {
         {allowed ? 'Can access public site content.' : blocked ? 'This crawler is blocked — it limits AI citations.' : 'Access could not be verified.'}
       </p>
       {robotsUrl && (
-        <a href={robotsUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd]">
+        <a href={robotsUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8]">
           View robots.txt rule →
         </a>
       )}
@@ -1288,12 +1352,12 @@ function CrawlerAccessSection({ crawlerStatus, siteUrl }) {
   if (entries.length === 0) return null
   return (
     <div>
-      <h2 className="text-2xl font-bold text-[#14182B] mb-1.5">Can AI crawlers access your site?</h2>
+      <h2 className="text-2xl font-bold text-[#172554] mb-1.5">Can AI crawlers access your site?</h2>
       <p className="text-[#667085] mb-6">Access is the first step. It does not guarantee citations, but blocked crawlers can limit what AI systems can read.</p>
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {entries.map(([bot, status]) => <CrawlerAccessCard key={bot} bot={bot} status={status} siteUrl={siteUrl} />)}
       </div>
-      <p className="text-sm text-[#667085] bg-[#F8F6FE] border border-[#E7E2F0] rounded-xl px-4 py-3">
+      <p className="text-sm text-[#667085] bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3">
         Good to know: crawler access helps AI systems read your pages, but clear content and credible sources influence whether they cite you.
       </p>
     </div>
@@ -1307,10 +1371,10 @@ function SourceRow({ source, rank, maxCount, totalPrompts, isOwnSite, expanded, 
       <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-[#FBFAFE] transition-colors">
         <span className="text-sm text-[#9CA3B8] w-4 text-right flex-shrink-0">{rank}</span>
         <img src={`https://www.google.com/s2/favicons?domain=${source.domain}&sz=32`} alt="" className="w-4 h-4 flex-shrink-0" />
-        <span className={`text-sm font-semibold flex-shrink-0 w-40 truncate ${isOwnSite ? 'text-[#5B3DF5]' : 'text-[#14182B]'}`}>{source.domain}</span>
+        <span className={`text-sm font-semibold flex-shrink-0 w-40 truncate ${isOwnSite ? 'text-[#2563EB]' : 'text-[#172554]'}`}>{source.domain}</span>
         <div className="flex-1 min-w-[60px]">
-          <div className="h-2 bg-[#F1EDFF] rounded-full">
-            <div className={`h-2 rounded-full ${isOwnSite ? 'bg-[#5B3DF5]' : 'bg-[#E3AE7D]'}`} style={{ width: `${pct}%` }} />
+          <div className="h-2 bg-[#DBEAFE] rounded-full">
+            <div className={`h-2 rounded-full ${isOwnSite ? 'bg-[#2563EB]' : 'bg-[#E3AE7D]'}`} style={{ width: `${pct}%` }} />
           </div>
         </div>
         <span className="text-xs text-[#667085] flex-shrink-0 hidden sm:block">
@@ -1329,7 +1393,7 @@ function SourceRow({ source, rank, maxCount, totalPrompts, isOwnSite, expanded, 
             return (
               <div key={i} className="flex items-center gap-2 text-sm text-[#667085]">
                 {platform && <platform.Icon size={14} />}
-                <span className="truncate">“{occ.question}”</span>
+                <span className="truncate">"{occ.question}"</span>
               </div>
             )
           })}
@@ -1346,12 +1410,12 @@ function TopCitedSources({ visibility, siteHostname, totalPrompts }) {
   const maxCount = sources[0].count
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl overflow-hidden">
       <div className="p-6 pb-4">
-        <h2 className="text-xl font-bold text-[#14182B] mb-1">Sources AI is citing for your buyer questions</h2>
+        <h2 className="text-xl font-bold text-[#172554] mb-1">Sources AI is citing for your buyer questions</h2>
         <p className="text-[#667085]">These are the domains appearing most often in the answers checked.</p>
       </div>
-      <div className="divide-y divide-[#E7E2F0]">
+      <div className="divide-y divide-[#BFDBFE]">
         {sources.map((s, i) => (
           <SourceRow key={s.domain} source={s} rank={i + 1} maxCount={maxCount} totalPrompts={totalPrompts}
             isOwnSite={!!siteHostname && s.domain.includes(siteHostname)}
@@ -1365,10 +1429,10 @@ function TopCitedSources({ visibility, siteHostname, totalPrompts }) {
 function WhatToFixFirst({ brand, onBuildActionPlan }) {
   return (
     <div className="bg-[#FFF0E5] border border-[#F5DCC4] rounded-2xl p-8 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5B3DF5]" />
+      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#2563EB]" />
       <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-3">What to fix first</p>
-      <h3 className="text-2xl font-bold text-[#14182B] leading-snug mb-3">Make your category obvious in the first screen of your homepage.</h3>
-      <p className="text-[15px] text-[#14182B]/90 leading-relaxed mb-5 max-w-2xl">
+      <h3 className="text-2xl font-bold text-[#172554] leading-snug mb-3">Make your category obvious in the first screen of your homepage.</h3>
+      <p className="text-[15px] text-[#172554]/90 leading-relaxed mb-5 max-w-2xl">
         AI can read your site, but it is picking up many features before it understands the one clear problem {brand} solves.
       </p>
       <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Recommended improvements</p>
@@ -1380,15 +1444,15 @@ function WhatToFixFirst({ brand, onBuildActionPlan }) {
           'Add proof points that show why buyers should choose you',
         ].map((item, i) => (
           <li key={i} className="flex items-start gap-2.5">
-            <svg className="w-4 h-4 text-[#5B3DF5] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm text-[#14182B]/90 leading-relaxed">{item}</span>
+            <span className="text-sm text-[#172554]/90 leading-relaxed">{item}</span>
           </li>
         ))}
       </ul>
       <button onClick={onBuildActionPlan}
-        className="inline-flex items-center gap-1.5 bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
+        className="inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
         Build my AI visibility action plan →
       </button>
       <p className="text-xs text-[#667085]">Based on your site content, crawler access, and live AI-answer patterns.</p>
@@ -1410,41 +1474,41 @@ function AddPromptModal({ onClose, onSave }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-[#14182B]">Add prompt</h3>
-          <button onClick={onClose} className="text-[#667085] hover:text-[#14182B]">
+          <h3 className="text-lg font-bold text-[#172554]">Add prompt</h3>
+          <button onClick={onClose} className="text-[#667085] hover:text-[#172554]">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <p className="text-sm text-[#667085] mb-5">Save a buyer question you already know you want to track.</p>
-        <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Prompt</label>
+        <label className="block text-sm font-semibold text-[#172554] mb-1.5">Prompt</label>
         <textarea value={text} onChange={e => setText(e.target.value)} rows={4}
           placeholder="What is the best AI SEO platform for agencies?"
-          className="w-full border border-[#E7E2F0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5] resize-none mb-4" />
+          className="w-full border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] resize-none mb-4" />
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Intent</label>
+            <label className="block text-sm font-semibold text-[#172554] mb-1.5">Intent</label>
             <select value={intent} onChange={e => setIntent(e.target.value)}
-              className="w-full border border-[#E7E2F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]">
+              className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
               {['Awareness','Consideration','Decision','Other'].map(o => <option key={o}>{o}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Priority</label>
+            <label className="block text-sm font-semibold text-[#172554] mb-1.5">Priority</label>
             <select value={priority} onChange={e => setPriority(e.target.value)}
-              className="w-full border border-[#E7E2F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]">
+              className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
               {['High','Medium','Low'].map(o => <option key={o}>{o}</option>)}
             </select>
           </div>
         </div>
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-[#14182B] mb-1.5">Persona</label>
+          <label className="block text-sm font-semibold text-[#172554] mb-1.5">Persona</label>
           <input value={persona} onChange={e => setPersona(e.target.value)} placeholder="agency owner"
-            className="w-full border border-[#E7E2F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]" />
+            className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-gray-50">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-gray-50">Cancel</button>
           <button disabled={!text.trim()} onClick={() => { onSave({ text: text.trim(), intent, priority, persona, custom: true }); onClose() }}
-            className="px-4 py-2 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd] disabled:opacity-40">Save prompt</button>
+            className="px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8] disabled:opacity-40">Save prompt</button>
         </div>
       </div>
     </div>
@@ -1458,35 +1522,35 @@ function GeneratePromptsModal({ existing, onClose, onSave }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-[#14182B]">Generate prompts</h3>
-          <button onClick={onClose} className="text-[#667085] hover:text-[#14182B]">
+          <h3 className="text-lg font-bold text-[#172554]">Generate prompts</h3>
+          <button onClick={onClose} className="text-[#667085] hover:text-[#172554]">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <p className="text-sm text-[#667085] mb-5">Choose how many buyer questions to draft. You can review, remove, or skip any prompt before saving.</p>
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-semibold text-[#14182B]">Batch size</label>
-            <span className="text-sm font-bold text-[#14182B] border border-[#E7E2F0] rounded-lg px-3 py-1">{batch}</span>
+            <label className="text-sm font-semibold text-[#172554]">Batch size</label>
+            <span className="text-sm font-bold text-[#172554] border border-[#BFDBFE] rounded-lg px-3 py-1">{batch}</span>
           </div>
           <div className="flex gap-3 mb-3">
             {[5, 8, existing.length || 10].map(n => (
               <button key={n} onClick={() => setBatch(n)}
-                className={`flex-1 py-2 rounded-xl border text-sm font-semibold transition-colors ${batch === n ? 'border-[#14182B] bg-[#14182B] text-white' : 'border-[#E7E2F0] text-[#667085] hover:border-[#14182B]'}`}>
+                className={`flex-1 py-2 rounded-xl border text-sm font-semibold transition-colors ${batch === n ? 'border-[#172554] bg-[#172554] text-white' : 'border-[#BFDBFE] text-[#667085] hover:border-[#172554]'}`}>
                 {batch === n && '✓ '}{n}
               </button>
             ))}
           </div>
           <input type="range" min={1} max={existing.length || 10} value={batch} onChange={e => setBatch(Number(e.target.value))}
-            className="w-full accent-[#14182B]" />
+            className="w-full accent-[#172554]" />
           <div className="flex justify-between text-xs text-[#667085] mt-1"><span>1</span><span>{existing.length || 10}</span></div>
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-gray-50">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-gray-50">Cancel</button>
           <button onClick={() => {
             suggestions.forEach(p => onSave({ text: p, intent: 'Other', priority: 'Medium', persona: '', custom: true }))
             onClose()
-          }} className="px-4 py-2 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd]">
+          }} className="px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8]">
             Generate {batch} prompt{batch !== 1 ? 's' : ''}
           </button>
         </div>
@@ -1524,23 +1588,23 @@ function RunConfirmModal({ promptCount, llmsQueried, onConfirm, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E7E2F0]">
-          <h3 className="text-base font-bold text-[#14182B]">Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now?</h3>
-          <button onClick={onClose} className="text-[#9CA3B8] hover:text-[#14182B]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#BFDBFE]">
+          <h3 className="text-base font-bold text-[#172554]">Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now?</h3>
+          <button onClick={onClose} className="text-[#9CA3B8] hover:text-[#172554]">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div className="px-6 py-5 space-y-3 text-sm text-[#4B5563]">
           <p>Run now checks {promptCount === 1 ? 'this prompt' : 'these prompts'} across {llmCount} AI platform{llmCount !== 1 ? 's' : ''} and will use {promptCount * llmCount} AI checks.</p>
-          <p className="font-semibold text-[#14182B]">{promptCount * llmCount} AI check{promptCount * llmCount !== 1 ? 's' : ''} will be used.</p>
+          <p className="font-semibold text-[#172554]">{promptCount * llmCount} AI check{promptCount * llmCount !== 1 ? 's' : ''} will be used.</p>
         </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#E7E2F0] bg-[#FAFAFA]">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#BFDBFE] bg-[#FAFAFA]">
           <button onClick={onClose}
-            className="px-4 py-2.5 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-white">
+            className="px-4 py-2.5 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-white">
             Cancel
           </button>
           <button onClick={onConfirm}
-            className="px-4 py-2.5 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd]">
+            className="px-4 py-2.5 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8]">
             Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now
           </button>
         </div>
@@ -1564,11 +1628,11 @@ function RunningCoveragePanel({ llmsQueried, platformStatuses, completedCount })
   }
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-8 mb-8">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-8 mb-8">
       {/* Spinner */}
       <div className="flex flex-col items-center mb-6">
-        <div className={`w-12 h-12 rounded-full border-4 mb-4 ${allDone ? 'border-[#10B981]' : 'border-[#5B3DF5] border-t-transparent animate-spin'}`} />
-        <h3 className="text-lg font-bold text-[#14182B] mb-1">
+        <div className={`w-12 h-12 rounded-full border-4 mb-4 ${allDone ? 'border-[#10B981]' : 'border-[#2563EB] border-t-transparent animate-spin'}`} />
+        <h3 className="text-lg font-bold text-[#172554] mb-1">
           {allDone ? 'Coverage complete' : 'Reading AI answers in parallel'}
         </h3>
         <p className="text-sm text-[#667085] text-center">
@@ -1579,7 +1643,7 @@ function RunningCoveragePanel({ llmsQueried, platformStatuses, completedCount })
       {/* Progress bar */}
       <div className="max-w-md mx-auto mb-6">
         <div className="bg-[#F3F4F6] rounded-full overflow-hidden mb-2 h-2.5">
-          <div className="h-2.5 rounded-full bg-[#14182B] transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="h-2.5 rounded-full bg-[#172554] transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
         <div className="flex justify-between text-xs text-[#667085]">
           <span>{allDone ? 'Complete' : 'Processing'}</span>
@@ -1596,8 +1660,8 @@ function RunningCoveragePanel({ llmsQueried, platformStatuses, completedCount })
           const statusLabels = { queued: 'Queued', running: 'Running', done: 'Done' }
           const color = statusColors[status]
           return (
-            <div key={llm} className="flex-1 min-w-[140px] max-w-[200px] border border-[#E7E2F0] rounded-xl px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[#14182B]">
+            <div key={llm} className="flex-1 min-w-[140px] max-w-[200px] border border-[#BFDBFE] rounded-xl px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[#172554]">
                 {llmIcons[llm]}
                 <span className="text-sm font-semibold">{llmLabels[llm] || llm}</span>
               </div>
@@ -1756,23 +1820,23 @@ function PromptsTab({ result }) {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-[#14182B]">Prompt library</h2>
+          <h2 className="text-xl font-bold text-[#172554]">Prompt library</h2>
           <p className="text-sm text-[#667085]">Manage saved prompts for AI visibility coverage.</p>
         </div>
         <div className="flex items-center gap-2">
           {pendingCustom.length > 0 && !runState && (
             <button onClick={() => setRunConfirmPrompts(pendingCustom.map(p => p.text))}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl bg-white hover:bg-[#F8F6FE] text-[#14182B]">
+              className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl bg-white hover:bg-[#EFF6FF] text-[#172554]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               Running coverage
             </button>
           )}
           <button onClick={() => setShowGenerate(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl bg-white hover:bg-[#F8F6FE] text-[#14182B]">
+            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl bg-white hover:bg-[#EFF6FF] text-[#172554]">
             ⚡ Generate prompts
           </button>
           <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-[#5B3DF5] text-white rounded-xl hover:bg-[#4c30dd]">
+            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8]">
             + Add prompt
           </button>
         </div>
@@ -1788,8 +1852,8 @@ function PromptsTab({ result }) {
       )}
 
       {/* Prompt table */}
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden mb-8">
-        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl overflow-hidden mb-8">
+        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#BFDBFE] bg-[#FAFAFA]"
           style={{ gridTemplateColumns: '1fr 200px 80px 60px 80px' }}>
           <span>Prompt</span>
           <span>Platforms</span>
@@ -1804,8 +1868,8 @@ function PromptsTab({ result }) {
           <div key={i} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA] transition-colors"
             style={{ gridTemplateColumns: '1fr 200px 80px 60px 80px' }}>
             <div className="flex items-center gap-2 pr-4 min-w-0">
-              <span className="text-sm text-[#14182B] truncate">{p.text}</span>
-              {p.custom && <span className="text-[10px] font-bold text-[#5B3DF5] bg-[#F1EDFF] px-1.5 py-0.5 rounded-full shrink-0">custom</span>}
+              <span className="text-sm text-[#172554] truncate">{p.text}</span>
+              {p.custom && <span className="text-[10px] font-bold text-[#2563EB] bg-[#DBEAFE] px-1.5 py-0.5 rounded-full shrink-0">custom</span>}
             </div>
             {(() => {
               const cr = p.custom ? customResults[p.text] : null
@@ -1841,7 +1905,7 @@ function PromptsTab({ result }) {
                     {p.custom && !hasRun && !runState && (
                       <button onClick={() => setRunConfirmPrompts([p.text])}
                         title="Run this prompt now"
-                        className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd] border border-[#D8D0FA] rounded-lg px-2 py-1 hover:bg-[#F1EDFF]">
+                        className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] border border-[#D8D0FA] rounded-lg px-2 py-1 hover:bg-[#DBEAFE]">
                         Run
                       </button>
                     )}
@@ -1863,10 +1927,10 @@ function PromptsTab({ result }) {
           <div className="flex items-center gap-2">
             <span>Rows per page <strong>10</strong></span>
             <span>Page {page + 1} of {totalPages}</span>
-            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
             </button>
-            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
             </button>
           </div>
@@ -1874,20 +1938,20 @@ function PromptsTab({ result }) {
       </div>
 
       {/* Brand keywords */}
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-[#14182B]">Brand keywords</h3>
+            <h3 className="text-base font-bold text-[#172554]">Brand keywords</h3>
             <span title="Used to generate buyer-like prompts" className="text-[#9CA3B8] cursor-help">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </span>
           </div>
-          <button className="px-3 py-1.5 text-xs font-semibold bg-[#5B3DF5] text-white rounded-lg hover:bg-[#4c30dd]">Generate keywords</button>
+          <button className="px-3 py-1.5 text-xs font-semibold bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8]">Generate keywords</button>
         </div>
         <p className="text-xs text-[#667085] mb-4">Used to generate buyer-like prompts.</p>
         <div className="flex flex-wrap gap-2 mb-4">
           {keywords.map((kw, i) => (
-            <span key={i} className="flex items-center gap-1.5 text-xs font-medium bg-[#F8F6FE] border border-[#E7E2F0] text-[#14182B] px-3 py-1.5 rounded-full">
+            <span key={i} className="flex items-center gap-1.5 text-xs font-medium bg-[#EFF6FF] border border-[#BFDBFE] text-[#172554] px-3 py-1.5 rounded-full">
               {kw}
               <button onClick={() => removeKeyword(i)} className="text-[#9CA3B8] hover:text-red-400">×</button>
             </span>
@@ -1895,9 +1959,9 @@ function PromptsTab({ result }) {
         </div>
         <div className="flex gap-2">
           <input value={kwInput} onChange={e => setKwInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addKeyword()}
-            placeholder="Add a keyword angle" className="flex-1 border border-[#E7E2F0] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]" />
+            placeholder="Add a keyword angle" className="flex-1 border border-[#BFDBFE] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
           <button onClick={addKeyword} disabled={keywords.length >= 20}
-            className="px-3 py-2 text-sm font-semibold border border-[#E7E2F0] rounded-xl hover:bg-[#F8F6FE] disabled:opacity-40">+ Add</button>
+            className="px-3 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-[#EFF6FF] disabled:opacity-40">+ Add</button>
         </div>
         <p className="text-xs text-[#667085] mt-3">{keywords.length} / 20 keywords · {keywords.length > 0 ? 'Saved' : 'None yet'}</p>
       </div>
@@ -1907,7 +1971,7 @@ function PromptsTab({ result }) {
 
 // ─── Tab: Competitors ─────────────────────────────────────────────────────────
 
-function CompetitorsTab({ result }) {
+function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraftCompetitors, newCompetitorInput, setNewCompetitorInput, onEditCompetitors, onApplyCompetitors, onCancelEdit }) {
   const { visibility, competitors = [], brand, llmsQueried = [] } = result
 
   const competitorData = competitors.map(comp => {
@@ -1938,22 +2002,84 @@ function CompetitorsTab({ result }) {
 
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-[#14182B] mb-1">Competitor visibility</h2>
-        <p className="text-sm text-[#667085]">How often each brand appears in AI answers across all prompts and platforms.</p>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <h2 className="text-xl font-bold text-[#172554] mb-1">Competitor visibility</h2>
+          <p className="text-sm text-[#667085]">How often each brand appears in AI answers across all prompts and platforms.</p>
+        </div>
+        {!editingCompetitors && (
+          <button onClick={onEditCompetitors} className="text-xs font-semibold text-[#2563EB] hover:underline mt-1 shrink-0">
+            Edit list
+          </button>
+        )}
       </div>
+
+      {editingCompetitors && (
+        <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl p-5 mb-8">
+          <p className="text-sm font-semibold text-[#172554] mb-3">Edit competitors</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {draftCompetitors.map(c => (
+              <span key={c} className="flex items-center gap-1 bg-white border border-[#BFDBFE] text-[#172554] text-sm font-medium px-3 py-1 rounded-full">
+                {c}
+                <button
+                  onClick={() => setDraftCompetitors(prev => prev.filter(x => x !== c))}
+                  className="text-[#94A3B8] hover:text-red-500 ml-1 leading-none"
+                >×</button>
+              </span>
+            ))}
+            {draftCompetitors.length === 0 && (
+              <span className="text-sm text-[#94A3B8] italic">No competitors — add one below</span>
+            )}
+          </div>
+          <div className="flex gap-2 mb-4">
+            <input
+              value={newCompetitorInput}
+              onChange={e => setNewCompetitorInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newCompetitorInput.trim()) {
+                  setDraftCompetitors(prev => [...prev, newCompetitorInput.trim()])
+                  setNewCompetitorInput('')
+                }
+              }}
+              placeholder="Add competitor name…"
+              className="flex-1 text-sm border border-[#BFDBFE] rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white"
+            />
+            <button
+              onClick={() => {
+                if (newCompetitorInput.trim()) {
+                  setDraftCompetitors(prev => [...prev, newCompetitorInput.trim()])
+                  setNewCompetitorInput('')
+                }
+              }}
+              className="text-sm font-semibold bg-[#2563EB] text-white px-4 py-2 rounded-xl hover:bg-[#1D4ED8]"
+            >Add</button>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onApplyCompetitors}
+              className="text-sm font-semibold bg-[#2563EB] text-white px-5 py-2 rounded-xl hover:bg-[#1D4ED8]"
+            >Apply & re-score</button>
+            <button
+              onClick={onCancelEdit}
+              className="text-sm text-[#667085] hover:text-[#172554]"
+            >Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-8" />
 
       {/* Summary row */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+        <div className="bg-white border border-[#BFDBFE] rounded-2xl p-5">
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Your brand</p>
-          <p className="text-3xl font-bold text-[#14182B]">{brandData.pct}%</p>
+          <p className="text-3xl font-bold text-[#172554]">{brandData.pct}%</p>
           <p className="text-xs text-[#667085] mt-1">{brandData.cited} of {brandData.total} answers</p>
         </div>
         {competitorData.slice(0, 3).map(c => (
-          <div key={c.name} className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+          <div key={c.name} className="bg-white border border-[#BFDBFE] rounded-2xl p-5">
             <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">{c.name}</p>
-            <p className={`text-3xl font-bold ${c.pct > brandData.pct ? 'text-red-500' : 'text-[#14182B]'}`}>{c.pct}%</p>
+            <p className={`text-3xl font-bold ${c.pct > brandData.pct ? 'text-red-500' : 'text-[#172554]'}`}>{c.pct}%</p>
             <p className="text-xs text-[#667085] mt-1">{c.cited} of {c.total} answers</p>
           </div>
         ))}
@@ -1962,14 +2088,14 @@ function CompetitorsTab({ result }) {
       {/* Competitor detail cards */}
       <div className="space-y-6">
         {competitorData.map(c => (
-          <div key={c.name} className="bg-white border border-[#E7E2F0] rounded-2xl p-6">
+          <div key={c.name} className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#F1EDFF] flex items-center justify-center text-sm font-bold text-[#5B3DF5]">
+                <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-sm font-bold text-[#2563EB]">
                   {c.name[0].toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-bold text-[#14182B]">{c.name}</p>
+                  <p className="font-bold text-[#172554]">{c.name}</p>
                   <p className="text-xs text-[#667085]">{c.cited} mentions across {llmsQueried.length} platform{llmsQueried.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
@@ -1980,7 +2106,7 @@ function CompetitorsTab({ result }) {
             </div>
             {/* Bar */}
             <div className="relative h-2 bg-[#F0EBF8] rounded-full mb-4">
-              <div className="absolute left-0 top-0 h-2 rounded-full bg-[#5B3DF5]" style={{ width: `${c.pct}%` }} />
+              <div className="absolute left-0 top-0 h-2 rounded-full bg-[#2563EB]" style={{ width: `${c.pct}%` }} />
               <div className="absolute top-0 h-2 rounded-full bg-[#10B981] opacity-30" style={{ left: 0, width: `${brandData.pct}%` }} />
             </div>
             {c.evidence.length > 0 && (
@@ -1988,8 +2114,8 @@ function CompetitorsTab({ result }) {
                 <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Where AI cited them</p>
                 {c.evidence.map((ev, i) => (
                   <div key={i} className="bg-[#FAFAFA] border border-[#F0EBF8] rounded-xl p-4">
-                    <p className="text-xs font-semibold text-[#5B3DF5] mb-1">{ev.llm === 'chatgpt' ? 'ChatGPT' : ev.llm === 'gemini' ? 'Gemini' : ev.llm} · "{ev.question}"</p>
-                    <p className="text-sm text-[#14182B] leading-relaxed">…{ev.snippet}…</p>
+                    <p className="text-xs font-semibold text-[#2563EB] mb-1">{ev.llm === 'chatgpt' ? 'ChatGPT' : ev.llm === 'gemini' ? 'Gemini' : ev.llm} · "{ev.question}"</p>
+                    <p className="text-sm text-[#172554] leading-relaxed">…{ev.snippet}…</p>
                   </div>
                 ))}
               </div>
@@ -2094,17 +2220,17 @@ function CitationsTab({ result }) {
           { label: 'Competitor citations', value: competitorCitations, icon: '⚔️' },
           { label: 'Third-party opportunities', value: thirdPartyCitations, icon: '💡' },
         ].map(({ label, value, icon }) => (
-          <div key={label} className="bg-white border border-[#E7E2F0] rounded-2xl p-5">
+          <div key={label} className="bg-white border border-[#BFDBFE] rounded-2xl p-5">
             <p className="text-xs text-[#667085] mb-1 flex items-center gap-1"><span>{icon}</span>{label}</p>
-            <p className="text-3xl font-bold text-[#14182B]">{value}</p>
+            <p className="text-3xl font-bold text-[#172554]">{value}</p>
           </div>
         ))}
       </div>
 
       {/* Platform citation mix */}
       {llmsQueried.length > 0 && (
-        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 mb-6">
-          <h3 className="text-base font-bold text-[#14182B] mb-1">Platform citation mix</h3>
+        <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 mb-6">
+          <h3 className="text-base font-bold text-[#172554] mb-1">Platform citation mix</h3>
           <p className="text-xs text-[#667085] mb-5">Your domain, competitor domain, and third-party source citations by answer engine.</p>
           <div className="space-y-4">
             {llmsQueried.map(llm => {
@@ -2135,9 +2261,9 @@ function CitationsTab({ result }) {
 
       {/* Citation source split */}
       {totalCitations > 0 && (
-        <div className="bg-white border border-[#E7E2F0] rounded-2xl p-6 mb-6">
+        <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-[#14182B]">Citation source split</h3>
+            <h3 className="text-sm font-bold text-[#172554]">Citation source split</h3>
             <span className="text-xs text-[#667085]">{totalCitations} total citations</span>
           </div>
           <div className="flex h-3 rounded-full overflow-hidden mb-2">
@@ -2163,12 +2289,12 @@ function CitationsTab({ result }) {
       )}
 
       {/* Top cited domains */}
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden mb-6">
-        <div className="px-5 py-4 border-b border-[#E7E2F0]">
-          <h3 className="text-base font-bold text-[#14182B]">Influential domains</h3>
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-[#BFDBFE]">
+          <h3 className="text-base font-bold text-[#172554]">Influential domains</h3>
           <p className="text-xs text-[#667085]">Top source domains by citation share.</p>
         </div>
-        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
+        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#BFDBFE] bg-[#FAFAFA]"
           style={{ gridTemplateColumns: '40px 1fr 140px 140px 80px 80px' }}>
           <span>Rank</span><span>Domain</span><span>Ownership</span><span>Platforms</span><span className="text-right">Share</span><span className="text-right">Citations</span>
         </div>
@@ -2178,27 +2304,27 @@ function CitationsTab({ result }) {
             <div key={d.domain} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA]"
               style={{ gridTemplateColumns: '40px 1fr 140px 140px 80px 80px' }}>
               <span className="text-sm font-bold text-[#9CA3B8]">{citePage * CITE_PER_PAGE + i + 1}</span>
-              <span className="text-sm font-medium text-[#14182B]">{d.domain}</span>
+              <span className="text-sm font-medium text-[#172554]">{d.domain}</span>
               <span className="text-xs" style={{ color: typeColors[d.type] }}>{typeLabels[d.type]}</span>
               <div className="flex gap-1">
                 {[...d.llms].map(llm => (
-                  <span key={llm} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F1EDFF] text-[#5B3DF5]">
+                  <span key={llm} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#DBEAFE] text-[#2563EB]">
                     {llmLabel[llm]?.[0] || llm[0].toUpperCase()}
                   </span>
                 ))}
               </div>
               <span className="text-sm text-right text-[#667085]">{share}%</span>
-              <span className="text-sm text-right font-semibold text-[#14182B]">{d.count}</span>
+              <span className="text-sm text-right font-semibold text-[#172554]">{d.count}</span>
             </div>
           )
         })}
         <div className="flex items-center justify-between px-5 py-3 text-xs text-[#667085]">
           <span>Page {citePage + 1} of {totalCitePages} · {allDomains.length} rows</span>
           <div className="flex gap-2">
-            <button disabled={citePage === 0} onClick={() => setCitePage(p => p - 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+            <button disabled={citePage === 0} onClick={() => setCitePage(p => p - 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
             </button>
-            <button disabled={citePage >= totalCitePages - 1} onClick={() => setCitePage(p => p + 1)} className="p-1 rounded border border-[#E7E2F0] disabled:opacity-30 hover:bg-gray-50">
+            <button disabled={citePage >= totalCitePages - 1} onClick={() => setCitePage(p => p + 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
             </button>
           </div>
@@ -2206,12 +2332,12 @@ function CitationsTab({ result }) {
       </div>
 
       {/* Top cited prompts */}
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#E7E2F0]">
-          <h3 className="text-base font-bold text-[#14182B]">Top cited prompts</h3>
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#BFDBFE]">
+          <h3 className="text-base font-bold text-[#172554]">Top cited prompts</h3>
           <p className="text-xs text-[#667085]">Prompts producing the most website citations.</p>
         </div>
-        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#E7E2F0] bg-[#FAFAFA]"
+        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#BFDBFE] bg-[#FAFAFA]"
           style={{ gridTemplateColumns: '40px 1fr 140px 100px 80px' }}>
           <span>Rank</span><span>Prompt</span><span>Platforms</span><span className="text-right">Your domain</span><span className="text-right">Total</span>
         </div>
@@ -2219,16 +2345,16 @@ function CitationsTab({ result }) {
           <div key={i} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA]"
             style={{ gridTemplateColumns: '40px 1fr 140px 100px 80px' }}>
             <span className="text-sm font-bold text-[#9CA3B8]">{i + 1}</span>
-            <span className="text-sm text-[#14182B] pr-4">{p.question}</span>
+            <span className="text-sm text-[#172554] pr-4">{p.question}</span>
             <div className="flex gap-1">
               {llmsQueried.map(llm => (
-                <span key={llm} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F1EDFF] text-[#5B3DF5]">
+                <span key={llm} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#DBEAFE] text-[#2563EB]">
                   {llmLabel[llm]?.[0] || llm[0].toUpperCase()}
                 </span>
               ))}
             </div>
             <span className="text-sm text-right text-[#667085]">{p.your}</span>
-            <span className="text-sm text-right font-semibold text-[#14182B]">{p.total}</span>
+            <span className="text-sm text-right font-semibold text-[#172554]">{p.total}</span>
           </div>
         ))}
       </div>
@@ -2271,7 +2397,7 @@ function SiteAuditTab({ result, onBuildActionPlan }) {
       />
 
       <div className="mb-14">
-        <h2 className="text-2xl font-bold text-[#14182B] mb-1.5">What AI understands about your site</h2>
+        <h2 className="text-2xl font-bold text-[#172554] mb-1.5">What AI understands about your site</h2>
         <p className="text-[#667085] mb-6">This is the information an AI crawler can extract from your homepage.</p>
         <div className="grid lg:grid-cols-2 gap-6 items-stretch">
           <AIUnderstandingCard category={category} description={description} clarityLevel={clarityLevel} clarityLabel={clarityLabel} />
@@ -2317,21 +2443,21 @@ function downloadActionRecommendation(featured, action) {
 }
 
 function MetaPill({ label }) {
-  return <span className="text-xs font-medium text-[#14182B] bg-white/70 border border-[#F5DCC4] px-2.5 py-1 rounded-full whitespace-nowrap">{label}</span>
+  return <span className="text-xs font-medium text-[#172554] bg-white/70 border border-[#F5DCC4] px-2.5 py-1 rounded-full whitespace-nowrap">{label}</span>
 }
 
 function ActionPlanHeader({ opportunityCount, competitorInsightCount, briefCount }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 mb-10">
       <div>
-        <p className="text-[11px] font-bold text-[#5B3DF5] uppercase tracking-widest mb-2">Your AI visibility action plan</p>
-        <h1 className="text-3xl font-bold text-[#14182B] mb-2 leading-snug">The fastest path to getting cited more often.</h1>
+        <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-widest mb-2">Your AI visibility action plan</p>
+        <h1 className="text-3xl font-bold text-[#172554] mb-2 leading-snug">The fastest path to getting cited more often.</h1>
         <p className="text-[#667085] max-w-xl">Built from the buyer questions where competitors appeared and your brand did not.</p>
       </div>
-      <div className="bg-white border border-[#E7E2F0] rounded-xl p-4 space-y-1.5 flex-shrink-0">
-        <p className="text-sm text-[#14182B] font-medium">{opportunityCount} high-priority opportunit{opportunityCount === 1 ? 'y' : 'ies'}</p>
-        <p className="text-sm text-[#14182B] font-medium">{competitorInsightCount} competitor insight{competitorInsightCount === 1 ? '' : 's'}</p>
-        <p className="text-sm text-[#14182B] font-medium">{briefCount} content brief{briefCount === 1 ? '' : 's'} ready</p>
+      <div className="bg-white border border-[#BFDBFE] rounded-xl p-4 space-y-1.5 flex-shrink-0">
+        <p className="text-sm text-[#172554] font-medium">{opportunityCount} high-priority opportunit{opportunityCount === 1 ? 'y' : 'ies'}</p>
+        <p className="text-sm text-[#172554] font-medium">{competitorInsightCount} competitor insight{competitorInsightCount === 1 ? '' : 's'}</p>
+        <p className="text-sm text-[#172554] font-medium">{briefCount} content brief{briefCount === 1 ? '' : 's'} ready</p>
       </div>
     </div>
   )
@@ -2340,12 +2466,12 @@ function ActionPlanHeader({ opportunityCount, competitorInsightCount, briefCount
 function OpportunityStrip({ featured, onViewRecommendation }) {
   return (
     <div className="mb-10">
-      <h2 className="text-xl font-bold text-[#14182B] mb-4">Your highest-priority missed question</h2>
+      <h2 className="text-xl font-bold text-[#172554] mb-4">Your highest-priority missed question</h2>
       <div className="relative overflow-hidden bg-[#FFF0E5] border border-[#F5DCC4] rounded-2xl p-6 flex flex-wrap items-center justify-between gap-5">
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5B3DF5]" />
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-[#2563EB]" />
         <div className="pl-3 flex-1 min-w-[240px]">
           <p className="text-xs font-bold text-[#B4632A] uppercase tracking-wide mb-1.5">#1 High-impact opportunity</p>
-          <p className="text-lg font-bold text-[#14182B] mb-3 leading-snug">“{featured.prompt}”</p>
+          <p className="text-lg font-bold text-[#172554] mb-3 leading-snug">"{featured.prompt}"</p>
           <div className="flex flex-wrap gap-1.5 mb-2">
             <MetaPill label={`Buyer intent: ${featured.intent}`} />
             <MetaPill label={`AI engine: ${featured.engine}`} />
@@ -2355,7 +2481,7 @@ function OpportunityStrip({ featured, onViewRecommendation }) {
           <p className="text-xs text-[#667085]">AI cited competitors here, but not your brand.</p>
         </div>
         <button onClick={onViewRecommendation}
-          className="bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-5 py-2.5 rounded-xl text-sm flex-shrink-0">
+          className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-2.5 rounded-xl text-sm flex-shrink-0">
           View recommendation →
         </button>
       </div>
@@ -2370,7 +2496,7 @@ function StatusSelector({ status, onChange }) {
       {options.map(opt => (
         <button key={opt} onClick={() => onChange(opt)}
           className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-            status === opt ? 'bg-[#5B3DF5] text-white' : 'bg-white border border-[#E7E2F0] text-[#667085] hover:border-[#DCD1F7]'
+            status === opt ? 'bg-[#2563EB] text-white' : 'bg-white border border-[#BFDBFE] text-[#667085] hover:border-[#DCD1F7]'
           }`}>
           {opt}
         </button>
@@ -2386,10 +2512,10 @@ function ContentRecommendationCard({ featured, action, status, onStatusChange, o
   const includeItems = blog?.outline?.map(o => o.h2).filter(Boolean) || []
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-7 h-full flex flex-col">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-7 h-full flex flex-col">
       <div className="flex items-center gap-3 mb-2 flex-wrap">
-        <span className="w-8 h-8 rounded-full bg-[#5B3DF5] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">01</span>
-        <h3 className="text-base font-bold text-[#14182B] flex-1 min-w-0">{featured.prompt}</h3>
+        <span className="w-8 h-8 rounded-full bg-[#2563EB] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">01</span>
+        <h3 className="text-base font-bold text-[#172554] flex-1 min-w-0">{featured.prompt}</h3>
         <span className="text-xs font-semibold bg-[#FFF0E5] text-[#B4632A] px-2.5 py-1 rounded-full flex-shrink-0">High priority</span>
       </div>
       <div className="mb-5">
@@ -2400,16 +2526,16 @@ function ContentRecommendationCard({ featured, action, status, onStatusChange, o
       </div>
 
       <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Recommended asset</p>
-      <p className="text-xl font-bold text-[#14182B] mb-5 leading-snug">A practical guide that answers this question directly</p>
+      <p className="text-xl font-bold text-[#172554] mb-5 leading-snug">A practical guide that answers this question directly</p>
 
       <div className="space-y-4 mb-6">
         <div>
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Suggested title</p>
-          <p className="text-sm font-semibold text-[#14182B]">“{suggestedTitle}”</p>
+          <p className="text-sm font-semibold text-[#172554]">"{suggestedTitle}"</p>
         </div>
         <div>
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Best format</p>
-          <p className="text-sm text-[#14182B]">{bestFormat}</p>
+          <p className="text-sm text-[#172554]">{bestFormat}</p>
         </div>
         {action?.why && (
           <div>
@@ -2425,10 +2551,10 @@ function ContentRecommendationCard({ featured, action, status, onStatusChange, o
           <ul className="space-y-1.5">
             {includeItems.map((item, i) => (
               <li key={i} className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-[#5B3DF5] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-[#2563EB] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm text-[#14182B]/90 leading-relaxed">{item}</span>
+                <span className="text-sm text-[#172554]/90 leading-relaxed">{item}</span>
               </li>
             ))}
           </ul>
@@ -2436,10 +2562,10 @@ function ContentRecommendationCard({ featured, action, status, onStatusChange, o
       )}
 
       <div className="mt-auto flex items-center gap-4 pt-2 flex-wrap">
-        <button onClick={onGenerateBrief} className="bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-5 py-2.5 rounded-xl text-sm">
+        <button onClick={onGenerateBrief} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-2.5 rounded-xl text-sm">
           Generate content brief →
         </button>
-        <button onClick={onExport} className="text-sm font-semibold text-[#5B3DF5] hover:underline">Export recommendation</button>
+        <button onClick={onExport} className="text-sm font-semibold text-[#2563EB] hover:underline">Export recommendation</button>
       </div>
     </div>
   )
@@ -2448,8 +2574,8 @@ function ContentRecommendationCard({ featured, action, status, onStatusChange, o
 function EvidenceBlock({ title, body }) {
   return (
     <div>
-      <p className="text-sm font-semibold text-[#14182B] mb-1 leading-snug">{title}</p>
-      <p className="text-sm text-[#14182B]/70 leading-relaxed">{body}</p>
+      <p className="text-sm font-semibold text-[#172554] mb-1 leading-snug">{title}</p>
+      <p className="text-sm text-[#172554]/70 leading-relaxed">{body}</p>
     </div>
   )
 }
@@ -2457,8 +2583,8 @@ function EvidenceBlock({ title, body }) {
 function EvidencePanel({ featured, priority }) {
   const confidenceBars = priority === 'high' ? 3 : priority === 'medium' ? 2 : 1
   return (
-    <div className="bg-[#F1EDFF] border border-[#DCD1F7] rounded-2xl p-7 h-full flex flex-col">
-      <h3 className="text-base font-bold text-[#14182B] mb-4">Why this could get you cited</h3>
+    <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-7 h-full flex flex-col">
+      <h3 className="text-base font-bold text-[#172554] mb-4">Why this could get you cited</h3>
       <div className="space-y-4 mb-6 flex-1">
         <EvidenceBlock title="AI already sees this as a high-intent question" body="Buyers ask it when they need a practical, structured answer — not marketing copy." />
         {featured.competitor && (
@@ -2472,11 +2598,11 @@ function EvidencePanel({ featured, priority }) {
       <div className="border-t border-[#DCD1F7] pt-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Opportunity confidence</p>
-          <span className="text-xs font-semibold text-[#5B3DF5]">{featured.priority}</span>
+          <span className="text-xs font-semibold text-[#2563EB]">{featured.priority}</span>
         </div>
         <div className="flex gap-1.5">
           {[0, 1, 2].map(i => (
-            <div key={i} className={`h-1.5 flex-1 rounded-full ${i < confidenceBars ? 'bg-[#5B3DF5]' : 'bg-white'}`} />
+            <div key={i} className={`h-1.5 flex-1 rounded-full ${i < confidenceBars ? 'bg-[#2563EB]' : 'bg-white'}`} />
           ))}
         </div>
       </div>
@@ -2493,15 +2619,15 @@ function CompetitorDifferentiator({ result, competitor }) {
 
   return (
     <div className="mb-10">
-      <h2 className="text-xl font-bold text-[#14182B] mb-1">What the competitor is doing differently</h2>
+      <h2 className="text-xl font-bold text-[#172554] mb-1">What the competitor is doing differently</h2>
       <p className="text-[#667085] mb-5">This is the pattern AI is rewarding in its answers.</p>
-      <div className="bg-white border border-[#E7E2F0] rounded-2xl p-7 grid md:grid-cols-2 gap-6">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-7 grid md:grid-cols-2 gap-6">
         <div>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-[#F1EDFF] flex items-center justify-center text-sm font-bold text-[#5B3DF5] flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-sm font-bold text-[#2563EB] flex-shrink-0">
               {competitor.charAt(0).toUpperCase()}
             </div>
-            <p className="font-bold text-[#14182B]">{competitor}</p>
+            <p className="font-bold text-[#172554]">{competitor}</p>
           </div>
           <p className="text-sm text-[#667085]">Cited in {evidence.length} of {result.prompts?.length} buyer questions</p>
           <p className="text-sm text-[#667085]">{agg[competitor] ?? 0}% mention rate</p>
@@ -2509,15 +2635,15 @@ function CompetitorDifferentiator({ result, competitor }) {
         <div>
           <div className="flex flex-wrap gap-1.5 mb-4">
             {['Practical help', 'Specialist support', 'Clear use-case language'].map(t => (
-              <span key={t} className="text-xs font-medium text-[#667085] bg-[#F8F6FE] border border-[#E7E2F0] px-2.5 py-1 rounded-full">{t}</span>
+              <span key={t} className="text-xs font-medium text-[#667085] bg-[#EFF6FF] border border-[#BFDBFE] px-2.5 py-1 rounded-full">{t}</span>
             ))}
           </div>
-          <blockquote className={`text-sm text-[#14182B]/90 bg-[#F1EDFF] rounded-lg px-4 py-3 leading-relaxed mb-3 ${showFull ? '' : 'line-clamp-3'}`}>
-            “{best.snippet}”
+          <blockquote className={`text-sm text-[#172554]/90 bg-[#DBEAFE] rounded-lg px-4 py-3 leading-relaxed mb-3 ${showFull ? '' : 'line-clamp-3'}`}>
+            "{best.snippet}"
           </blockquote>
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">What Peach recommends borrowing</p>
-          <p className="text-sm text-[#14182B]/90 leading-relaxed mb-3">Use direct, practical language around the problem your buyer is trying to solve—not only product features.</p>
-          <button onClick={() => setShowFull(!showFull)} className="text-sm font-semibold text-[#5B3DF5] hover:underline">
+          <p className="text-sm text-[#172554]/90 leading-relaxed mb-3">Use direct, practical language around the problem your buyer is trying to solve—not only product features.</p>
+          <button onClick={() => setShowFull(!showFull)} className="text-sm font-semibold text-[#2563EB] hover:underline">
             {showFull ? 'Show less ←' : 'See full competitor answer →'}
           </button>
         </div>
@@ -2541,10 +2667,10 @@ function BeforeYouPublish() {
   const toggle = (i) => setChecked(prev => prev.map((v, idx) => idx === i ? !v : v))
 
   return (
-    <div className="bg-white border border-[#E7E2F0] rounded-2xl p-7 mb-10">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-7 mb-10">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="text-base font-bold text-[#14182B]">Before you publish</h3>
-        <span className="text-xs font-semibold text-[#667085] bg-[#F8F6FE] border border-[#E7E2F0] px-2.5 py-1 rounded-full">
+        <h3 className="text-base font-bold text-[#172554]">Before you publish</h3>
+        <span className="text-xs font-semibold text-[#667085] bg-[#EFF6FF] border border-[#BFDBFE] px-2.5 py-1 rounded-full">
           {doneCount} of {CHECKLIST_ITEMS.length} completed
         </span>
       </div>
@@ -2552,8 +2678,8 @@ function BeforeYouPublish() {
         {CHECKLIST_ITEMS.map((item, i) => (
           <li key={item}>
             <label className="flex items-start gap-2.5 cursor-pointer">
-              <input type="checkbox" checked={checked[i]} onChange={() => toggle(i)} className="mt-1 w-4 h-4 accent-[#5B3DF5]" />
-              <span className={`text-sm leading-relaxed ${checked[i] ? 'text-[#9CA3B8] line-through' : 'text-[#14182B]/90'}`}>{item}</span>
+              <input type="checkbox" checked={checked[i]} onChange={() => toggle(i)} className="mt-1 w-4 h-4 accent-[#2563EB]" />
+              <span className={`text-sm leading-relaxed ${checked[i] ? 'text-[#9CA3B8] line-through' : 'text-[#172554]/90'}`}>{item}</span>
             </label>
           </li>
         ))}
@@ -2567,36 +2693,250 @@ function BeforeYouPublish() {
   )
 }
 
-function ContentBriefModal({ open, onClose, featured, action }) {
+function mdToHtml(md) {
+  return md
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, s => `<ul>${s}</ul>`)
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hul])/gm, '')
+    .replace(/^<\/p><p>(<h[123]>)/gm, '$1')
+}
+
+function ContentBriefModal({ open, onClose, featured, action, result }) {
+  const [phase, setPhase] = useState('brief') // 'brief' | 'generating' | 'article'
+  const [markdown, setMarkdown] = useState('')
+  const [genError, setGenError] = useState('')
+  const [copied, setCopied] = useState('')
+  const [wpPhase, setWpPhase] = useState('hidden') // 'hidden' | 'connect' | 'publishing' | 'done' | 'error'
+  const [wpUrl, setWpUrl] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('peach_wp_creds') || '{}').url || '' } catch { return '' }
+  })
+  const [wpPass, setWpPass] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('peach_wp_creds') || '{}').password || '' } catch { return '' }
+  })
+  const [wpError, setWpError] = useState('')
+
   if (!open) return null
   const blog = action?.blogs?.[0]
+
+  const handleClose = () => {
+    setPhase('brief')
+    setMarkdown('')
+    setGenError('')
+    setCopied('')
+    setWpPhase('hidden')
+    setWpError('')
+    onClose()
+  }
+
+  const handleGenerate = async () => {
+    if (!blog) return
+    setPhase('generating')
+    setGenError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch('/api/articles/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: blog.title,
+          h1: blog.h1,
+          outline: blog.outline || [],
+          targetQuery: featured?.prompt || '',
+          brand: result?.brand || '',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.error === 'upgrade_required') {
+          setGenError('Upgrade to a paid plan to generate articles.')
+        } else if (data.error === 'article_limit_reached') {
+          setGenError(`You've used ${data.used}/${data.limit} articles this month. Resets in 30 days.`)
+        } else {
+          setGenError(data.error || 'Generation failed. Try again.')
+        }
+        setPhase('brief')
+        return
+      }
+      setMarkdown(data.markdown)
+      setPhase('article')
+    } catch {
+      setGenError('Network error. Try again.')
+      setPhase('brief')
+    }
+  }
+
+  const copyMarkdown = () => {
+    navigator.clipboard.writeText(markdown)
+    setCopied('md')
+    setTimeout(() => setCopied(''), 2000)
+  }
+
+  const copyHtml = () => {
+    navigator.clipboard.writeText(mdToHtml(markdown))
+    setCopied('html')
+    setTimeout(() => setCopied(''), 2000)
+  }
+
+  const handleWordPress = async () => {
+    const saved = JSON.parse(localStorage.getItem('peach_wp_creds') || '{}')
+    if (!saved.url || !saved.password) {
+      setWpPhase('connect')
+      return
+    }
+    publishToWP(saved.url, saved.password)
+  }
+
+  const publishToWP = async (url, password) => {
+    setWpPhase('publishing')
+    setWpError('')
+    try {
+      const base = url.replace(/\/$/, '')
+      const htmlContent = mdToHtml(markdown)
+      const wpRes = await fetch(`${base}/wp-json/wp/v2/posts`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(`admin:${password}`),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: blog?.title || 'Peach Article',
+          content: htmlContent,
+          status: 'draft',
+        }),
+      })
+      if (!wpRes.ok) throw new Error(`WordPress returned ${wpRes.status}`)
+      setWpPhase('done')
+    } catch (err) {
+      setWpError(err.message || 'Could not publish. Check your site URL and application password.')
+      setWpPhase('error')
+    }
+  }
+
+  const saveWpAndPublish = () => {
+    if (!wpUrl.trim() || !wpPass.trim()) return
+    localStorage.setItem('peach_wp_creds', JSON.stringify({ url: wpUrl.trim(), password: wpPass.trim() }))
+    publishToWP(wpUrl.trim(), wpPass.trim())
+  }
+
   return (
-    <div className="fixed inset-0 bg-[#14182B]/40 z-50 flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-7" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4 gap-4">
-          <h3 className="text-lg font-bold text-[#14182B]">Content brief</h3>
-          <button onClick={onClose} className="text-[#667085] hover:text-[#14182B] flex-shrink-0">✕</button>
+    <div className="fixed inset-0 bg-[#172554]/40 z-50 flex items-center justify-center p-4" onClick={handleClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-[#F0EBF8] shrink-0">
+          <div className="flex items-center gap-3">
+            {phase === 'article' && (
+              <button onClick={() => setPhase('brief')} className="text-[#667085] hover:text-[#172554] text-sm">← Brief</button>
+            )}
+            <h3 className="text-lg font-bold text-[#172554]">
+              {phase === 'article' ? 'Generated article' : 'Content brief'}
+            </h3>
+          </div>
+          <button onClick={handleClose} className="text-[#667085] hover:text-[#172554]">✕</button>
         </div>
-        <p className="text-sm text-[#667085] mb-5">Target question: “{featured.prompt}”</p>
-        {blog ? (
-          <>
-            <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Suggested title</p>
-            <p className="text-sm font-semibold text-[#14182B] mb-5">{blog.title}</p>
-            <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Outline</p>
-            <div className="space-y-3">
-              {(blog.outline || []).map((section, i) => (
-                <div key={i}>
-                  <p className="text-sm font-semibold text-[#14182B]">{section.h2}</p>
-                  {(section.h3s || []).map((h3, hi) => (
-                    <p key={hi} className="text-xs text-[#667085] ml-3 mt-0.5">— {h3}</p>
-                  ))}
-                </div>
-              ))}
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-7 py-5">
+          {phase === 'generating' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="w-10 h-10 border-4 border-[#BFDBFE] border-t-[#2563EB] rounded-full animate-spin" />
+              <p className="text-sm text-[#667085]">Writing your article with GPT-4o…</p>
+              <p className="text-xs text-[#94A3B8]">Takes about 20–30 seconds</p>
             </div>
-          </>
-        ) : (
-          <p className="text-sm text-[#667085]">No detailed outline available yet for this prompt.</p>
-        )}
+          )}
+
+          {phase === 'brief' && (
+            <>
+              <p className="text-sm text-[#667085] mb-5">Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span></p>
+              {blog ? (
+                <>
+                  <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Suggested title</p>
+                  <p className="text-sm font-semibold text-[#172554] mb-5">{blog.title}</p>
+                  <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Outline</p>
+                  <div className="space-y-3 mb-6">
+                    {(blog.outline || []).map((section, i) => (
+                      <div key={i}>
+                        <p className="text-sm font-semibold text-[#172554]">{section.h2}</p>
+                        {(section.h3s || []).map((h3, hi) => (
+                          <p key={hi} className="text-xs text-[#667085] ml-3 mt-0.5">— {h3}</p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  {genError && (
+                    <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 mb-4">
+                      <p className="text-xs text-red-600">{genError}</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleGenerate}
+                    className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+                  >
+                    Write full article with AI →
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-[#667085]">No outline available for this prompt yet.</p>
+              )}
+            </>
+          )}
+
+          {phase === 'article' && (
+            <>
+              {/* Export bar */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                <button onClick={copyMarkdown}
+                  className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
+                  {copied === 'md' ? '✓ Copied!' : '⬇ Copy Markdown'}
+                </button>
+                <button onClick={copyHtml}
+                  className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
+                  {copied === 'html' ? '✓ Copied!' : '⬇ Copy HTML'}
+                </button>
+                <button onClick={handleWordPress}
+                  className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
+                  {wpPhase === 'done' ? '✓ Published as draft' : wpPhase === 'publishing' ? 'Publishing…' : '⬆ Publish to WordPress'}
+                </button>
+              </div>
+
+              {/* WordPress connect form */}
+              {(wpPhase === 'connect' || wpPhase === 'error') && (
+                <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 mb-5">
+                  <p className="text-sm font-semibold text-[#172554] mb-3">Connect WordPress</p>
+                  <div className="space-y-2 mb-3">
+                    <input value={wpUrl} onChange={e => setWpUrl(e.target.value)}
+                      placeholder="https://yoursite.com"
+                      className="w-full text-sm border border-[#BFDBFE] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white" />
+                    <input value={wpPass} onChange={e => setWpPass(e.target.value)}
+                      type="password" placeholder="WordPress Application Password"
+                      className="w-full text-sm border border-[#BFDBFE] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white" />
+                  </div>
+                  <p className="text-xs text-[#667085] mb-3">
+                    Get an Application Password in WordPress → Users → Profile → Application Passwords.
+                  </p>
+                  {wpError && <p className="text-xs text-red-600 mb-2">{wpError}</p>}
+                  <button onClick={saveWpAndPublish}
+                    className="text-sm font-semibold bg-[#2563EB] text-white px-4 py-2 rounded-lg hover:bg-[#1D4ED8]">
+                    Connect & publish as draft
+                  </button>
+                </div>
+              )}
+
+              {/* Article content */}
+              <div className="prose prose-sm max-w-none text-[#172554]">
+                <ReactMarkdown>{markdown}</ReactMarkdown>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -2605,10 +2945,10 @@ function ContentBriefModal({ open, onClose, featured, action }) {
 function StickyActionFooter({ visible, onGenerateBrief }) {
   if (!visible) return null
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E7E2F0] shadow-[0_-4px_16px_rgba(20,24,43,0.06)] z-40 print:hidden">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#BFDBFE] shadow-[0_-4px_16px_rgba(20,24,43,0.06)] z-40 print:hidden">
       <div className="max-w-[1180px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <p className="text-sm font-medium text-[#14182B]">Next step: Create your content brief</p>
-        <button onClick={onGenerateBrief} className="bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-5 py-2 rounded-xl text-sm flex-shrink-0">
+        <p className="text-sm font-medium text-[#172554]">Next step: Create your content brief</p>
+        <button onClick={onGenerateBrief} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-2 rounded-xl text-sm flex-shrink-0">
           Generate brief →
         </button>
       </div>
@@ -2616,7 +2956,7 @@ function StickyActionFooter({ visible, onGenerateBrief }) {
   )
 }
 
-function ActionPlanTab({ result }) {
+function ActionPlanTab({ result, isGated }) {
   const [status, setStatus] = useState('Not started')
   const [briefOpen, setBriefOpen] = useState(false)
   const [footerVisible, setFooterVisible] = useState(false)
@@ -2673,6 +3013,44 @@ function ActionPlanTab({ result }) {
   const competitorInsightCount = competitor ? 1 : 0
   const briefCount = featuredAction?.blogs?.length ? 1 : 0
 
+  if (isGated) {
+    return (
+      <div>
+        <ActionPlanHeader opportunityCount={opportunityCount} competitorInsightCount={competitorInsightCount} briefCount={briefCount} />
+        <div className="relative mt-4">
+          {/* Teaser — blurred content behind overlay */}
+          <div className="blur-sm pointer-events-none select-none opacity-60">
+            <OpportunityStrip featured={featured} onViewRecommendation={() => {}} />
+            <div className="grid lg:grid-cols-2 gap-6 items-stretch mb-2">
+              <ContentRecommendationCard featured={featured} action={featuredAction} status={status} onStatusChange={() => {}}
+                onGenerateBrief={() => {}} onExport={() => {}} />
+              <EvidencePanel featured={featured} priority={priorityRaw} />
+            </div>
+          </div>
+          {/* Gate overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-2xl">
+            <div className="bg-white border border-[#BFDBFE] rounded-2xl shadow-lg px-8 py-8 text-center max-w-sm mx-4">
+              <div className="w-10 h-10 bg-[#2563EB]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-5 h-5 text-[#2563EB]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold text-[#172554] mb-1">Unlock your full action plan</h3>
+              <p className="text-sm text-[#667085] mb-5">Create a free account to see content recommendations, competitor insights, and blog briefs.</p>
+              <Link to="/signup"
+                className="inline-flex items-center gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors w-full justify-center">
+                Create free account →
+              </Link>
+              <Link to="/pricing" className="block text-xs text-[#9CA3B8] hover:text-[#2563EB] mt-3">
+                See all plans →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <ActionPlanHeader opportunityCount={opportunityCount} competitorInsightCount={competitorInsightCount} briefCount={briefCount} />
@@ -2693,47 +3071,142 @@ function ActionPlanTab({ result }) {
 
       <BeforeYouPublish />
 
-      <ContentBriefModal open={briefOpen} onClose={() => setBriefOpen(false)} featured={featured} action={featuredAction} />
+      <ContentBriefModal open={briefOpen} onClose={() => setBriefOpen(false)} featured={featured} action={featuredAction} result={result} />
       <StickyActionFooter visible={footerVisible} onGenerateBrief={() => setBriefOpen(true)} />
+    </div>
+  )
+}
+
+// ─── Gating Components ────────────────────────────────────────────────────────
+
+function GatedTabWrapper({ isGated, children }) {
+  if (!isGated) return children
+  return (
+    <div className="relative">
+      {children}
+      {/* Bottom 20% blur overlay */}
+      <div className="absolute bottom-0 left-0 right-0 h-48 pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, transparent, rgba(252,250,246,0.85) 40%, rgba(252,250,246,0.97) 100%)' }} />
+      <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-6 pointer-events-none" style={{ height: '12rem' }}>
+        <div className="pointer-events-auto text-center">
+          <p className="text-sm font-semibold text-[#172554] mb-2">Sign up to see the full breakdown</p>
+          <Link to="/signup"
+            className="inline-flex items-center gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm">
+            Create free account →
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
 
 // ─── URL Mode Result (4 tabs) ─────────────────────────────────────────────────
 
-function UrlModeResult({ result, resultTime, onReset }) {
+function reScoreLocally(result, newCompetitors) {
+  const brand = result.brand
+  const allBrands = [brand, ...newCompetitors]
+  const perLLM = {}
+  const aggregateScores = Object.fromEntries(allBrands.map(b => [b, 0]))
+  let totalQuestions = 0
+
+  for (const [llmName, llmData] of Object.entries(result.visibility.perLLM || {})) {
+    const details = (llmData.details || []).map(({ question, answer }) => {
+      const mentions = {}
+      for (const b of allBrands) {
+        mentions[b] = answer ? answer.toLowerCase().includes(b.toLowerCase()) : false
+      }
+      return { question, answer, mentions }
+    })
+    const scores = Object.fromEntries(allBrands.map(b => [b, 0]))
+    for (const d of details) {
+      for (const b of allBrands) if (d.mentions[b]) scores[b]++
+    }
+    const total = details.length || 1
+    const percentages = Object.fromEntries(
+      Object.entries(scores).map(([b, count]) => [b, Math.round((count / total) * 100)])
+    )
+    perLLM[llmName] = { scores, percentages, details, total }
+    totalQuestions += total
+    for (const b of allBrands) aggregateScores[b] = (aggregateScores[b] || 0) + scores[b]
+  }
+
+  const aggregatePercentages = Object.fromEntries(
+    Object.entries(aggregateScores).map(([b, count]) => [
+      b, totalQuestions > 0 ? Math.round((count / totalQuestions) * 100) : 0
+    ])
+  )
+
+  const questionSet = [...new Set(Object.values(perLLM).flatMap(r => r.details.map(d => d.question)))]
+  const gaps = questionSet.map(question => {
+    const brandMentioned = Object.values(perLLM).some(r =>
+      r.details.find(d => d.question === question)?.mentions[brand]
+    )
+    if (brandMentioned) return null
+    const competitorsSeen = newCompetitors.filter(c =>
+      Object.values(perLLM).some(r => r.details.find(d => d.question === question)?.mentions[c])
+    )
+    if (competitorsSeen.length === 0) return null
+    return { question, competitorsSeen }
+  }).filter(Boolean).slice(0, 3)
+
+  return {
+    ...result,
+    competitors: newCompetitors,
+    visibility: { ...result.visibility, perLLM, aggregateScores, aggregatePercentages, gaps, totalQuestions }
+  }
+}
+
+function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
   const [activeTab, setActiveTab] = useState('Overview')
+  const [editingCompetitors, setEditingCompetitors] = useState(false)
+  const [draftCompetitors, setDraftCompetitors] = useState([])
+  const [newCompetitorInput, setNewCompetitorInput] = useState('')
+  const { user } = useAuth()
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  const isGated = !user && !isLocalhost
   const agg = result.visibility?.aggregatePercentages || {}
   const brandPct = agg[result.brand] ?? 0
+
+  const onEditCompetitors = () => {
+    setDraftCompetitors([...(result.competitors || [])])
+    setEditingCompetitors(true)
+  }
+
+  const onApplyCompetitors = () => {
+    const updated = reScoreLocally(result, draftCompetitors)
+    onUpdateResult(updated)
+    setEditingCompetitors(false)
+    setNewCompetitorInput('')
+  }
 
   return (
     <div className="flex gap-0 min-h-screen">
       {/* ── Sidebar ── */}
-      <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r border-[#E7E2F0] bg-white sticky top-0 h-screen overflow-y-auto">
+      <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r border-[#BFDBFE] bg-white sticky top-0 h-screen overflow-y-auto">
         {/* Brand card */}
         <div className="px-4 pt-6 pb-5 border-b border-[#F0EBF8]">
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-[#5B3DF5]/10 flex items-center justify-center text-sm font-bold text-[#5B3DF5]">
+            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 flex items-center justify-center text-sm font-bold text-[#2563EB]">
               {result.brand?.[0]?.toUpperCase() || '?'}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-[#14182B] truncate">{result.brand}</p>
+              <p className="text-sm font-bold text-[#172554] truncate">{result.brand}</p>
               <p className="text-[10px] text-[#9CA3B8]">AI Visibility Report</p>
             </div>
           </div>
           {/* Score ring */}
-          <div className="flex items-center gap-3 bg-[#F8F6FE] rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-3 bg-[#EFF6FF] rounded-xl px-3 py-2.5">
             <div className="relative w-10 h-10 shrink-0">
               <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
                 <circle cx="18" cy="18" r="14" fill="none" stroke="#E3D9FB" strokeWidth="3.5" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#5B3DF5" strokeWidth="3.5"
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#2563EB" strokeWidth="3.5"
                   strokeDasharray={`${(brandPct / 100) * 87.96} 87.96`}
                   strokeLinecap="round" />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-[#5B3DF5]">{brandPct}%</span>
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-[#2563EB]">{brandPct}%</span>
             </div>
             <div>
-              <p className="text-xs font-bold text-[#14182B]">Visibility score</p>
+              <p className="text-xs font-bold text-[#172554]">Visibility score</p>
               <p className="text-[10px] text-[#9CA3B8]">{formatReportAge(resultTime)}</p>
             </div>
           </div>
@@ -2745,10 +3218,10 @@ function UrlModeResult({ result, resultTime, onReset }) {
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
                 activeTab === tab
-                  ? 'bg-[#F1EDFF] text-[#5B3DF5]'
-                  : 'text-[#667085] hover:bg-[#F8F6FE] hover:text-[#14182B]'
+                  ? 'bg-[#DBEAFE] text-[#2563EB]'
+                  : 'text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554]'
               }`}>
-              <span className={activeTab === tab ? 'text-[#5B3DF5]' : 'text-[#9CA3B8]'}>
+              <span className={activeTab === tab ? 'text-[#2563EB]' : 'text-[#9CA3B8]'}>
                 {TAB_ICONS[tab]}
               </span>
               <div className="min-w-0">
@@ -2772,11 +3245,11 @@ function UrlModeResult({ result, resultTime, onReset }) {
         {/* Top bar — mobile tabs + export */}
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 pt-6 pb-4">
           <div className="lg:hidden">
-            <p className="text-lg font-bold text-[#14182B]">{result.brand}</p>
+            <p className="text-lg font-bold text-[#172554]">{result.brand}</p>
             <p className="text-xs text-[#667085]">{formatReportAge(resultTime)}</p>
           </div>
           <div className="hidden lg:block">
-            <h2 className="text-xl font-bold text-[#14182B]">{activeTab}</h2>
+            <h2 className="text-xl font-bold text-[#172554]">{activeTab}</h2>
             {TAB_SUBLABELS[activeTab] && <p className="text-xs text-[#9CA3B8]">{TAB_SUBLABELS[activeTab]}</p>}
           </div>
           <div className="hidden lg:block ml-auto">
@@ -2785,15 +3258,15 @@ function UrlModeResult({ result, resultTime, onReset }) {
         </div>
 
         {/* Mobile horizontal tab strip */}
-        <div className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[#E7E2F0] px-4 overflow-x-auto">
+        <div className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[#BFDBFE] px-4 overflow-x-auto">
           <div className="flex gap-5">
             {OUTPUT_TABS.map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`relative py-3 text-sm font-semibold whitespace-nowrap transition-colors ${
-                  activeTab === tab ? 'text-[#5B3DF5]' : 'text-[#667085]'
+                  activeTab === tab ? 'text-[#2563EB]' : 'text-[#667085]'
                 }`}>
                 {tab}
-                {activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#5B3DF5] rounded-full" />}
+                {activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#2563EB] rounded-full" />}
               </button>
             ))}
           </div>
@@ -2809,17 +3282,35 @@ function UrlModeResult({ result, resultTime, onReset }) {
             />
           )}
           {activeTab === 'Prompts' && (
-            <PromptsTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
+            <GatedTabWrapper isGated={isGated}>
+              <PromptsTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
+            </GatedTabWrapper>
           )}
           {activeTab === 'Competitors' && (
-            <CompetitorsTab result={result} />
+            <GatedTabWrapper isGated={isGated}>
+              <CompetitorsTab
+                result={result}
+                editingCompetitors={editingCompetitors}
+                draftCompetitors={draftCompetitors}
+                setDraftCompetitors={setDraftCompetitors}
+                newCompetitorInput={newCompetitorInput}
+                setNewCompetitorInput={setNewCompetitorInput}
+                onEditCompetitors={onEditCompetitors}
+                onApplyCompetitors={onApplyCompetitors}
+                onCancelEdit={() => setEditingCompetitors(false)}
+              />
+            </GatedTabWrapper>
           )}
           {activeTab === 'Citations' && (
-            <CitationsTab result={result} />
+            <GatedTabWrapper isGated={isGated}>
+              <CitationsTab result={result} />
+            </GatedTabWrapper>
           )}
-          {activeTab === 'Growth Actions' && <ActionPlanTab result={result} />}
+          {activeTab === 'Growth Actions' && <ActionPlanTab result={result} isGated={isGated} />}
           {activeTab === 'Site Audit' && (
-            <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
+            <GatedTabWrapper isGated={isGated}>
+              <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
+            </GatedTabWrapper>
           )}
         </div>
       </div>
@@ -2830,6 +3321,7 @@ function UrlModeResult({ result, resultTime, onReset }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function V3VisibilityFlow() {
+  useEffect(() => { document.title = 'Check Your AI Visibility — Peach' }, [])
   const navigate = useNavigate()
   const [input, setInput] = useState(() => {
     const prefill = localStorage.getItem('peach_prefill_url') || ''
@@ -2847,6 +3339,7 @@ export default function V3VisibilityFlow() {
     const t = localStorage.getItem('peach_last_result_time')
     return t ? Number(t) : null
   })
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const handleReset = () => {
     localStorage.removeItem('peach_last_result')
@@ -2859,11 +3352,11 @@ export default function V3VisibilityFlow() {
     const val = input.trim()
     if (!val) return setError('Enter your website URL.')
 
-    // Auth gate — redirect to sign up if not logged in
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const onLocalhost = window.location.hostname === 'localhost'
+    if (!session && !onLocalhost) {
       localStorage.setItem('peach_prefill_url', val)
-      navigate('/login')
+      navigate('/signup')
       return
     }
 
@@ -2873,9 +3366,11 @@ export default function V3VisibilityFlow() {
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 90000)
+      const headers = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
       const res = await fetch('/api/v3/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ input: val, llms: ['chatgpt', 'gemini'] }),
         signal: controller.signal,
       })
@@ -2884,6 +3379,11 @@ export default function V3VisibilityFlow() {
       let data
       try { data = JSON.parse(text) }
       catch { throw new Error('Server error — please try again in a moment.') }
+      if (res.status === 403 && data.error === 'run_limit_exceeded') {
+        setLoading(false)
+        setShowUpgradeModal(true)
+        return
+      }
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       localStorage.setItem('peach_last_result', JSON.stringify(data))
       localStorage.setItem('peach_last_result_time', String(Date.now()))
@@ -2910,16 +3410,46 @@ export default function V3VisibilityFlow() {
     )
   }
 
+  const UpgradeModal = () => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl">
+        <div className="text-2xl mb-3">🍑</div>
+        <h3 className="text-lg font-bold text-gray-900 mb-2">You've used your free check</h3>
+        <p className="text-sm text-gray-500 mb-5">
+          Upgrade to Starter ($89/mo) to run unlimited checks, track your progress, and get full competitor breakdowns.
+        </p>
+        <div className="flex gap-3">
+          <Link to="/pricing" className="flex-1 text-center bg-blue-600 text-white font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors">
+            See plans →
+          </Link>
+          <button onClick={() => setShowUpgradeModal(false)} className="text-sm text-gray-400 px-4 py-2.5 rounded-xl hover:bg-gray-50 border border-gray-200">
+            Not now
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (result) {
     return (
       <div className="min-h-screen bg-[#FCFAF6]">
-        <UrlModeResult result={result} resultTime={resultTime} onReset={handleReset} />
+        {showUpgradeModal && <UpgradeModal />}
+        <UrlModeResult
+          result={result}
+          resultTime={resultTime}
+          onReset={handleReset}
+          onUpdateResult={(updated) => {
+            setResult(updated)
+            localStorage.setItem('peach_last_result', JSON.stringify(updated))
+          }}
+        />
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {showUpgradeModal && <UpgradeModal />}
       <div className="max-w-2xl mx-auto px-6 py-20">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">
@@ -2938,12 +3468,12 @@ export default function V3VisibilityFlow() {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleRun()}
               placeholder='yourwebsite.com'
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               autoFocus
             />
             <button
               onClick={handleRun}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap"
             >
               Analyse →
             </button>

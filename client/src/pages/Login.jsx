@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { resolvePostAuthRedirect } from '../lib/postAuthIntent'
 
 function GoogleIcon() {
   return (
@@ -14,6 +15,7 @@ function GoogleIcon() {
 }
 
 export default function Login() {
+  useEffect(() => { document.title = 'Sign in — Peach' }, [])
   const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'check-email'
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,28 +23,45 @@ export default function Login() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/app')
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session) return
+      // Check if user has completed onboarding (profile row exists)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle()
+      if (!profile) { navigate('/onboarding'); return }
+      await resolvePostAuthRedirect(navigate, session)
     })
+    return () => subscription.unsubscribe()
   }, [])
 
   const handleEmail = async (e) => {
     e.preventDefault()
     if (!email.trim()) return setError('Enter your email address.')
     setError('')
-    setLoading(true)
-    try {
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${window.location.origin}/app` },
-      })
-      if (err) throw err
-      setMode('check-email')
-    } catch (err) {
-      setError(err.message || 'Something went wrong. Try again.')
-    } finally {
-      setLoading(false)
-    }
+
+    // Show "check your email" immediately — don't wait for Supabase round-trip
+    setMode('check-email')
+
+    // Fire OTP request in background
+    supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    }).then(({ error: err }) => {
+      if (err) {
+        console.error('Supabase auth error full:', JSON.stringify(err))
+        setMode('signin')
+        const raw = err?.message || err?.error_description || err?.msg || err?.code || JSON.stringify(err)
+        const isRateLimit = raw.toLowerCase().includes('rate') || raw.toLowerCase().includes('too many') || raw.includes('429')
+        setError(
+          isRateLimit
+            ? 'Too many requests — wait 60 seconds then try again, or use Google sign-in.'
+            : raw || 'Email sending failed. Try Google sign-in or contact hello@gotopeach.com.'
+        )
+      }
+    })
   }
 
   const handleGoogle = async () => {
@@ -51,7 +70,7 @@ export default function Login() {
     try {
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/app` },
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
       })
       if (err) throw err
     } catch (err) {
@@ -61,15 +80,15 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f4f0] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex flex-col items-center justify-center px-4">
 
       {/* Logo */}
       <Link to="/" className="mb-8">
-        <span className="text-3xl font-bold text-gray-900 tracking-tight">Peach</span>
+        <span className="text-3xl font-bold text-white tracking-tight">Peach</span>
       </Link>
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-blue-800/20 p-8">
 
         {mode === 'check-email' ? (
           <div className="text-center">
@@ -85,7 +104,7 @@ export default function Login() {
             </p>
             <button
               onClick={() => { setMode('signin'); setEmail('') }}
-              className="text-sm text-indigo-600 hover:underline"
+              className="text-sm text-blue-600 hover:underline"
             >
               ← Use a different email
             </button>
@@ -107,19 +126,23 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
               </div>
 
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && (
+                <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+                  <p className="text-xs text-red-600 font-medium mb-1">Magic link failed</p>
+                  <p className="text-xs text-red-500">{error}</p>
+                </div>
+              )}
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors"
               >
-                {loading ? 'Sending...' : 'Continue'}
+                Continue
               </button>
             </form>
 
@@ -132,7 +155,7 @@ export default function Login() {
             <button
               onClick={handleGoogle}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-blue-600 rounded-xl py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-60 transition-colors"
             >
               <GoogleIcon />
               Continue with Google
@@ -141,13 +164,13 @@ export default function Login() {
             <p className="text-center text-sm text-gray-400 mt-6">
               {mode === 'signin' ? (
                 <>New here?{' '}
-                  <button onClick={() => setMode('signup')} className="text-indigo-600 font-medium hover:underline">
+                  <button onClick={() => setMode('signup')} className="text-blue-600 font-medium hover:underline">
                     Create an account
                   </button>
                 </>
               ) : (
                 <>Already have an account?{' '}
-                  <button onClick={() => setMode('signin')} className="text-indigo-600 font-medium hover:underline">
+                  <button onClick={() => setMode('signin')} className="text-blue-600 font-medium hover:underline">
                     Sign in
   </button>
                 </>
@@ -158,11 +181,11 @@ export default function Login() {
       </div>
 
       {/* Footer */}
-      <p className="text-xs text-gray-400 mt-6 text-center">
+      <p className="text-xs text-blue-200 mt-6 text-center">
         By continuing you agree to our{' '}
-        <Link to="/terms" className="underline hover:text-gray-600">Terms</Link>{' '}
+        <Link to="/terms" className="underline hover:text-white">Terms</Link>{' '}
         and{' '}
-        <Link to="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>
+        <Link to="/privacy" className="underline hover:text-white">Privacy Policy</Link>
       </p>
     </div>
   )

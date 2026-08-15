@@ -23,17 +23,17 @@ export default function Navbar() {
 
   const navLink = (to, label) => (
     <Link to={to}
-      className={`text-sm transition-colors ${location.pathname === to ? 'text-black font-medium' : 'text-neutral-500 hover:text-black'}`}>
+      className={`text-sm transition-colors ${location.pathname === to ? 'text-white font-medium' : 'text-blue-200 hover:text-white'}`}>
       {label}
     </Link>
   )
 
   return (
-    <nav className="bg-white sticky top-0 z-50 print:hidden border-b border-neutral-200">
+    <nav className="bg-blue-900 sticky top-0 z-50 print:hidden border-b border-blue-800">
       <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-          <span className="brand-wordmark text-black text-xl">Peach</span>
+          <span className="brand-wordmark text-white text-xl">Peach</span>
         </Link>
 
         {/* Desktop nav */}
@@ -47,19 +47,19 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-2">
           {user ? (
             <>
-              <span className="text-sm text-neutral-500 max-w-[140px] truncate">{user.email}</span>
+              <span className="text-sm text-blue-200 max-w-[140px] truncate">{user.email}</span>
               <button onClick={handleSignOut}
-                className="text-sm text-neutral-500 hover:text-black transition-colors px-3 py-1.5">
+                className="text-sm text-blue-200 hover:text-white transition-colors px-3 py-1.5">
                 Sign out
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="text-sm text-neutral-500 hover:text-black transition-colors px-3 py-1.5">
+              <Link to="/login" className="text-sm text-blue-200 hover:text-white transition-colors px-3 py-1.5">
                 Sign in
               </Link>
               <Link to="/app" onClick={() => localStorage.removeItem('peach_last_result')}
-                className="text-sm font-medium bg-black text-white px-4 py-1.5 rounded-full hover:bg-neutral-800 transition-colors">
+                className="text-sm font-medium bg-white text-blue-700 px-4 py-1.5 rounded-full hover:bg-blue-50 transition-colors">
                 Get started
               </Link>
             </>
@@ -67,7 +67,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile hamburger */}
-        <button className="md:hidden p-2 text-neutral-500" onClick={() => setMobileOpen(!mobileOpen)}>
+        <button className="md:hidden p-2 text-blue-200" onClick={() => setMobileOpen(!mobileOpen)}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {mobileOpen
               ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
@@ -79,21 +79,21 @@ export default function Navbar() {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-neutral-200 bg-white px-6 py-5 space-y-4">
-          <Link to="/features" onClick={() => setMobileOpen(false)} className="block text-sm text-neutral-700 hover:text-black">Features</Link>
-          <Link to="/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-neutral-700 hover:text-black">Pricing</Link>
-          <Link to="/blog" onClick={() => setMobileOpen(false)} className="block text-sm text-neutral-700 hover:text-black">Blog</Link>
+        <div className="md:hidden border-t border-blue-800 bg-blue-900 px-6 py-5 space-y-4">
+          <Link to="/features" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Features</Link>
+          <Link to="/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Pricing</Link>
+          <Link to="/blog" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Blog</Link>
           {user ? (
             <>
-              <span className="block text-sm text-neutral-500 truncate">{user.email}</span>
+              <span className="block text-sm text-blue-200 truncate">{user.email}</span>
               <button onClick={() => { setMobileOpen(false); handleSignOut() }}
-                className="block text-sm text-neutral-700 hover:text-black">Sign out</button>
+                className="block text-sm text-blue-100 hover:text-white">Sign out</button>
             </>
           ) : (
             <>
-              <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-sm text-neutral-700 hover:text-black">Sign in</Link>
+              <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Sign in</Link>
               <Link to="/app" onClick={() => { setMobileOpen(false); localStorage.removeItem('peach_last_result') }}
-                className="inline-block text-sm font-medium bg-black text-white px-5 py-2 rounded-full">
+                className="inline-block text-sm font-medium bg-white text-blue-700 px-5 py-2 rounded-full">
                 Get started
               </Link>
             </>

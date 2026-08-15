@@ -17,10 +17,10 @@ const studies = [
 
 export default function CaseStudies() {
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-blue-50 min-h-screen">
       <div className="max-w-5xl mx-auto px-6 py-16">
         <div className="mb-12">
-          <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Case Studies</span>
+          <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Case Studies</span>
           <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">Real results from real teams</h1>
           <p className="text-lg text-gray-500 max-w-2xl">
             How brands improved their AI search visibility using AEO Visibility.
@@ -41,7 +41,7 @@ export default function CaseStudies() {
                 <div className="flex gap-4">
                   {s.metrics.map(m => (
                     <div key={m.label} className="text-center bg-gray-50 rounded-xl px-4 py-3 min-w-[72px]">
-                      <div className="text-lg font-bold text-indigo-600">{m.value}</div>
+                      <div className="text-lg font-bold text-blue-600">{m.value}</div>
                       <div className="text-xs text-gray-400 mt-0.5">{m.label}</div>
                     </div>
                   ))}
@@ -52,10 +52,10 @@ export default function CaseStudies() {
           ))}
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-10 text-center">
+        <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 rounded-2xl p-10 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">Your brand could be next</h2>
-          <p className="text-gray-400 mb-6 text-sm">Find out where you stand in AI search — in under 3 minutes.</p>
-          <a href="/v2/app" className="bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors text-sm">
+          <p className="text-blue-100 mb-6 text-sm">Find out where you stand in AI search — in under 3 minutes.</p>
+          <a href="/v2/app" className="bg-white text-blue-700 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
             Run your first report →
           </a>
         </div>

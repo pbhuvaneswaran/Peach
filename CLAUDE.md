@@ -4,6 +4,14 @@
 
 ---
 
+## Latest Instructions (2026-07-22)
+
+- **Competitor identification logic fixed** — `src/competitorExtractor.js` prompt now uses "The Buyer Test": *if someone is actively evaluating this product, which other vendors would they have also requested a demo from in the same week?* This fixes B2B tools (e.g. Prudent AI) returning their customers (Blend, Zillow) instead of actual software competitors (Ocrolus, Laminr, Tidalwave). Key rule: competitors are other VENDORS, never the companies that BUY the product.
+- **Auth gate** — `/app` redirects to `/login` before running analysis (gate currently commented out for local testing — re-enable before deploying: search for "Auth gate disabled" in VisibilityFlow.jsx).
+- **Supabase project** — correct project is `olwcmaabbsnqhmbiybsk.supabase.co` (not `arkwwkqepnnrpzsnqdra`, not `yilldvpntyvpjnaiczjx`). `client/.env` must use `VITE_SUPABASE_URL=https://olwcmaabbsnqhmbiybsk.supabase.co` and `VITE_SUPABASE_ANON_KEY=sb_publishable_...`.
+
+---
+
 ## Latest Instructions (2026-07-08)
 
 - **Results page tabs redesigned** — 6 tabs: Overview · Prompts · Competitors · Citations · Growth Actions · Site Audit (was 4 tabs: Overview · AI Answers · Site Audit · Action plan).

@@ -21,14 +21,14 @@ export function LLMChip({ llm, selected, onClick }) {
 export function ScoreBar({ brand, pct, highlight }) {
   return (
     <div className="flex items-center gap-3">
-      <span className={`text-sm font-semibold w-32 truncate ${highlight ? 'text-indigo-700' : 'text-gray-600'}`}>{brand}</span>
+      <span className={`text-sm font-semibold w-32 truncate ${highlight ? 'text-blue-700' : 'text-gray-600'}`}>{brand}</span>
       <div className="flex-1 bg-gray-100 rounded-full h-2.5">
         <div
-          className={`h-2.5 rounded-full transition-all ${highlight ? 'bg-indigo-500' : 'bg-gray-400'}`}
+          className={`h-2.5 rounded-full transition-all ${highlight ? 'bg-blue-500' : 'bg-gray-400'}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className={`text-sm font-bold w-10 text-right ${highlight ? 'text-indigo-700' : 'text-gray-500'}`}>{pct}%</span>
+      <span className={`text-sm font-bold w-10 text-right ${highlight ? 'text-blue-700' : 'text-gray-500'}`}>{pct}%</span>
     </div>
   )
 }
@@ -119,7 +119,7 @@ export function PromptTable({ prompts, llmsQueried, visibility, brand, competito
         <span className="flex-1 text-xs font-bold text-gray-400 uppercase tracking-wide">Prompt</span>
         <div className="flex gap-3 flex-shrink-0">
           {allBrands.map(b => (
-            <span key={b} className={`text-[10px] font-bold uppercase tracking-wide w-6 text-center ${b === brand ? 'text-indigo-600' : 'text-gray-400'}`}>
+            <span key={b} className={`text-[10px] font-bold uppercase tracking-wide w-6 text-center ${b === brand ? 'text-blue-600' : 'text-gray-400'}`}>
               {b.slice(0, 5)}
             </span>
           ))}
@@ -140,8 +140,8 @@ function BlogOutlineCard({ blog, index }) {
     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Blog idea {index + 1}</p>
       <p className="text-sm font-bold text-gray-900 mb-1">{blog.title}</p>
-      <p className="text-xs text-indigo-600 font-semibold mb-3 flex items-center gap-1.5">
-        <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-black text-[10px]">H1</span>
+      <p className="text-xs text-blue-600 font-semibold mb-3 flex items-center gap-1.5">
+        <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-black text-[10px]">H1</span>
         {blog.h1}
       </p>
       <div className="space-y-2.5">
@@ -173,7 +173,7 @@ export function ActionCard({ action, index }) {
     <div className="bg-white border border-gray-200 rounded-2xl p-6">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
-          <span className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+          <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
             {index + 1}
           </span>
           <h3 className="text-sm font-bold text-gray-900">{action.gap}</h3>
@@ -185,8 +185,8 @@ export function ActionCard({ action, index }) {
         )}
       </div>
       <p className="text-sm text-gray-800 font-medium mb-3">{action.action}</p>
-      <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 mb-3">
-        <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-1">Why this works</p>
+      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-3">
+        <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">Why this works</p>
         <p className="text-sm text-gray-700 leading-relaxed">{action.why}</p>
       </div>
       {action.format && (
@@ -202,14 +202,14 @@ export function ActionCard({ action, index }) {
           <div className="space-y-2 mb-3">
             {blogs.map((blog, bi) => (
               <div key={bi} className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{bi + 1}</span>
+                <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{bi + 1}</span>
                 <p className="text-sm font-semibold text-gray-800">{blog.title}</p>
               </div>
             ))}
           </div>
           <button
             onClick={() => setShowBlogs(!showBlogs)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-blue-500 hover:text-blue-700 transition-colors"
           >
             <span>📝</span>
             {showBlogs ? 'Hide' : 'View full outlines'} (H1 · H2 · H3)

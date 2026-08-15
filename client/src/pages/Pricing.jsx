@@ -1,11 +1,21 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { ALL_PLATFORMS, PlatformChip, PlatformRow } from '../components/llmPlatforms'
+import { useAuth } from '../context/AuthContext'
+import { setPostAuthIntent } from '../lib/postAuthIntent'
 
 function Check() {
   return (
-    <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#5B3DF5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#2563EB]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+function Soon() {
+  return (
+    <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#94A3B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   )
 }
@@ -22,20 +32,30 @@ const PLANS = [
     platforms: ['chatgpt', 'gemini', 'googleaio'],
     usageLine: '40 prompts tracked / month · 1 domain',
     included: [
-      'AI Visibility Report',
-      'Gap Opportunities',
-      'Action Plan',
-      'CSV export',
+      '3 AI engines tracked (ChatGPT, Gemini, Google AI Overview)',
+      '1 domain',
+      '40 tracked prompts / month',
+      '120 AI answers analyzed / month',
+      '15 article generations / month',
+      '1 seat',
       'Email support',
     ],
-    cta: 'Get started',
+    soon: [
+      'Scheduled weekly monitoring',
+      'Email alerts on visibility drops',
+      '30 AI content briefs / month',
+      '50 citation-building credits / month',
+      'Integrations: HubSpot, Slack, Notion & more',
+    ],
+    cta: 'Start free trial',
     ctaLink: '/app',
+    checkoutPlan: 'starter',
   },
   {
     name: 'Growth',
-    monthly: 199,
-    yearly: 166,
-    yearlyTotal: 1990,
+    monthly: 219,
+    yearly: 183,
+    yearlyTotal: 1830,
     who: 'Growing brands & marketers',
     platforms: ['chatgpt', 'gemini', 'perplexity', 'googleaio'],
     usageLine: '80 prompts tracked / month · 5 domains',
@@ -43,45 +63,27 @@ const PLANS = [
     badge: 'Most popular',
     included: [
       'Everything in Starter',
-      'Competitor analysis',
-      'Google AI Overview tracking',
-      'AI crawler audit',
-      'Dashboard trends',
+      '5 domains',
+      '80 tracked prompts / month',
+      '240 AI answers analyzed / month',
+      '30 article generations / month',
+      '3 seats',
       'Priority support',
     ],
-    cta: 'Get started',
-    ctaLink: '/app',
-  },
-  {
-    name: 'Scale',
-    monthly: 349,
-    yearly: 291,
-    yearlyTotal: 3490,
-    who: 'Agencies & large teams',
-    platforms: ['chatgpt', 'gemini', 'perplexity', 'googleaio', 'claude'],
-    usageLine: '150 prompts tracked / month · 20 domains',
-    included: [
-      'Everything in Growth',
-      'Weekly monitoring',
-      'PDF report download',
-      '3 team seats',
-      'Dedicated onboarding call',
+    soon: [
+      'Perplexity tracking',
+      'Multi-domain tracking (5 sites)',
+      'Team members — 3 seats',
+      'Slack & email alerts',
+      'Multi-language visibility checks',
+      '30 AI content briefs / month',
+      '50 citation-building credits / month',
+      'Integrations: Ahrefs, Semrush, Contentful, Framer & more',
     ],
     cta: 'Get started',
-    ctaLink: '/app',
+    checkoutPlan: 'growth',
   },
 ]
-
-const ENTERPRISE = {
-  included: [
-    'Unlimited prompts',
-    'Unlimited domains',
-    'White-label reports',
-    'Custom integrations',
-    'Claude tracking',
-    'SLA support',
-  ],
-}
 
 const FAQS = [
   {
@@ -104,10 +106,10 @@ const FAQS = [
 
 function FAQItem({ item, open, onToggle }) {
   return (
-    <div className="bg-white border border-[#E8E2F5] rounded-2xl overflow-hidden">
-      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#F8F6FE] transition-colors">
-        <span className="font-semibold text-[#14182B] text-[15px]">{item.q}</span>
-        <span className="w-6 h-6 flex items-center justify-center text-[#5B3DF5] text-lg flex-shrink-0">{open ? '−' : '+'}</span>
+    <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#EFF6FF] transition-colors">
+        <span className="font-semibold text-[#172554] text-[15px]">{item.q}</span>
+        <span className="w-6 h-6 flex items-center justify-center text-[#2563EB] text-lg flex-shrink-0">{open ? '−' : '+'}</span>
       </button>
       {open && (
         <div className="px-5 pb-4 text-sm text-[#677085] leading-relaxed">{item.a}</div>
@@ -118,31 +120,32 @@ function FAQItem({ item, open, onToggle }) {
 
 // ─── Plan card ─────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, annual, expanded, onToggleExpand }) {
+function PlanCard({ plan, annual, expanded, onToggleExpand, onCta, checkingOut }) {
   const highlighted = plan.highlighted
   const price = annual ? plan.yearly : plan.monthly
   const visibleFeatures = expanded ? plan.included : plan.included.slice(0, 5)
   const hasMore = plan.included.length > 5
+  const soonFeatures = plan.soon || []
 
   return (
     <div className={`relative rounded-[20px] p-8 flex flex-col bg-white border transition-all ${
-      highlighted ? 'border-[#5B3DF5] bg-[#F8F6FE] shadow-md' : 'border-[#E8E2F5] shadow-sm'
+      highlighted ? 'border-[#2563EB] bg-[#EFF6FF] shadow-md' : 'border-[#BFDBFE] shadow-sm'
     }`}>
       {highlighted && (
-        <div className="absolute top-0 left-8 right-8 h-1 bg-[#5B3DF5] rounded-b-full" />
+        <div className="absolute top-0 left-8 right-8 h-1 bg-[#2563EB] rounded-b-full" />
       )}
       {plan.badge && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#5B3DF5] text-white text-[10px] font-bold px-3 py-1 rounded-full tracking-wide uppercase">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2563EB] text-white text-[10px] font-bold px-3 py-1 rounded-full tracking-wide uppercase">
           {plan.badge}
         </div>
       )}
 
-      <h2 className="font-bold text-lg text-[#14182B] mb-1">{plan.name}</h2>
+      <h2 className="font-bold text-lg text-[#172554] mb-1">{plan.name}</h2>
       <p className="text-sm text-[#677085] mb-6">{plan.who}</p>
 
       <div className="mb-6">
         <div className="flex items-end gap-1">
-          <span className="text-2xl font-bold text-[#14182B]">${price}</span>
+          <span className="text-2xl font-bold text-[#172554]">${price}</span>
           <span className="text-sm text-[#677085] mb-0.5">/mo</span>
         </div>
         {annual && <p className="text-xs text-[#677085] mt-1">billed ${plan.yearlyTotal}/yr</p>}
@@ -150,8 +153,8 @@ function PlanCard({ plan, annual, expanded, onToggleExpand }) {
 
       <PlatformRow platforms={plan.platforms} showScanning={false} />
 
-      <p className="text-sm font-semibold text-[#14182B] mb-4">{plan.usageLine}</p>
-      <div className="border-t border-[#E8E2F5] mb-5" />
+      <p className="text-sm font-semibold text-[#172554] mb-4">{plan.usageLine}</p>
+      <div className="border-t border-[#BFDBFE] mb-5" />
 
       <div className="mb-6 flex-1">
         <p className="text-xs font-semibold text-[#677085] uppercase tracking-wide mb-3">Included</p>
@@ -159,23 +162,37 @@ function PlanCard({ plan, annual, expanded, onToggleExpand }) {
           {visibleFeatures.map((f) => (
             <li key={f} className="flex items-start gap-2">
               <Check />
-              <span className="text-sm text-[#14182B]/90 leading-relaxed">{f}</span>
+              <span className="text-sm text-[#172554]/90 leading-relaxed">{f}</span>
             </li>
           ))}
         </ul>
         {hasMore && (
-          <button onClick={onToggleExpand} className="text-xs font-semibold text-[#5B3DF5] hover:text-[#4c30dd] mt-3">
+          <button onClick={onToggleExpand} className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] mt-3">
             {expanded ? 'Show fewer features ↑' : 'See all features ↓'}
           </button>
         )}
+        {soonFeatures.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-dashed border-[#CBD5E1]">
+            <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest mb-2.5">Coming soon</p>
+            <ul className="space-y-2">
+              {soonFeatures.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Soon />
+                  <span className="text-sm text-[#94A3B8] leading-relaxed">{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      <Link
-        to={plan.ctaLink}
-        className="block text-center text-sm font-semibold py-3 rounded-xl transition-colors bg-[#5B3DF5] hover:bg-[#4c30dd] text-white"
+      <button
+        onClick={() => onCta && onCta(plan)}
+        disabled={checkingOut}
+        className="w-full text-sm font-semibold py-3 rounded-xl transition-colors bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white"
       >
-        {plan.cta} →
-      </Link>
+        {checkingOut ? 'Redirecting...' : `${plan.cta} →`}
+      </button>
     </div>
   )
 }
@@ -183,122 +200,136 @@ function PlanCard({ plan, annual, expanded, onToggleExpand }) {
 // ─── Pricing Page ─────────────────────────────────────────────────────────────
 
 export default function Pricing() {
+  useEffect(() => { document.title = 'Pricing — Peach' }, [])
   const [annual, setAnnual] = useState(false)
   const [expandedPlans, setExpandedPlans] = useState({})
   const [openFaq, setOpenFaq] = useState(0)
+  const [checkingOut, setCheckingOut] = useState(null)
+  const { user, session } = useAuth()
+  const navigate = useNavigate()
+
+  const handleCta = (plan) => {
+    if (!user) {
+      setPostAuthIntent(
+        plan.ctaLink === '/app' ? { type: 'app' } : { type: 'checkout', plan: plan.checkoutPlan }
+      )
+      navigate('/signup')
+      return
+    }
+    if (plan.ctaLink === '/app') {
+      navigate('/app')
+    } else {
+      handleCheckout(plan.checkoutPlan)
+    }
+  }
+
+  const handleCheckout = async (plan) => {
+    setCheckingOut(plan)
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ plan, email: user?.email }),
+      })
+      const data = await res.json()
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+      } else {
+        alert(data.error || 'Failed to start checkout. Please try again.')
+      }
+    } catch {
+      alert('Failed to connect to payment server. Please try again.')
+    } finally {
+      setCheckingOut(null)
+    }
+  }
 
   return (
-    <div className="bg-[#FCFAF6] min-h-screen">
-      <div className="max-w-6xl mx-auto px-6 py-20">
+    <div>
 
-        {/* Header */}
-        <div className="text-center mb-14">
-          <h1 className="text-4xl font-bold text-[#14182B] mb-3">Plans & Pricing</h1>
-          <p className="text-lg text-[#677085] max-w-xl mx-auto mb-6">
-            Know where you stand in AI search. Start free, scale when you're ready.
-          </p>
+      {/* Header (dark) */}
+      <section className="bg-blue-900 px-6 pt-20 pb-16 text-center">
+        <h1 className="text-4xl font-bold text-white mb-3">Plans & Pricing</h1>
+        <p className="text-lg text-blue-100 max-w-xl mx-auto mb-6">
+          Know where you stand in AI search. Start free, scale when you're ready.
+        </p>
 
-          <div className="inline-flex items-center gap-1 bg-[#F1EDFF] rounded-xl p-1">
-            <button
-              onClick={() => setAnnual(false)}
-              className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${!annual ? 'bg-white text-[#14182B] shadow-sm' : 'text-[#677085]'}`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setAnnual(true)}
-              className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 ${annual ? 'bg-white text-[#14182B] shadow-sm' : 'text-[#677085]'}`}
-            >
-              Annual
-              <span className="text-[10px] font-black bg-[#DCF5E4] text-[#1B8A4A] px-1.5 py-0.5 rounded-full">Save 2 mo</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 3-card row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
-          {PLANS.map((plan) => (
-            <PlanCard
-              key={plan.name}
-              plan={plan}
-              annual={annual}
-              expanded={!!expandedPlans[plan.name]}
-              onToggleExpand={() => setExpandedPlans((prev) => ({ ...prev, [plan.name]: !prev[plan.name] }))}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Enterprise — separate horizontal section */}
-      <section className="bg-[#F1EDFF] py-20">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="bg-white rounded-[24px] border border-[#E8E2F5] p-10 grid md:grid-cols-2 gap-10 items-center">
-            <div>
-              <h2 className="text-2xl font-bold text-[#14182B] mb-2">Enterprise</h2>
-              <p className="text-sm text-[#677085] mb-4">For large teams, agencies, and white-label workflows.</p>
-              <p className="text-[#14182B] leading-relaxed">
-                Custom AI visibility monitoring built around your clients, domains, and reporting needs.
-              </p>
-            </div>
-            <div>
-              <PlatformRow platforms={ALL_PLATFORMS} extraLabel="Plus custom monitoring options" showScanning={false} />
-              <ul className="space-y-2.5 mb-6">
-                {ENTERPRISE.included.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check />
-                    <span className="text-sm text-[#14182B]/90 leading-relaxed">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="mailto:hello@gotopeach.com"
-                className="inline-block text-center text-sm font-semibold py-3 px-6 rounded-xl border border-[#5B3DF5] text-[#5B3DF5] hover:bg-[#F1EDFF] transition-colors"
-              >
-                Talk to us →
-              </a>
-            </div>
-          </div>
+        <div className="inline-flex items-center gap-1 bg-white/10 border border-white/20 rounded-xl p-1">
+          <button
+            onClick={() => setAnnual(false)}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${!annual ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-100'}`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setAnnual(true)}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 ${annual ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-100'}`}
+          >
+            Annual
+            <span className="text-[10px] font-black bg-[#DCF5E4] text-[#1B8A4A] px-1.5 py-0.5 rounded-full">Save 2 mo</span>
+          </button>
         </div>
       </section>
 
-      {/* Free report — conversion moment */}
-      <section className="bg-[#FFF1E6] py-24">
+      {/* Plan cards (pale) */}
+      <section className="bg-blue-50 px-6 py-20">
+        <div className="flex flex-wrap justify-center gap-8">
+          {PLANS.map((plan) => (
+            <div key={plan.name} className="w-full sm:w-[340px]">
+              <PlanCard
+                plan={plan}
+                annual={annual}
+                expanded={!!expandedPlans[plan.name]}
+                onToggleExpand={() => setExpandedPlans((prev) => ({ ...prev, [plan.name]: !prev[plan.name] }))}
+                onCta={handleCta}
+                checkingOut={checkingOut === plan.checkoutPlan}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Free report — conversion moment (dark) */}
+      <section className="bg-blue-900 py-20">
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <p className="text-xs font-bold text-[#B4632A] uppercase tracking-widest mb-3">Not ready to commit?</p>
-          <h2 className="text-3xl font-bold text-[#14182B] mb-4">Start with one free visibility report.</h2>
-          <p className="text-[#677085] mb-8">
+          <p className="text-xs font-bold text-blue-200 uppercase tracking-widest mb-3">Not ready to commit?</p>
+          <h2 className="text-3xl font-bold text-white mb-4">Start with one free visibility report.</h2>
+          <p className="text-blue-100 mb-8">
             See how AI describes your brand, where competitors are cited, and what to improve next.
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {['AI visibility score', 'Competitor gaps', 'Content action plan'].map((pill) => (
-              <span key={pill} className="text-sm font-medium text-[#14182B] bg-white border border-[#E8E2F5] px-4 py-2 rounded-full">{pill}</span>
+              <span key={pill} className="text-sm font-medium text-white bg-white/10 border border-white/20 px-4 py-2 rounded-full">{pill}</span>
             ))}
           </div>
 
-          <p className="text-[#14182B] font-medium mb-4">See how your brand appears across the AI answers buyers trust.</p>
+          <p className="text-white font-medium mb-4">See how your brand appears across the AI answers buyers trust.</p>
           <div className="flex justify-center mb-2">
             <div className="flex flex-wrap justify-center gap-2">
               {ALL_PLATFORMS.map((key, i) => <PlatformChip key={key} platformKey={key} index={i} />)}
             </div>
           </div>
-          <p className="text-[10px] text-[#677085] mb-10">Platform names and logos are trademarks of their respective owners. Peach is not affiliated with or endorsed by these companies.</p>
+          <p className="text-[10px] text-blue-200 mb-10">Platform names and logos are trademarks of their respective owners. Peach is not affiliated with or endorsed by these companies.</p>
 
           <Link
             to="/login"
             onClick={() => localStorage.removeItem('peach_last_result')}
-            className="inline-block bg-[#5B3DF5] hover:bg-[#4c30dd] text-white font-semibold px-8 py-3.5 rounded-xl transition-colors"
+            className="inline-block bg-white hover:bg-blue-50 text-blue-700 font-semibold px-8 py-3.5 rounded-xl transition-colors"
           >
             Check your AI visibility →
           </Link>
-          <p className="text-xs text-[#677085] mt-3">No credit card · Results in under 3 minutes</p>
+          <p className="text-xs text-blue-200 mt-3">No credit card · Results in under 3 minutes</p>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="bg-white py-24">
+      {/* FAQ (pale) */}
+      <section className="bg-blue-50 py-24">
         <div className="max-w-[760px] mx-auto px-6">
-          <h2 className="text-3xl font-bold text-[#14182B] text-center mb-2">Questions before you choose a plan.</h2>
+          <h2 className="text-3xl font-bold text-[#172554] text-center mb-2">Questions before you choose a plan.</h2>
           <p className="text-[#677085] text-center mb-10">Everything you need to know before tracking your AI visibility.</p>
           <div className="space-y-3">
             {FAQS.map((item, i) => (

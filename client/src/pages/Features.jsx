@@ -1,4 +1,58 @@
 import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+
+const COMING_SOON = [
+  {
+    icon: '🔔',
+    title: 'Scheduled Monitoring',
+    desc: 'Set it and forget it. Peach re-runs your visibility report every week and emails you when your score changes — no manual checks needed.',
+  },
+  {
+    icon: '💜',
+    title: 'Perplexity Tracking',
+    desc: 'Track how often Perplexity cites your brand in buyer-intent answers. The fastest-growing AI search engine for B2B buyers.',
+  },
+  {
+    icon: '✍️',
+    title: '30 AI Content Briefs / Month',
+    desc: "Every visibility gap becomes a ready-to-publish content brief. Get 30 structured briefs per month, each targeting a specific buyer query where AI doesn't cite you yet.",
+  },
+  {
+    icon: '🔗',
+    title: '50 Citation-Building Credits / Month',
+    desc: 'Peach identifies the exact domains AI cites in your category. Use your 50 monthly credits to discover, prioritise, and track citation-building opportunities.',
+  },
+  {
+    icon: '🔌',
+    title: 'Integrations',
+    desc: 'Connect Peach to the tools you already use. Publish content briefs to Notion, trigger Slack alerts on score drops, sync gaps to HubSpot, Ahrefs, Semrush, Contentful, Framer, and more.',
+  },
+  {
+    icon: '🌍',
+    title: 'Multi-Language Visibility',
+    desc: 'Check how AI describes your brand to buyers searching in French, Spanish, German, and 20+ other languages. Global visibility at a glance.',
+  },
+  {
+    icon: '🏢',
+    title: 'Multi-Domain Tracking',
+    desc: 'Track multiple websites from one dashboard — ideal for agencies, holding companies, or brands with multiple product lines.',
+  },
+  {
+    icon: '👥',
+    title: 'Team Collaboration',
+    desc: 'Invite teammates to view reports, comment on gaps, and track progress together. Keep your whole marketing team aligned on AI visibility.',
+  },
+  {
+    icon: '⚡',
+    title: 'Slack & Email Alerts',
+    desc: 'Get instant notifications when a competitor gains ground, a new citation source appears, or your visibility score drops. Never miss a shift.',
+  },
+  {
+    icon: '🔑',
+    title: 'API Access',
+    desc: 'Pull your AI visibility scores, gaps, and competitor data into your own dashboards, CRMs, or BI tools via a simple REST API.',
+  },
+]
 
 const FEATURES = [
   {
@@ -64,29 +118,15 @@ const FEATURES = [
 ]
 
 export default function Features() {
+  useEffect(() => { document.title = 'Features — Peach' }, [])
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-blue-50 min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-16">
 
-        {/* Header */}
-        <div className="text-center mb-14">
-          <p className="text-xs font-black text-indigo-500 uppercase tracking-[0.2em] mb-3">What Peach does</p>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Know exactly where you stand<br className="hidden sm:block" /> in AI search
-          </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-8">
-            Peach shows you the actual AI answers about your category, which brands are cited, and what content to create to get mentioned.
-          </p>
-          <Link
-            to="/app"
-            onClick={() => localStorage.removeItem('peach_last_result')}
-            className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
-          >
-            Check my AI visibility →
-          </Link>
+        {/* Live features */}
+        <div className="mb-3">
+          <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">What's live now</span>
         </div>
-
-        {/* 12-card grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {FEATURES.map((f) => (
             <div
@@ -100,13 +140,33 @@ export default function Features() {
           ))}
         </div>
 
+        {/* Coming soon */}
+        <div className="mt-14 mb-3">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Coming soon</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {COMING_SOON.map((f) => (
+            <div
+              key={f.title}
+              className="bg-white/60 border border-dashed border-slate-200 rounded-2xl p-6 flex flex-col gap-3 relative"
+            >
+              <div className="absolute top-4 right-4">
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Soon</span>
+              </div>
+              <span className="text-3xl opacity-60">{f.icon}</span>
+              <h3 className="font-bold text-slate-500 text-base">{f.title}</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Bottom CTA */}
         <div className="text-center mt-16">
           <p className="text-gray-500 text-sm mb-4">All of this runs from a single URL input — no setup, no integrations.</p>
           <Link
             to="/app"
             onClick={() => localStorage.removeItem('peach_last_result')}
-            className="inline-block bg-gray-900 hover:bg-gray-800 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
           >
             Try it free — no card needed
           </Link>

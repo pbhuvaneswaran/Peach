@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import V3VisibilityFlow from './pages/v3/VisibilityFlow'
@@ -9,6 +10,8 @@ import Login from './pages/Login'
 import { BlogList, BlogPost } from './pages/Blog'
 import UseCases from './pages/UseCases'
 import CaseStudies from './pages/CaseStudies'
+import Onboarding from './pages/Onboarding'
+import AuthCallback from './pages/AuthCallback'
 
 function Layout({ children, noFooter }) {
   return (
@@ -22,6 +25,7 @@ function Layout({ children, noFooter }) {
 
 export default function AppV3() {
   return (
+    <AuthProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout><HomeV2 /></Layout>} />
@@ -33,6 +37,8 @@ export default function AppV3() {
         <Route path="/features" element={<Layout><Features /></Layout>} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Login />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/blog" element={<Layout><BlogList /></Layout>} />
         <Route path="/blog/:slug" element={<Layout><BlogPost /></Layout>} />
         <Route path="/use-cases" element={<Layout><UseCases /></Layout>} />
@@ -41,11 +47,12 @@ export default function AppV3() {
           <Layout>
             <div className="max-w-xl mx-auto px-6 py-24 text-center">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">Page not found</h1>
-              <a href="/" className="text-indigo-600 hover:underline text-sm">Go home →</a>
+              <a href="/" className="text-blue-600 hover:underline text-sm">Go home →</a>
             </div>
           </Layout>
         } />
       </Routes>
     </BrowserRouter>
+    </AuthProvider>
   )
 }

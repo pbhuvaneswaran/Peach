@@ -10,7 +10,7 @@ async function analyzePageAndPrepare(pageData) {
   const headingText = (pageData.headings || []).slice(0, 10).map(h => h.text).join(', ');
 
   const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     max_tokens: 1200,
     messages: [{
       role: 'user',
@@ -18,12 +18,18 @@ async function analyzePageAndPrepare(pageData) {
 
 1. "description": 1-2 sentences describing what the product does — problem it solves and who it's for. NO brand names.
 2. "category": the most specific sub-category this product belongs to (e.g. "AI agent platform for solopreneurs", NOT the broad "productivity tool").
-3. "competitors": array of up to 4 real company/product BRAND NAMES that are DIRECT competitors in the SAME specific niche.
+3. "competitors": array of up to 4 real company/product BRAND NAMES that are DIRECT competitors.
    CRITICAL RULES:
    - Return only BRAND NAMES of actual software products/companies (e.g. "Zendesk", "Intercom", "Freshdesk")
    - NEVER return category descriptions (NOT "AI customer service platform")
-   - Same niche = same product type, same audience, same core job-to-be-done
-   - If the product is a SOFTWARE TOOL or AI TOOL, competitors must ALSO be software/AI tools — NEVER list service marketplaces, freelance platforms, or agencies
+   - THE BUYER TEST: Ask yourself — if someone is actively evaluating THIS product, which 3-4 other vendors would they have also requested a demo from in the same week? Those are the competitors.
+   - Competitors solve the EXACT SAME specific problem at the EXACT SAME stage — NOT just "same industry" or "same broad audience"
+   - Two products serving the same industry are NOT competitors unless a buyer would shortlist them together side-by-side
+   - WRONG example: Prudent AI (mortgage income calculation) → Blend or Zillow (mortgage lenders — those are Prudent's CUSTOMERS, not competitors)
+   - RIGHT example: Prudent AI → Ocrolus, Laminr, Tidalwave (all automate income verification/document analysis for lenders)
+   - Competitors are OTHER VENDORS selling software — NEVER the companies that BUY or USE this product
+   - For B2B SaaS: return other software vendors targeting the same buyers, NOT the buyers themselves (not banks, lenders, hospitals, enterprises)
+   - It's fine to include companies that offer both a tool and services, but NEVER list pure service firms, agencies, or marketplaces with no software product
    - NEVER list: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack, Fiverr, Upwork, Toptal, Freelancer, 99designs
    - If fewer than 4 real direct competitors exist, list fewer — never pad
 4. "prompts": array of exactly 8 buyer-intent queries someone would type into ChatGPT or Gemini to find this SPECIFIC type of product. Cover different angles: best-of lists, comparisons, use-case-specific, problem-solution, audience-specific.
@@ -37,7 +43,7 @@ async function analyzePageAndPrepare(pageData) {
 
 Page title: ${pageData.title}
 Headings: ${headingText}
-Content: ${(pageData.content || '').slice(0, 2000)}
+Content: ${(pageData.content || '').slice(0, 4000)}
 
 Return ONLY valid JSON, no explanation:
 {"description":"...","category":"...","competitors":[...],"prompts":[...]}`,
@@ -65,7 +71,7 @@ async function findDirectCompetitors(categoryDescription) {
   const client = getClient();
 
   const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     max_tokens: 300,
     messages: [{
       role: 'user',
@@ -74,9 +80,13 @@ async function findDirectCompetitors(categoryDescription) {
 List the 4-5 most direct competitors — tools a buyer would compare side-by-side when making a purchase decision.
 
 Rules:
-- Focus on tools that solve the SAME problem for the SAME audience
-- Exclude generic productivity tools (Notion, Google Docs, Trello, Asana, Slack) UNLESS they are the primary direct alternative for this specific niche
-- Prefer tools that are known specifically in this category
+- THE BUYER TEST: If someone is actively evaluating this product, which other vendors would they have also requested a demo from in the same week?
+- Competitors must solve the EXACT SAME specific problem at the same stage — not just operate in the same industry
+- Competitors are other software VENDORS — never the companies that buy or use this product
+- For B2B tools: return other software vendors targeting the same buyers, NOT the buyers themselves
+- It's fine to include companies that offer both a tool and services, but exclude pure service firms or agencies with no software product
+- Exclude generic productivity tools (Notion, Google Docs, Trello, Asana, Slack) unless the primary direct alternative for this niche
+- Prefer tools known specifically for solving this exact problem
 
 Return ONLY a valid JSON array of strings:
 ["Competitor1", "Competitor2", ...]`,

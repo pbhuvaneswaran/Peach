@@ -48,7 +48,7 @@ function OverviewTab({ runs }) {
   }, [latest])
 
   if (!latest) {
-    return <p className="text-sm text-gray-500">No runs yet. <Link to="/app" className="text-indigo-600 hover:underline">Run a check</Link> to see data here.</p>
+    return <p className="text-sm text-gray-500">No runs yet. <Link to="/app" className="text-blue-600 hover:underline">Run a check</Link> to see data here.</p>
   }
 
   return (
@@ -121,14 +121,14 @@ function AIAnswersTab({ latest }) {
 
 function ContentGapsTab({ latestUrlRun }) {
   if (!latestUrlRun) {
-    return <p className="text-sm text-gray-500">No URL-mode run found. <Link to="/app" className="text-indigo-600 hover:underline">Run the tool with a URL</Link> to see content gaps.</p>
+    return <p className="text-sm text-gray-500">No URL-mode run found. <Link to="/app" className="text-blue-600 hover:underline">Run the tool with a URL</Link> to see content gaps.</p>
   }
   return <BlogAnalysis blogGaps={latestUrlRun.blogGaps} pageData={{ url: latestUrlRun.input, wordCount: null }} />
 }
 
 function ActionPlanTab({ latestUrlRun }) {
   if (!latestUrlRun || !latestUrlRun.actions?.length) {
-    return <p className="text-sm text-gray-500">No action plan available yet. <Link to="/app" className="text-indigo-600 hover:underline">Run the tool with a URL</Link> to generate one.</p>
+    return <p className="text-sm text-gray-500">No action plan available yet. <Link to="/app" className="text-blue-600 hover:underline">Run the tool with a URL</Link> to generate one.</p>
   }
   return (
     <div className="space-y-4">
@@ -141,7 +141,7 @@ function ActionPlanTab({ latestUrlRun }) {
 
 function SiteAuditTab({ latestUrlRun }) {
   if (!latestUrlRun) {
-    return <p className="text-sm text-gray-500">No URL-mode run found. <Link to="/app" className="text-indigo-600 hover:underline">Run the tool with a URL</Link> to see a site audit.</p>
+    return <p className="text-sm text-gray-500">No URL-mode run found. <Link to="/app" className="text-blue-600 hover:underline">Run the tool with a URL</Link> to see a site audit.</p>
   }
   return (
     <div>
@@ -169,7 +169,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
       </div>
     )
   }
@@ -179,7 +179,7 @@ export default function Dashboard() {
       <div className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-gray-900">AI Visibility Dashboard</h1>
-          <Link to="/app" className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          <Link to="/app" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
             Run new check →
           </Link>
         </div>
@@ -190,7 +190,7 @@ export default function Dashboard() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
-                activeTab === tab ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+                activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
               }`}
             >
               {tab}

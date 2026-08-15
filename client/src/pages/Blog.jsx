@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 export const posts = [
@@ -180,41 +181,15 @@ The teams that move first on GEO measurement will build a data advantage. Six mo
 ]
 
 export function BlogList() {
+  useEffect(() => { document.title = 'Blog — Peach' }, [])
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        <div className="mb-12">
-          <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Blog</span>
-          <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">Guides & insights</h1>
-          <p className="text-lg text-gray-500">
-            Plain-English guides on AEO, GEO, and SEO — written for content marketers and agency teams.
-          </p>
-        </div>
-        <div className="space-y-5">
-          {posts.map((post) => (
-            <Link
-              key={post.slug}
-              to={`/blog/${post.slug}`}
-              className="block bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-md hover:border-indigo-200 transition-all"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                      {post.category}
-                    </span>
-                    <span className="text-xs text-gray-400">{post.date} · {post.readTime}</span>
-                  </div>
-                  <h2 className="font-bold text-gray-900 text-lg mb-2 leading-snug">{post.title}</h2>
-                  <p className="text-sm text-gray-500 leading-relaxed">{post.excerpt}</p>
-                </div>
-                <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+    <div className="bg-blue-50 min-h-screen flex items-center justify-center">
+      <div className="text-center px-6">
+        <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Blog</span>
+        <h1 className="text-4xl font-bold text-gray-900 mt-3 mb-4">Coming soon</h1>
+        <p className="text-lg text-gray-500 max-w-md mx-auto">
+          Guides on AEO, GEO, and AI visibility — launching shortly.
+        </p>
       </div>
     </div>
   )
@@ -228,7 +203,7 @@ export function BlogPost() {
     return (
       <div className="max-w-3xl mx-auto px-6 py-20 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Post not found</h1>
-        <Link to="/blog" className="text-indigo-600 hover:underline">← Back to blog</Link>
+        <Link to="/blog" className="text-blue-600 hover:underline">← Back to blog</Link>
       </div>
     )
   }
@@ -236,9 +211,9 @@ export function BlogPost() {
   const paragraphs = post.content.trim().split('\n')
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-blue-50 min-h-screen">
       <div className="max-w-3xl mx-auto px-6 py-16">
-        <Link to="/blog" className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:underline mb-8">
+        <Link to="/blog" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mb-8">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -246,11 +221,11 @@ export function BlogPost() {
         </Link>
 
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{post.category}</span>
+          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{post.category}</span>
           <span className="text-xs text-gray-400">{post.date} · {post.readTime}</span>
         </div>
         <h1 className="text-4xl font-bold text-gray-900 mb-6 leading-tight">{post.title}</h1>
-        <p className="text-lg text-gray-500 mb-10 leading-relaxed border-l-4 border-indigo-200 pl-4">{post.excerpt}</p>
+        <p className="text-lg text-gray-500 mb-10 leading-relaxed border-l-4 border-blue-200 pl-4">{post.excerpt}</p>
 
         <div className="bg-white rounded-2xl border border-gray-200 p-8 prose prose-gray max-w-none">
           {paragraphs.map((line, i) => {
@@ -280,10 +255,10 @@ export function BlogPost() {
           })}
         </div>
 
-        <div className="mt-10 bg-indigo-50 border border-indigo-200 rounded-2xl p-6 text-center">
-          <h3 className="font-bold text-indigo-900 mb-2">Check your AI visibility</h3>
-          <p className="text-sm text-indigo-700 mb-4">See exactly where your brand shows up in AI search — in under 3 minutes.</p>
-          <Link to="/app" className="bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm">
+        <div className="mt-10 bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center">
+          <h3 className="font-bold text-blue-900 mb-2">Check your AI visibility</h3>
+          <p className="text-sm text-blue-700 mb-4">See exactly where your brand shows up in AI search — in under 3 minutes.</p>
+          <Link to="/app" className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm">
             Try it free →
           </Link>
         </div>

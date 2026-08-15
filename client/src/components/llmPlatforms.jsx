@@ -70,8 +70,8 @@ export function ScanningIndicator({ label = 'Scanning AI answer engines' }) {
   return (
     <div className="flex items-center gap-2 mb-2.5">
       <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5B3DF5] opacity-60" />
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5B3DF5]" />
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2563EB] opacity-60" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2563EB]" />
       </span>
       <span className="text-[10px] font-bold text-[#677085] uppercase tracking-widest">{label}</span>
     </div>
@@ -92,13 +92,13 @@ export function PlatformChip({ platformKey, index, small, colorful }) {
   return (
     <div
       className={`chip-scan group relative flex items-center gap-1.5 border rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_14px_rgba(91,61,245,0.15)] ${
-        colorful ? 'border-transparent' : 'bg-white border-[#E8E2F5]'
+        colorful ? 'border-transparent' : 'bg-white border-[#BFDBFE]'
       } ${small ? 'px-2 py-1' : colorful ? 'px-3.5 py-2' : 'px-3 py-1.5'}`}
       style={{ '--i': index, backgroundColor: tint }}
     >
       <Icon size={small ? 14 : colorful ? 20 : 18} />
-      <span className={`font-semibold text-[#14182B] whitespace-nowrap ${small ? 'text-[11px]' : colorful ? 'text-sm' : 'text-xs'}`}>{label}</span>
-      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#14182B] text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <span className={`font-semibold text-[#172554] whitespace-nowrap ${small ? 'text-[11px]' : colorful ? 'text-sm' : 'text-xs'}`}>{label}</span>
+      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#172554] text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10">
         Track visibility in {label}
       </span>
     </div>
