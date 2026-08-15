@@ -47,6 +47,7 @@ const PLANS = [
       '50 citation-building credits / month',
       'Integrations: HubSpot, Slack, Notion & more',
     ],
+    trial: '15-day free trial',
     cta: 'Start free trial',
     ctaLink: '/app',
     checkoutPlan: 'starter',
@@ -80,7 +81,8 @@ const PLANS = [
       '50 citation-building credits / month',
       'Integrations: Ahrefs, Semrush, Contentful, Framer & more',
     ],
-    cta: 'Get started',
+    trial: '30-day free trial',
+    cta: 'Start free trial',
     checkoutPlan: 'growth',
   },
 ]
@@ -149,6 +151,11 @@ function PlanCard({ plan, annual, expanded, onToggleExpand, onCta, checkingOut }
           <span className="text-sm text-[#677085] mb-0.5">/mo</span>
         </div>
         {annual && <p className="text-xs text-[#677085] mt-1">billed ${plan.yearlyTotal}/yr</p>}
+        {plan.trial && (
+          <p className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-[#1B8A4A] bg-[#DCF5E4] px-2.5 py-1 rounded-full">
+            ✓ {plan.trial} · No card required
+          </p>
+        )}
       </div>
 
       <PlatformRow platforms={plan.platforms} showScanning={false} />
