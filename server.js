@@ -173,7 +173,8 @@ app.post('/api/v3/analyze', async (req, res) => {
     const brand = extractBrandFromUrl(url);
 
     // Step 2: single GPT call returns description + competitors (grouped by product line) + prompts
-    const { categoryDescription, category, categories, competitors, prompts } = await analyzePageAndPrepare(pageData);
+    const { categoryDescription, category, categories, competitors: initialCompetitors, prompts } = await analyzePageAndPrepare(pageData);
+    let competitors = initialCompetitors;
     let competitorCategories = categories;
 
     if (!prompts || prompts.length === 0) {
