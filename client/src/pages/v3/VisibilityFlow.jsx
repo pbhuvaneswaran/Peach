@@ -1972,7 +1972,16 @@ function PromptsTab({ result }) {
 // ─── Tab: Competitors ─────────────────────────────────────────────────────────
 
 function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraftCompetitors, newCompetitorInput, setNewCompetitorInput, onEditCompetitors, onApplyCompetitors, onCancelEdit }) {
-  const { visibility, competitors = [], brand, llmsQueried = [] } = result
+  const { visibility, competitors = [], competitorCategories = [], brand, llmsQueried = [] } = result
+
+  // Map competitor name -> category label, only when more than one category was detected
+  // (single-category runs render as a flat list, same as before)
+  const categoryByName = {}
+  if (competitorCategories.length > 1) {
+    for (const c of competitorCategories) {
+      for (const name of c.competitors) categoryByName[name.toLowerCase()] = c.category
+    }
+  }
 
   const competitorData = competitors.map(comp => {
     let totalCited = 0, totalQuestions = 0
@@ -1988,8 +1997,20 @@ function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraft
       }
     }
     const pct = totalQuestions ? Math.round((totalCited / totalQuestions) * 100) : 0
-    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence }
+    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence, category: categoryByName[comp.toLowerCase()] || null }
   }).sort((a, b) => b.pct - a.pct)
+
+  // Group into { label, items }[] — a single "" group when there's only one (or zero) detected category
+  const competitorGroups = competitorData.some(c => c.category)
+    ? Object.values(
+        competitorData.reduce((acc, c) => {
+          const key = c.category || 'Other'
+          if (!acc[key]) acc[key] = { label: key, items: [] }
+          acc[key].items.push(c)
+          return acc
+        }, {})
+      )
+    : [{ label: null, items: competitorData }]
 
   const brandData = (() => {
     let cited = 0, total = 0
@@ -2085,42 +2106,51 @@ function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraft
         ))}
       </div>
 
-      {/* Competitor detail cards */}
-      <div className="space-y-6">
-        {competitorData.map(c => (
-          <div key={c.name} className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-sm font-bold text-[#2563EB]">
-                  {c.name[0].toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-bold text-[#172554]">{c.name}</p>
-                  <p className="text-xs text-[#667085]">{c.cited} mentions across {llmsQueried.length} platform{llmsQueried.length !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`text-2xl font-bold ${c.pct > brandData.pct ? 'text-red-500' : 'text-[#10B981]'}`}>{c.pct}%</p>
-                <p className="text-xs text-[#667085]">citation rate</p>
-              </div>
-            </div>
-            {/* Bar */}
-            <div className="relative h-2 bg-[#F0EBF8] rounded-full mb-4">
-              <div className="absolute left-0 top-0 h-2 rounded-full bg-[#2563EB]" style={{ width: `${c.pct}%` }} />
-              <div className="absolute top-0 h-2 rounded-full bg-[#10B981] opacity-30" style={{ left: 0, width: `${brandData.pct}%` }} />
-            </div>
-            {c.evidence.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Where AI cited them</p>
-                {c.evidence.map((ev, i) => (
-                  <div key={i} className="bg-[#FAFAFA] border border-[#F0EBF8] rounded-xl p-4">
-                    <p className="text-xs font-semibold text-[#2563EB] mb-1">{ev.llm === 'chatgpt' ? 'ChatGPT' : ev.llm === 'gemini' ? 'Gemini' : ev.llm} · "{ev.question}"</p>
-                    <p className="text-sm text-[#172554] leading-relaxed">…{ev.snippet}…</p>
-                  </div>
-                ))}
-              </div>
+      {/* Competitor detail cards, grouped by product line when more than one was detected */}
+      <div className="space-y-10">
+        {competitorGroups.map(group => (
+          <div key={group.label || 'flat'}>
+            {group.label && (
+              <p className="text-xs font-bold text-[#2563EB] uppercase tracking-wide mb-3">{group.label}</p>
             )}
-            {c.pct === 0 && <p className="text-sm text-[#10B981]">✓ Not cited in any AI answer in this run.</p>}
+            <div className="space-y-6">
+              {group.items.map(c => (
+                <div key={c.name} className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-sm font-bold text-[#2563EB]">
+                        {c.name[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-[#172554]">{c.name}</p>
+                        <p className="text-xs text-[#667085]">{c.cited} mentions across {llmsQueried.length} platform{llmsQueried.length !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold ${c.pct > brandData.pct ? 'text-red-500' : 'text-[#10B981]'}`}>{c.pct}%</p>
+                      <p className="text-xs text-[#667085]">citation rate</p>
+                    </div>
+                  </div>
+                  {/* Bar */}
+                  <div className="relative h-2 bg-[#F0EBF8] rounded-full mb-4">
+                    <div className="absolute left-0 top-0 h-2 rounded-full bg-[#2563EB]" style={{ width: `${c.pct}%` }} />
+                    <div className="absolute top-0 h-2 rounded-full bg-[#10B981] opacity-30" style={{ left: 0, width: `${brandData.pct}%` }} />
+                  </div>
+                  {c.evidence.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Where AI cited them</p>
+                      {c.evidence.map((ev, i) => (
+                        <div key={i} className="bg-[#FAFAFA] border border-[#F0EBF8] rounded-xl p-4">
+                          <p className="text-xs font-semibold text-[#2563EB] mb-1">{ev.llm === 'chatgpt' ? 'ChatGPT' : ev.llm === 'gemini' ? 'Gemini' : ev.llm} · "{ev.question}"</p>
+                          <p className="text-sm text-[#172554] leading-relaxed">…{ev.snippet}…</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {c.pct === 0 && <p className="text-sm text-[#10B981]">✓ Not cited in any AI answer in this run.</p>}
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -2708,7 +2738,8 @@ function mdToHtml(md) {
 }
 
 function ContentBriefModal({ open, onClose, featured, action, result }) {
-  const [phase, setPhase] = useState('brief') // 'brief' | 'generating' | 'article'
+  const [phase, setPhase] = useState('topics') // 'topics' | 'brief' | 'generating' | 'article'
+  const [selectedBlog, setSelectedBlog] = useState(null)
   const [markdown, setMarkdown] = useState('')
   const [genError, setGenError] = useState('')
   const [copied, setCopied] = useState('')
@@ -2722,10 +2753,11 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
   const [wpError, setWpError] = useState('')
 
   if (!open) return null
-  const blog = action?.blogs?.[0]
+  const blogs = action?.blogs || []
 
   const handleClose = () => {
-    setPhase('brief')
+    setPhase('topics')
+    setSelectedBlog(null)
     setMarkdown('')
     setGenError('')
     setCopied('')
@@ -2734,8 +2766,13 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
     onClose()
   }
 
+  const handleSelectTopic = (blog) => {
+    setSelectedBlog(blog)
+    setPhase('brief')
+  }
+
   const handleGenerate = async () => {
-    if (!blog) return
+    if (!selectedBlog) return
     setPhase('generating')
     setGenError('')
     try {
@@ -2746,9 +2783,9 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          title: blog.title,
-          h1: blog.h1,
-          outline: blog.outline || [],
+          title: selectedBlog.title,
+          h1: selectedBlog.h1,
+          outline: selectedBlog.outline || [],
           targetQuery: featured?.prompt || '',
           brand: result?.brand || '',
         }),
@@ -2833,11 +2870,14 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
         {/* Header */}
         <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-[#F0EBF8] shrink-0">
           <div className="flex items-center gap-3">
+            {phase === 'brief' && (
+              <button onClick={() => { setPhase('topics'); setSelectedBlog(null) }} className="text-[#667085] hover:text-[#172554] text-sm">← Topics</button>
+            )}
             {phase === 'article' && (
-              <button onClick={() => setPhase('brief')} className="text-[#667085] hover:text-[#172554] text-sm">← Brief</button>
+              <button onClick={() => setPhase('brief')} className="text-[#667085] hover:text-[#172554] text-sm">← Outline</button>
             )}
             <h3 className="text-lg font-bold text-[#172554]">
-              {phase === 'article' ? 'Generated article' : 'Content brief'}
+              {phase === 'topics' ? 'Choose a topic' : phase === 'article' ? 'Generated article' : 'Content brief'}
             </h3>
           </div>
           <button onClick={handleClose} className="text-[#667085] hover:text-[#172554]">✕</button>
@@ -2853,16 +2893,49 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
             </div>
           )}
 
+          {phase === 'topics' && (
+            <>
+              <p className="text-sm text-[#667085] mb-5">
+                Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span>
+              </p>
+              {blogs.length > 0 ? (
+                <div className="space-y-3">
+                  {blogs.map((blog, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSelectTopic(blog)}
+                      className="w-full text-left bg-[#F8FAFF] border border-[#BFDBFE] hover:border-[#2563EB] hover:bg-[#EFF6FF] rounded-xl p-4 transition-all group"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-[#2563EB] uppercase tracking-widest mb-1">Topic {i + 1}</p>
+                          <p className="text-sm font-semibold text-[#172554] leading-snug">{blog.title}</p>
+                          {blog.h1 && blog.h1 !== blog.title && (
+                            <p className="text-xs text-[#667085] mt-1">H1: {blog.h1}</p>
+                          )}
+                          <p className="text-xs text-[#94A3B8] mt-2">{(blog.outline || []).length} sections · click to see outline</p>
+                        </div>
+                        <span className="text-[#2563EB] text-lg group-hover:translate-x-1 transition-transform shrink-0">→</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#667085]">No topics available for this prompt yet.</p>
+              )}
+            </>
+          )}
+
           {phase === 'brief' && (
             <>
               <p className="text-sm text-[#667085] mb-5">Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span></p>
-              {blog ? (
+              {selectedBlog ? (
                 <>
                   <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Suggested title</p>
-                  <p className="text-sm font-semibold text-[#172554] mb-5">{blog.title}</p>
+                  <p className="text-sm font-semibold text-[#172554] mb-5">{selectedBlog.title}</p>
                   <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Outline</p>
                   <div className="space-y-3 mb-6">
-                    {(blog.outline || []).map((section, i) => (
+                    {(selectedBlog.outline || []).map((section, i) => (
                       <div key={i}>
                         <p className="text-sm font-semibold text-[#172554]">{section.h2}</p>
                         {(section.h3s || []).map((h3, hi) => (
@@ -3165,7 +3238,7 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
   const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
   const isGated = !user && !isLocalhost
   const agg = result.visibility?.aggregatePercentages || {}
-  const brandPct = agg[result.brand] ?? 0
+  const brandPct = Math.min(100, agg[result.brand] ?? 0)
 
   const onEditCompetitors = () => {
     setDraftCompetitors([...(result.competitors || [])])

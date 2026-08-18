@@ -11,18 +11,22 @@ async function analyzePageAndPrepare(pageData) {
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
-    max_tokens: 1200,
+    max_tokens: 2000,
+    temperature: 0,
+    seed: 42,
+    response_format: { type: 'json_object' },
     messages: [{
       role: 'user',
-      content: `Analyze this web page and return a JSON object with exactly 4 fields:
+      content: `Analyze this web page and return a JSON object with exactly 3 fields:
 
 1. "description": 1-2 sentences describing what the product does — problem it solves and who it's for. NO brand names.
-2. "category": the most specific sub-category this product belongs to (e.g. "AI agent platform for solopreneurs", NOT the broad "productivity tool").
-3. "competitors": array of up to 4 real company/product BRAND NAMES that are DIRECT competitors.
-   CRITICAL RULES:
+2. "categories": array of 1 to 3 objects, one per DISTINCT product line the page itself emphasizes as a named, separately-marketed offering (e.g. two named sub-products bundled under one brand). Most pages have exactly ONE distinct product line — only return more than one if the page clearly markets multiple separately-named offerings side by side (not just multiple features of one product). Each object has:
+   - "category": the most specific sub-category for that product line (e.g. "AI agent platform for solopreneurs", NOT the broad "productivity tool")
+   - "competitors": array of up to 4 real company/product BRAND NAMES that are DIRECT competitors for that specific product line.
+   CRITICAL RULES FOR COMPETITORS:
    - Return only BRAND NAMES of actual software products/companies (e.g. "Zendesk", "Intercom", "Freshdesk")
    - NEVER return category descriptions (NOT "AI customer service platform")
-   - THE BUYER TEST: Ask yourself — if someone is actively evaluating THIS product, which 3-4 other vendors would they have also requested a demo from in the same week? Those are the competitors.
+   - THE BUYER TEST: Ask yourself — if someone is actively evaluating THIS product line, which 3-4 other vendors would they have also requested a demo from in the same week? Those are the competitors.
    - Competitors solve the EXACT SAME specific problem at the EXACT SAME stage — NOT just "same industry" or "same broad audience"
    - Two products serving the same industry are NOT competitors unless a buyer would shortlist them together side-by-side
    - WRONG example: Prudent AI (mortgage income calculation) → Blend or Zillow (mortgage lenders — those are Prudent's CUSTOMERS, not competitors)
@@ -31,8 +35,8 @@ async function analyzePageAndPrepare(pageData) {
    - For B2B SaaS: return other software vendors targeting the same buyers, NOT the buyers themselves (not banks, lenders, hospitals, enterprises)
    - It's fine to include companies that offer both a tool and services, but NEVER list pure service firms, agencies, or marketplaces with no software product
    - NEVER list: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack, Fiverr, Upwork, Toptal, Freelancer, 99designs
-   - If fewer than 4 real direct competitors exist, list fewer — never pad
-4. "prompts": array of exactly 8 buyer-intent queries someone would type into ChatGPT or Gemini to find this SPECIFIC type of product. Cover different angles: best-of lists, comparisons, use-case-specific, problem-solution, audience-specific.
+   - If fewer than 4 real direct competitors exist for a product line, list fewer — never pad
+3. "prompts": array of exactly 8 buyer-intent queries someone would type into ChatGPT or Gemini to find this SPECIFIC type of product. If there are multiple product lines, split prompts proportionally across them (e.g. 4 + 4). Cover different angles: best-of lists, comparisons, use-case-specific, problem-solution, audience-specific.
    RULES FOR PROMPTS:
    - NO brand or product names in the query
    - Queries must reflect someone searching for SOFTWARE or an AI TOOL — not generic business advice
@@ -46,7 +50,7 @@ Headings: ${headingText}
 Content: ${(pageData.content || '').slice(0, 4000)}
 
 Return ONLY valid JSON, no explanation:
-{"description":"...","category":"...","competitors":[...],"prompts":[...]}`,
+{"description":"...","categories":[{"category":"...","competitors":[...]}],"prompts":[...]}`,
     }],
   });
 
@@ -55,10 +59,26 @@ Return ONLY valid JSON, no explanation:
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON found');
     const result = JSON.parse(match[0]);
+    const categories = (result.categories || []).slice(0, 3).map(c => ({
+      category: c.category || '',
+      competitors: (c.competitors || []).slice(0, 4),
+    })).filter(c => c.category);
+
+    // Flat, deduped competitor list — used for scoring, which doesn't care about category grouping
+    const seen = new Set();
+    const competitors = [];
+    for (const c of categories) {
+      for (const name of c.competitors) {
+        const key = name.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); competitors.push(name); }
+      }
+    }
+
     return {
       categoryDescription: result.description || '',
-      category: result.category || '',
-      competitors: (result.competitors || []).slice(0, 4),
+      category: categories[0]?.category || '',
+      categories,
+      competitors: competitors.slice(0, 6),
       prompts: (result.prompts || []).slice(0, 8),
     };
   } catch {
@@ -73,6 +93,7 @@ async function findDirectCompetitors(categoryDescription) {
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 300,
+    temperature: 0,
     messages: [{
       role: 'user',
       content: `A product exists in this space: ${categoryDescription}
@@ -125,7 +146,9 @@ Reply with ONLY the 1-2 sentence description, nothing else.`,
   return response.choices[0].message.content.trim();
 }
 
-// Fallback: extract brand names from LLM answers (used for keyword mode rankings)
+// Fallback: extract brand names from LLM answers (used when preset competitors all score 0%,
+// and for keyword mode rankings). Same vendor-only + exclusion rules as the primary extractor,
+// since this list is user-facing and must not reintroduce blocklisted/non-vendor names.
 async function extractCompetitors(llmResults) {
   const client = getClient();
 
@@ -138,9 +161,16 @@ async function extractCompetitors(llmResults) {
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
     max_tokens: 400,
+    temperature: 0,
     messages: [{
       role: 'user',
-      content: `Extract all brand and company names mentioned in these AI search answers. Sort by how often they appear (most frequent first). Return only real brand/company names, not generic terms.
+      content: `Extract brand and company names mentioned in these AI search answers that are real SOFTWARE VENDORS — sort by how often they appear (most frequent first).
+
+RULES:
+- Only real brand/product names of actual software companies, not generic terms or category descriptions
+- NEVER include the companies that BUY or USE software (banks, lenders, hospitals, enterprises, agencies) — only vendors that SELL a software product
+- NEVER include pure service firms, agencies, freelance marketplaces
+- NEVER list: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack, Fiverr, Upwork, Toptal, Freelancer, 99designs
 
 AI ANSWERS:
 ${allText.slice(0, 6000)}

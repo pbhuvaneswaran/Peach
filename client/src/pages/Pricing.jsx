@@ -49,7 +49,6 @@ const PLANS = [
     ],
     trial: '15-day free trial',
     cta: 'Start free trial',
-    ctaLink: '/app',
     checkoutPlan: 'starter',
   },
   {
@@ -103,6 +102,10 @@ const FAQS = [
   {
     q: 'Can I upgrade or downgrade?',
     a: 'Yes, any time. Changes take effect at the next billing cycle. No lock-ins or cancellation fees.',
+  },
+  {
+    q: 'Do I need a credit card for the free trial?',
+    a: 'No. Starter gives you 15 days free, Growth gives you 30 days free — no card needed until you decide to continue.',
   },
 ]
 

@@ -44,7 +44,7 @@ function scoreVisibility({ llmResults, brand, competitors }) {
   const aggregatePercentages = Object.fromEntries(
     Object.entries(aggregateScores).map(([b, count]) => [
       b,
-      totalQuestions > 0 ? Math.round((count / totalQuestions) * 100) : 0,
+      totalQuestions > 0 ? Math.min(100, Math.round((count / totalQuestions) * 100)) : 0,
     ])
   );
 
@@ -62,7 +62,6 @@ function scoreVisibility({ llmResults, brand, competitors }) {
           (r) => r.details.find((d) => d.question === question)?.mentions[c]
         )
       );
-      if (competitorsSeen.length === 0) return null;
       return { question, competitorsSeen };
     })
     .filter(Boolean)

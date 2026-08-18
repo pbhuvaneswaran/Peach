@@ -131,8 +131,9 @@ app.post('/api/v3/analyze', async (req, res) => {
 
     const brand = extractBrandFromUrl(url);
 
-    // Step 2: single GPT call returns description + competitors + 3 prompts
-    const { categoryDescription, category, competitors, prompts } = await analyzePageAndPrepare(pageData);
+    // Step 2: single GPT call returns description + competitors (grouped by product line) + prompts
+    const { categoryDescription, category, categories, competitors, prompts } = await analyzePageAndPrepare(pageData);
+    let competitorCategories = categories;
 
     if (!prompts || prompts.length === 0) {
       return res.status(500).json({ error: 'Failed to generate prompts from page' });
@@ -166,6 +167,7 @@ app.post('/api/v3/analyze', async (req, res) => {
           .slice(0, 4)
         if (realCompetitors.length > 0) {
           competitors = realCompetitors
+          competitorCategories = [{ category: 'Detected from AI answers', competitors: realCompetitors }]
           visibility = scoreVisibility({ llmResults, brand, competitors })
         }
       } catch (err) {
@@ -184,6 +186,7 @@ app.post('/api/v3/analyze', async (req, res) => {
       mode: 'url',
       brand,
       competitors,
+      competitorCategories,
       prompts,
       llmsQueried: llmNames,
       visibility,
@@ -424,6 +427,7 @@ app.post('/api/checkout', async (req, res) => {
 
     const session = await dodo.checkoutSessions.create({
       product_cart: [{ product_id: productId, quantity: 1 }],
+      feature_flags: { allow_currency_selection: false },
       ...(email ? { customer: { email } } : {}),
       ...(supabaseUserId ? { metadata: { supabase_user_id: supabaseUserId } } : {}),
       return_url: `${process.env.APP_URL || 'http://localhost:5173'}/app?checkout=success`,
