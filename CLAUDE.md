@@ -4,6 +4,18 @@
 
 ---
 
+## Latest Instructions (2026-08-18)
+
+- **Article pipeline rebuilt as a 3-stage editorial workflow** — Topics (with 2-line reasoning per topic, approve/reject/add) → Outlines (AI-generated H1/H2/H3, user-editable — add/remove headings) → Article (full draft + deterministic quality checks + Google-Docs-style rich-text editor via TipTap). Lives in a new "Articles" tab on `/dashboard` (`client/src/pages/v3/ArticlesTab.jsx`) — `Dashboard.jsx` previously had no route; `/dashboard` is now wired in `AppV3.jsx`.
+- **Article quota corrected to 20/40** — Starter is 20 articles/month, Growth is 40/month (was 15/30 everywhere — `server.js`, `Pricing.jsx`, and this file's pricing table are now consistent).
+- **Topics are grounded, not generic** — a new `src/blogCadenceAnalyzer.js` crawls the analyzed site's sitemap/blog index to estimate posts/month over the last 6 months; this drives an advisory-only "recommended pace" banner (never a hard cap — the full plan quota is always generatable) so a site posting ~10/month isn't told to suddenly publish 40. When the site's own content is too thin to ground topics in, `searchWeb()` (`src/googleAIOClient.js`, reuses the existing Serper key) pulls competitor blog research instead.
+- **Quality checks are deterministic, not a second LLM call** — `src/qualityChecks.js` checks word count, banned phrases (shared list with the generation prompt — no more drift), full outline-heading coverage, CTA presence, and brand-name stuffing. Runs on every generation AND on every manual edit save (`PATCH /api/articles/:id`).
+- **Publishing integrations use an adapter architecture** — `src/publishers/` defines the connector contract; only WordPress is registered (client-side, using the existing `localStorage`-cached Application Password flow). Webflow/Notion/HubSpot/Contentful are explicitly deferred, not built.
+- **New Supabase tables needed** — `sql/article_pipeline_schema.sql` has the full DDL (`article_topics`, `article_outlines`, `publish_targets`, plus new columns on `runs`/`articles`) with RLS policies. **Must be run manually in the Supabase SQL editor before the new endpoints will work** — check the comments at the top of that file for two things to confirm first (the real type of `runs.id`, and whether `articles` already has a uuid primary key).
+- **`ContentBriefModal`'s export/publish logic was extracted** into `client/src/components/ArticleExportBar.jsx`, now shared with the new Articles tab — the ad-hoc single-topic flow from the Growth Actions tab still works exactly as before, just via the shared component instead of duplicated code.
+
+---
+
 ## Latest Instructions (2026-07-22)
 
 - **Competitor identification logic fixed** — `src/competitorExtractor.js` prompt now uses "The Buyer Test": *if someone is actively evaluating this product, which other vendors would they have also requested a demo from in the same week?* This fixes B2B tools (e.g. Prudent AI) returning their customers (Blend, Zillow) instead of actual software competitors (Ocrolus, Laminr, Tidalwave). Key rule: competitors are other VENDORS, never the companies that BUY the product.
@@ -184,12 +196,12 @@ PORT=3001
 
 ## Pricing Tiers (USD, live on /pricing)
 
-| Tier | Price/mo | Annual/mo | Platforms | Prompts/mo |
-|------|----------|-----------|-----------|------------|
-| Starter | $89 | $74 | ChatGPT + Gemini + Google AIO | 40 |
-| Growth | $199 | $166 | + Perplexity | 80 |
-| Scale | $349 | $291 | + Claude | 150 |
-| Enterprise | Custom | — | All + custom | Unlimited |
+| Tier | Price/mo | Annual/mo | Platforms | Prompts/mo | Articles/mo |
+|------|----------|-----------|-----------|------------|-------------|
+| Starter | $89 | $74 | ChatGPT + Gemini + Google AIO | 40 | 20 |
+| Growth | $219 | $183 | + Perplexity | 80 | 40 |
+| Scale | $349 | $291 | + Claude | 150 | — |
+| Enterprise | Custom | — | All + custom | Unlimited | Unlimited |
 
 Free: 1 run, no account needed. CTA at bottom of /pricing.
 

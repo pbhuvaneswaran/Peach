@@ -5,6 +5,7 @@ import { LLM_COLORS } from '../../components/llmConfig'
 import { PLATFORM_ICONS } from '../../components/llmPlatforms'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { ArticleExportBar } from '../../components/ArticleExportBar'
 
 const EXAMPLES = [
   { label: 'copilotverse.io', value: 'copilotverse.io' },
@@ -2723,34 +2724,12 @@ function BeforeYouPublish() {
   )
 }
 
-function mdToHtml(md) {
-  return md
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, s => `<ul>${s}</ul>`)
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hul])/gm, '')
-    .replace(/^<\/p><p>(<h[123]>)/gm, '$1')
-}
-
 function ContentBriefModal({ open, onClose, featured, action, result }) {
   const [phase, setPhase] = useState('topics') // 'topics' | 'brief' | 'generating' | 'article'
   const [selectedBlog, setSelectedBlog] = useState(null)
   const [markdown, setMarkdown] = useState('')
+  const [articleId, setArticleId] = useState(null)
   const [genError, setGenError] = useState('')
-  const [copied, setCopied] = useState('')
-  const [wpPhase, setWpPhase] = useState('hidden') // 'hidden' | 'connect' | 'publishing' | 'done' | 'error'
-  const [wpUrl, setWpUrl] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('peach_wp_creds') || '{}').url || '' } catch { return '' }
-  })
-  const [wpPass, setWpPass] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('peach_wp_creds') || '{}').password || '' } catch { return '' }
-  })
-  const [wpError, setWpError] = useState('')
 
   if (!open) return null
   const blogs = action?.blogs || []
@@ -2759,10 +2738,8 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
     setPhase('topics')
     setSelectedBlog(null)
     setMarkdown('')
+    setArticleId(null)
     setGenError('')
-    setCopied('')
-    setWpPhase('hidden')
-    setWpError('')
     onClose()
   }
 
@@ -2803,64 +2780,12 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
         return
       }
       setMarkdown(data.markdown)
+      setArticleId(data.articleId || null)
       setPhase('article')
     } catch {
       setGenError('Network error. Try again.')
       setPhase('brief')
     }
-  }
-
-  const copyMarkdown = () => {
-    navigator.clipboard.writeText(markdown)
-    setCopied('md')
-    setTimeout(() => setCopied(''), 2000)
-  }
-
-  const copyHtml = () => {
-    navigator.clipboard.writeText(mdToHtml(markdown))
-    setCopied('html')
-    setTimeout(() => setCopied(''), 2000)
-  }
-
-  const handleWordPress = async () => {
-    const saved = JSON.parse(localStorage.getItem('peach_wp_creds') || '{}')
-    if (!saved.url || !saved.password) {
-      setWpPhase('connect')
-      return
-    }
-    publishToWP(saved.url, saved.password)
-  }
-
-  const publishToWP = async (url, password) => {
-    setWpPhase('publishing')
-    setWpError('')
-    try {
-      const base = url.replace(/\/$/, '')
-      const htmlContent = mdToHtml(markdown)
-      const wpRes = await fetch(`${base}/wp-json/wp/v2/posts`, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Basic ' + btoa(`admin:${password}`),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: blog?.title || 'Peach Article',
-          content: htmlContent,
-          status: 'draft',
-        }),
-      })
-      if (!wpRes.ok) throw new Error(`WordPress returned ${wpRes.status}`)
-      setWpPhase('done')
-    } catch (err) {
-      setWpError(err.message || 'Could not publish. Check your site URL and application password.')
-      setWpPhase('error')
-    }
-  }
-
-  const saveWpAndPublish = () => {
-    if (!wpUrl.trim() || !wpPass.trim()) return
-    localStorage.setItem('peach_wp_creds', JSON.stringify({ url: wpUrl.trim(), password: wpPass.trim() }))
-    publishToWP(wpUrl.trim(), wpPass.trim())
   }
 
   return (
@@ -2964,44 +2889,7 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
 
           {phase === 'article' && (
             <>
-              {/* Export bar */}
-              <div className="flex flex-wrap gap-2 mb-5">
-                <button onClick={copyMarkdown}
-                  className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
-                  {copied === 'md' ? '✓ Copied!' : '⬇ Copy Markdown'}
-                </button>
-                <button onClick={copyHtml}
-                  className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
-                  {copied === 'html' ? '✓ Copied!' : '⬇ Copy HTML'}
-                </button>
-                <button onClick={handleWordPress}
-                  className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
-                  {wpPhase === 'done' ? '✓ Published as draft' : wpPhase === 'publishing' ? 'Publishing…' : '⬆ Publish to WordPress'}
-                </button>
-              </div>
-
-              {/* WordPress connect form */}
-              {(wpPhase === 'connect' || wpPhase === 'error') && (
-                <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 mb-5">
-                  <p className="text-sm font-semibold text-[#172554] mb-3">Connect WordPress</p>
-                  <div className="space-y-2 mb-3">
-                    <input value={wpUrl} onChange={e => setWpUrl(e.target.value)}
-                      placeholder="https://yoursite.com"
-                      className="w-full text-sm border border-[#BFDBFE] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white" />
-                    <input value={wpPass} onChange={e => setWpPass(e.target.value)}
-                      type="password" placeholder="WordPress Application Password"
-                      className="w-full text-sm border border-[#BFDBFE] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white" />
-                  </div>
-                  <p className="text-xs text-[#667085] mb-3">
-                    Get an Application Password in WordPress → Users → Profile → Application Passwords.
-                  </p>
-                  {wpError && <p className="text-xs text-red-600 mb-2">{wpError}</p>}
-                  <button onClick={saveWpAndPublish}
-                    className="text-sm font-semibold bg-[#2563EB] text-white px-4 py-2 rounded-lg hover:bg-[#1D4ED8]">
-                    Connect & publish as draft
-                  </button>
-                </div>
-              )}
+              <ArticleExportBar markdown={markdown} title={selectedBlog?.title} articleId={articleId} />
 
               {/* Article content */}
               <div className="prose prose-sm max-w-none text-[#172554]">

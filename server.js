@@ -6,15 +6,22 @@ import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import pLimit from 'p-limit';
+import { marked } from 'marked';
+import TurndownService from 'turndown';
 import { queryAllQuestionsGPT } from './src/openaiClient_aeo.js';
 import { queryAllQuestionsGemini } from './src/geminiClient_aeo.js';
-import { queryAllQuestionsGoogleAIO } from './src/googleAIOClient.js';
+import { queryAllQuestionsGoogleAIO, searchWeb } from './src/googleAIOClient.js';
 import { scoreVisibility } from './src/visibilityScorer.js';
 import { readWebPage } from './src/webReader.js';
 import { analyzePageAndPrepare, extractCompetitors } from './src/competitorExtractor.js';
 import { generateActionsOpenAI } from './src/actionGenerator.js';
 import { saveRun } from './src/runLogger.js';
 import { checkCrawlerAccess } from './src/robotsChecker.js';
+import { analyzeCadence, recommendPace } from './src/blogCadenceAnalyzer.js';
+import { generateTopics } from './src/topicIdeator.js';
+import { generateOutline } from './src/outlineGenerator.js';
+import { checkArticleQuality, BANNED_PHRASES } from './src/qualityChecks.js';
 
 dotenv.config();
 
@@ -28,6 +35,40 @@ const supabaseAdmin = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_
   : null;
 
 const hasKey = (name) => !!process.env[name];
+
+// Shared auth helper — used by every /api/articles/* and /api/v3/runs route below.
+async function authenticateUser(req) {
+  if (!supabaseAdmin) return { error: 'no_supabase' };
+  const token = (req.headers['authorization'] || '').replace('Bearer ', '');
+  if (!token) return { error: 'unauthorized' };
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return { error: 'unauthorized' };
+  return { user };
+}
+
+const ARTICLE_LIMITS = { starter: 20, growth: 40 };
+
+// Single source of truth for the 30-day-rolling article quota, so /api/articles/generate,
+// /api/articles/quota, and the topic/outline batch-size logic can't drift out of sync.
+function getArticleQuota(profile) {
+  const now = new Date();
+  const resetAt = profile?.articles_reset_at ? new Date(profile.articles_reset_at) : null;
+  const monthExpired = !resetAt || (now - resetAt) > 30 * 24 * 60 * 60 * 1000;
+  const used = monthExpired ? 0 : (profile?.articles_used || 0);
+  const limit = ARTICLE_LIMITS[profile?.plan] ?? 0;
+  return {
+    plan: profile?.plan || null,
+    limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    monthExpired,
+    resetAt: profile?.articles_reset_at || null,
+  };
+}
+
+const turndownService = new TurndownService({ headingStyle: 'atx' });
+const markdownToHtml = (md) => marked.parse(md || '');
+const htmlToMarkdown = (html) => turndownService.turndown(html || '');
 
 const app = express();
 app.use(cors());
@@ -405,6 +446,60 @@ const DODO_PRODUCT_IDS = {
   growth: process.env.DODO_GROWTH_PRODUCT_ID,
 };
 
+let dodoClient = null;
+async function getDodoClient() {
+  if (!dodoClient) {
+    const { default: DodoPayments } = await import('dodopayments');
+    dodoClient = new DodoPayments({
+      bearerToken: process.env.DODO_API_KEY,
+      environment: process.env.DODO_ENV === 'live' ? 'live_mode' : 'test_mode',
+    });
+  }
+  return dodoClient;
+}
+
+// Live prices, pulled directly from Dodo so the pricing page never drifts from what's
+// actually configured/charged. Short in-memory cache so normal page traffic doesn't
+// hammer the Dodo API on every load, while still picking up a dashboard price change
+// within a minute.
+let pricingCache = { data: null, fetchedAt: 0 };
+const PRICING_CACHE_MS = 60 * 1000;
+
+app.get('/api/pricing', async (_req, res) => {
+  if (!hasKey('DODO_API_KEY')) return res.status(503).json({ error: 'Payments not configured' });
+
+  if (pricingCache.data && Date.now() - pricingCache.fetchedAt < PRICING_CACHE_MS) {
+    return res.json(pricingCache.data);
+  }
+
+  try {
+    const dodo = await getDodoClient();
+    const entries = await Promise.all(
+      Object.entries(DODO_PRODUCT_IDS).map(async ([plan, productId]) => {
+        if (!productId) return [plan, null];
+        const product = await dodo.products.retrieve(productId);
+        const p = product.price;
+        if (!p || p.type !== 'recurring_price') return [plan, null];
+
+        // Normalize to a monthly amount regardless of the product's billing interval
+        const amountPerCharge = p.price / 100;
+        const count = p.payment_frequency_count || 1;
+        let monthly = amountPerCharge; // fallback: assume already monthly
+        if (p.payment_frequency_interval === 'Month') monthly = amountPerCharge / count;
+        else if (p.payment_frequency_interval === 'Year') monthly = amountPerCharge / (12 * count);
+
+        return [plan, { monthly: Math.round(monthly), currency: p.currency }];
+      })
+    );
+    const data = Object.fromEntries(entries);
+    pricingCache = { data, fetchedAt: Date.now() };
+    res.json(data);
+  } catch (err) {
+    console.error('Dodo pricing fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch live pricing' });
+  }
+});
+
 app.post('/api/checkout', async (req, res) => {
   const { plan, email } = req.body;
   const productId = DODO_PRODUCT_IDS[plan];
@@ -419,11 +514,7 @@ app.post('/api/checkout', async (req, res) => {
   }
 
   try {
-    const { default: DodoPayments } = await import('dodopayments');
-    const dodo = new DodoPayments({
-      bearerToken: process.env.DODO_API_KEY,
-      environment: process.env.DODO_ENV === 'live' ? 'live_mode' : 'test_mode',
-    });
+    const dodo = await getDodoClient();
 
     const session = await dodo.checkoutSessions.create({
       product_cart: [{ product_id: productId, quantity: 1 }],
@@ -495,7 +586,298 @@ app.post('/api/webhooks/dodo', express.raw({ type: 'application/json' }), async 
   res.json({ received: true });
 });
 
-// ─── Article generation ───────────────────────────────────────────────────────
+// ─── Article pipeline: run listing + quota ──────────────────────────────────
+app.get('/api/v3/runs', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('runs')
+    .select('id, url, brand, visibility_score, result_json, cadence_json, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (dbErr) return res.status(500).json({ error: dbErr.message });
+
+  res.json((data || []).map((r) => ({
+    id: r.id,
+    url: r.url,
+    brand: r.brand,
+    visibilityScore: r.visibility_score,
+    category: r.result_json?.category,
+    competitors: r.result_json?.competitors || [],
+    prompts: r.result_json?.prompts || [],
+    gaps: r.result_json?.visibility?.gaps || [],
+    cadence: r.cadence_json || null,
+    createdAt: r.created_at,
+  })));
+});
+
+app.get('/api/articles/quota', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('articles_used, articles_reset_at, plan')
+    .eq('id', user.id)
+    .single();
+
+  const isAdmin = ADMIN_EMAILS.has((user.email || '').toLowerCase());
+  const quota = getArticleQuota(profile);
+  res.json(isAdmin ? { ...quota, admin: true, remaining: Infinity } : quota);
+});
+
+// ─── Stage 1: topics ─────────────────────────────────────────────────────────
+app.post('/api/articles/topics/generate', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+  if (!hasKey('OPENAI_API_KEY')) return res.status(400).json({ error: 'OPENAI_API_KEY is not configured' });
+
+  const { runId } = req.body;
+  if (!runId) return res.status(400).json({ error: 'runId is required' });
+
+  const isAdmin = ADMIN_EMAILS.has((user.email || '').toLowerCase());
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('articles_used, articles_reset_at, plan')
+    .eq('id', user.id)
+    .single();
+  const quota = getArticleQuota(profile);
+  if (!isAdmin) {
+    if (quota.limit === 0) return res.status(403).json({ error: 'upgrade_required' });
+    if (quota.remaining === 0) return res.status(403).json({ error: 'article_limit_reached', used: quota.used, limit: quota.limit });
+  }
+  const targetCount = isAdmin ? 20 : quota.remaining;
+
+  const { data: run, error: runErr } = await supabaseAdmin
+    .from('runs')
+    .select('brand, url, result_json, cadence_json')
+    .eq('id', runId)
+    .eq('user_id', user.id)
+    .single();
+  if (runErr || !run) return res.status(404).json({ error: 'run_not_found' });
+
+  try {
+    const brand = run.brand;
+    const category = run.result_json?.category;
+    const competitors = run.result_json?.competitors || [];
+    const gaps = run.result_json?.visibility?.gaps || [];
+    const prompts = run.result_json?.prompts || [];
+
+    let cadence = run.cadence_json;
+    if (!cadence) {
+      cadence = await analyzeCadence(run.url).catch(() => ({ available: false }));
+      supabaseAdmin.from('runs').update({ cadence_json: cadence }).eq('id', runId).then(() => {});
+    }
+
+    let siteContent = null;
+    try {
+      siteContent = await readWebPage(normalizeUrl(run.url));
+    } catch {
+      siteContent = null;
+    }
+
+    let competitorResearch = [];
+    const siteIsThin = !siteContent || (siteContent.headings || []).length < 5;
+    if ((!cadence?.available || siteIsThin) && hasKey('SERPER_API_KEY') && competitors.length > 0) {
+      try {
+        const results = await Promise.all(
+          competitors.slice(0, 3).map((c) => searchWeb(`${c} blog`).catch(() => []))
+        );
+        competitorResearch = results.flat();
+      } catch {
+        competitorResearch = [];
+      }
+    }
+
+    const { topics, shortfall } = await generateTopics({
+      brand, siteContent, competitors, gaps, prompts, category, competitorResearch, count: targetCount,
+    });
+
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const rows = topics.map((t) => ({
+      user_id: user.id,
+      run_id: runId,
+      brand,
+      title: t.title,
+      reasoning: t.reasoning,
+      target_query: t.targetQuery || '',
+      source: 'generated',
+      status: 'proposed',
+      month_key: monthKey,
+    }));
+
+    let inserted = [];
+    if (rows.length > 0) {
+      const { data, error: insErr } = await supabaseAdmin.from('article_topics').insert(rows).select();
+      if (insErr) return res.status(500).json({ error: insErr.message });
+      inserted = data || [];
+    }
+
+    const recommended = recommendPace(cadence, quota.limit || 20);
+    res.json({
+      topics: inserted,
+      monthKey,
+      generated: inserted.length,
+      shortfall,
+      cadence: {
+        available: !!cadence?.available,
+        avgPerMonth: cadence?.avgPerMonth ?? null,
+        postsLast6Months: cadence?.postsLast6Months ?? null,
+        recommended,
+      },
+    });
+  } catch (err) {
+    console.error('Topic generation error:', err.message);
+    res.status(500).json({ error: 'Topic generation failed. Try again.' });
+  }
+});
+
+app.post('/api/articles/topics', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { runId, title, reasoning, targetQuery } = req.body;
+  if (!runId || !title) return res.status(400).json({ error: 'runId and title are required' });
+
+  const { data: run, error: runErr } = await supabaseAdmin
+    .from('runs').select('brand').eq('id', runId).eq('user_id', user.id).single();
+  if (runErr || !run) return res.status(404).json({ error: 'run_not_found' });
+
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const { data, error: insErr } = await supabaseAdmin.from('article_topics').insert({
+    user_id: user.id, run_id: runId, brand: run.brand, title,
+    reasoning: reasoning || 'Added manually by the user.',
+    target_query: targetQuery || '', source: 'user_added', status: 'approved', month_key: monthKey,
+  }).select().single();
+  if (insErr) return res.status(500).json({ error: insErr.message });
+
+  res.json({ topic: data });
+});
+
+app.patch('/api/articles/topics/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { status, title, reasoning } = req.body;
+  const patch = {};
+  if (status) patch.status = status;
+  if (title) patch.title = title;
+  if (reasoning) patch.reasoning = reasoning;
+  if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+  const { data, error: updErr } = await supabaseAdmin
+    .from('article_topics').update(patch).eq('id', req.params.id).eq('user_id', user.id).select().single();
+  if (updErr) return res.status(500).json({ error: updErr.message });
+  if (!data) return res.status(404).json({ error: 'topic_not_found' });
+
+  res.json({ topic: data });
+});
+
+app.get('/api/articles/topics', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  let query = supabaseAdmin.from('article_topics').select('*').eq('user_id', user.id);
+  if (req.query.runId) query = query.eq('run_id', req.query.runId);
+  if (req.query.monthKey) query = query.eq('month_key', req.query.monthKey);
+  const { data, error: dbErr } = await query.order('created_at', { ascending: true });
+  if (dbErr) return res.status(500).json({ error: dbErr.message });
+
+  res.json(data || []);
+});
+
+// ─── Stage 2: outlines ───────────────────────────────────────────────────────
+app.post('/api/articles/outlines/generate', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+  if (!hasKey('OPENAI_API_KEY')) return res.status(400).json({ error: 'OPENAI_API_KEY is not configured' });
+
+  const { topicIds } = req.body;
+  if (!Array.isArray(topicIds) || topicIds.length === 0) return res.status(400).json({ error: 'topicIds[] is required' });
+
+  const { data: topics, error: topicErr } = await supabaseAdmin
+    .from('article_topics').select('*').in('id', topicIds).eq('user_id', user.id).eq('status', 'approved');
+  if (topicErr) return res.status(500).json({ error: topicErr.message });
+  if (!topics || topics.length === 0) return res.status(404).json({ error: 'no_approved_topics_found' });
+
+  const limit = pLimit(3);
+  const results = await Promise.all(topics.map((topic) => limit(async () => {
+    const outline = await generateOutline({
+      title: topic.title, reasoning: topic.reasoning, targetQuery: topic.target_query,
+      brand: topic.brand, category: null,
+    }).catch(() => null);
+    return { topic, outline };
+  })));
+
+  const rows = results
+    .filter((r) => r.outline)
+    .map((r) => ({
+      user_id: user.id, topic_id: r.topic.id, h1: r.outline.h1,
+      outline_json: r.outline.outline, status: 'draft',
+    }));
+
+  const failed = results.filter((r) => !r.outline).map((r) => r.topic.id);
+
+  let inserted = [];
+  if (rows.length > 0) {
+    const { data, error: insErr } = await supabaseAdmin.from('article_outlines').insert(rows).select();
+    if (insErr) return res.status(500).json({ error: insErr.message });
+    inserted = data || [];
+  }
+
+  res.json({ outlines: inserted, failed });
+});
+
+app.patch('/api/articles/outlines/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { h1, outline_json } = req.body;
+  const patch = { updated_at: new Date().toISOString() };
+  if (h1) patch.h1 = h1;
+  if (outline_json) patch.outline_json = outline_json;
+
+  const { data, error: updErr } = await supabaseAdmin
+    .from('article_outlines').update(patch).eq('id', req.params.id).eq('user_id', user.id).select().single();
+  if (updErr) return res.status(500).json({ error: updErr.message });
+  if (!data) return res.status(404).json({ error: 'outline_not_found' });
+
+  res.json({ outline: data });
+});
+
+app.post('/api/articles/outlines/:id/approve', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data, error: updErr } = await supabaseAdmin
+    .from('article_outlines').update({ status: 'approved', updated_at: new Date().toISOString() })
+    .eq('id', req.params.id).eq('user_id', user.id).select().single();
+  if (updErr) return res.status(500).json({ error: updErr.message });
+  if (!data) return res.status(404).json({ error: 'outline_not_found' });
+
+  res.json({ outline: data });
+});
+
+app.get('/api/articles/outlines', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data: topics, error: topicErr } = await supabaseAdmin
+    .from('article_topics').select('id').eq('user_id', user.id);
+  if (topicErr) return res.status(500).json({ error: topicErr.message });
+  const topicIds = (topics || []).map((t) => t.id);
+  if (topicIds.length === 0) return res.json([]);
+
+  let query = supabaseAdmin.from('article_outlines').select('*').eq('user_id', user.id).in('topic_id', topicIds);
+  const { data, error: dbErr } = await query.order('created_at', { ascending: true });
+  if (dbErr) return res.status(500).json({ error: dbErr.message });
+
+  res.json(data || []);
+});
+
+// ─── Stage 3: article generation + quality checks ───────────────────────────
 app.post('/api/articles/generate', async (req, res) => {
   if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase not configured' });
   const token = (req.headers['authorization'] || '').replace('Bearer ', '');
@@ -511,24 +893,33 @@ app.post('/api/articles/generate', async (req, res) => {
       .select('articles_used, articles_reset_at, plan')
       .eq('id', user.id)
       .single();
-    const now = new Date();
-    const resetAt = profile?.articles_reset_at ? new Date(profile.articles_reset_at) : null;
-    const monthExpired = !resetAt || (now - resetAt) > 30 * 24 * 60 * 60 * 1000;
-    const used = monthExpired ? 0 : (profile?.articles_used || 0);
-    const limit = { starter: 15, growth: 30 }[profile?.plan] ?? 0;
-    if (limit === 0) return res.status(403).json({ error: 'upgrade_required' });
-    if (used >= limit) return res.status(403).json({ error: 'article_limit_reached', used, limit });
+    const quota = getArticleQuota(profile);
+    if (quota.limit === 0) return res.status(403).json({ error: 'upgrade_required' });
+    if (quota.remaining === 0) return res.status(403).json({ error: 'article_limit_reached', used: quota.used, limit: quota.limit });
 
-    // Increment usage
-    if (monthExpired) {
-      await supabaseAdmin.from('profiles').upsert({ id: user.id, articles_used: 1, articles_reset_at: now.toISOString() });
+    if (quota.monthExpired) {
+      await supabaseAdmin.from('profiles').upsert({ id: user.id, articles_used: 1, articles_reset_at: new Date().toISOString() });
     } else {
-      await supabaseAdmin.from('profiles').update({ articles_used: used + 1 }).eq('id', user.id);
+      await supabaseAdmin.from('profiles').update({ articles_used: quota.used + 1 }).eq('id', user.id);
     }
   }
 
-  const { title, h1, outline = [], targetQuery, brand } = req.body;
-  const sectionPrompts = outline.map(s =>
+  let { title, h1, outline = [], targetQuery, brand, outlineId } = req.body;
+
+  if (outlineId) {
+    const { data: outlineRow, error: outlineErr } = await supabaseAdmin
+      .from('article_outlines').select('*, article_topics(*)').eq('id', outlineId).eq('user_id', user.id).single();
+    if (outlineErr || !outlineRow) return res.status(404).json({ error: 'outline_not_found' });
+    if (outlineRow.status !== 'approved') return res.status(409).json({ error: 'outline_not_approved' });
+
+    h1 = outlineRow.h1;
+    outline = outlineRow.outline_json;
+    title = outlineRow.article_topics?.title || h1;
+    targetQuery = outlineRow.article_topics?.target_query || '';
+    brand = outlineRow.article_topics?.brand || brand;
+  }
+
+  const sectionPrompts = (outline || []).map(s =>
     `## ${s.h2}\n${(s.h3s || []).map(h => `### ${h}`).join('\n')}`
   ).join('\n\n');
 
@@ -581,7 +972,7 @@ Use this exact format:
 ---
 
 BANNED phrases (never use these):
-"In today's fast-paced world", "It's important to note", "Leveraging", "In conclusion", "To summarize", "At the end of the day", "Game-changer", "Seamlessly", "Robust", "Cutting-edge", "This is where X comes in"
+${BANNED_PHRASES.map(p => `"${p}"`).join(', ')}
 
 ---
 
@@ -595,19 +986,95 @@ Return ONLY the full article in Markdown. Start with # ${h1} and end with the CT
     });
 
     const markdown = completion.choices[0].message.content.trim();
+    const html = markdownToHtml(markdown);
+    const quality = checkArticleQuality({ markdown, outline, brand });
 
-    // Save to Supabase (non-blocking, best-effort)
-    supabaseAdmin.from('articles').insert({
+    const { data: saved, error: saveErr } = await supabaseAdmin.from('articles').insert({
       user_id: user.id, title, h1, target_query: targetQuery,
-      content_markdown: markdown, brand, created_at: new Date().toISOString(),
-    }).then(({ error }) => { if (error) console.error('Article save error:', error.message); });
+      content_markdown: markdown, content_html: html, brand,
+      outline_id: outlineId || null,
+      quality_json: quality, quality_status: quality.passed ? 'pass' : 'flagged',
+      word_count: quality.wordCount,
+      created_at: new Date().toISOString(),
+    }).select('id').single();
+    if (saveErr) console.error('Article save error:', saveErr.message);
 
-    res.json({ markdown });
+    res.json({ markdown, html, quality, articleId: saved?.id });
   } catch (err) {
     console.error('Article generation error:', err.message);
     res.status(500).json({ error: 'Article generation failed. Try again.' });
   }
 });
+
+app.get('/api/articles', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  let query = supabaseAdmin.from('articles')
+    .select('id, title, h1, quality_status, word_count, outline_id, publish_status, published_target, created_at')
+    .eq('user_id', user.id);
+  if (req.query.outlineId) query = query.eq('outline_id', req.query.outlineId);
+  const { data, error: dbErr } = await query.order('created_at', { ascending: false });
+  if (dbErr) return res.status(500).json({ error: dbErr.message });
+
+  res.json(data || []);
+});
+
+app.get('/api/articles/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('articles').select('*').eq('id', req.params.id).eq('user_id', user.id).single();
+  if (dbErr || !data) return res.status(404).json({ error: 'article_not_found' });
+
+  res.json(data);
+});
+
+app.patch('/api/articles/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { content_html } = req.body;
+  if (!content_html) return res.status(400).json({ error: 'content_html is required' });
+
+  const { data: existing, error: findErr } = await supabaseAdmin
+    .from('articles').select('outline_id, brand, article_outlines(outline_json)')
+    .eq('id', req.params.id).eq('user_id', user.id).single();
+  if (findErr || !existing) return res.status(404).json({ error: 'article_not_found' });
+
+  const markdown = htmlToMarkdown(content_html);
+  const quality = checkArticleQuality({
+    markdown, outline: existing.article_outlines?.outline_json || [], brand: existing.brand,
+  });
+
+  const { data, error: updErr } = await supabaseAdmin.from('articles').update({
+    content_html, content_markdown: markdown,
+    quality_json: quality, quality_status: quality.passed ? 'pass' : 'flagged',
+    word_count: quality.wordCount,
+  }).eq('id', req.params.id).eq('user_id', user.id).select().single();
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  res.json(data);
+});
+
+app.post('/api/articles/:id/publish', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { target, publishedUrl } = req.body;
+  if (!target) return res.status(400).json({ error: 'target is required' });
+
+  const { data, error: updErr } = await supabaseAdmin.from('articles').update({
+    publish_status: 'published', published_target: target, published_at: new Date().toISOString(),
+  }).eq('id', req.params.id).eq('user_id', user.id).select().single();
+  if (updErr) return res.status(500).json({ error: updErr.message });
+  if (!data) return res.status(404).json({ error: 'article_not_found' });
+
+  res.json(data);
+});
+
+
 
 // ─── Profile save (onboarding) ───────────────────────────────────────────────
 app.post('/api/profile/save', async (req, res) => {

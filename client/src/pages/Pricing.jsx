@@ -36,14 +36,13 @@ const PLANS = [
       '1 domain',
       '40 tracked prompts / month',
       '120 AI answers analyzed / month',
-      '15 article generations / month',
+      '20 article generations / month',
       '1 seat',
       'Email support',
     ],
     soon: [
       'Scheduled weekly monitoring',
       'Email alerts on visibility drops',
-      '30 AI content briefs / month',
       '50 citation-building credits / month',
       'Integrations: HubSpot, Slack, Notion & more',
     ],
@@ -66,7 +65,7 @@ const PLANS = [
       '5 domains',
       '80 tracked prompts / month',
       '240 AI answers analyzed / month',
-      '30 article generations / month',
+      '40 article generations / month',
       '3 seats',
       'Priority support',
     ],
@@ -76,7 +75,6 @@ const PLANS = [
       'Team members — 3 seats',
       'Slack & email alerts',
       'Multi-language visibility checks',
-      '30 AI content briefs / month',
       '50 citation-building credits / month',
       'Integrations: Ahrefs, Semrush, Contentful, Framer & more',
     ],
@@ -215,8 +213,25 @@ export default function Pricing() {
   const [expandedPlans, setExpandedPlans] = useState({})
   const [openFaq, setOpenFaq] = useState(0)
   const [checkingOut, setCheckingOut] = useState(null)
+  const [livePrices, setLivePrices] = useState(null) // { starter: { monthly, currency }, growth: {...} } | null while unavailable
   const { user, session } = useAuth()
   const navigate = useNavigate()
+
+  // Pull current prices straight from Dodo so this page never drifts from what's actually
+  // charged at checkout. Falls back to the hardcoded PLANS defaults below if this fails.
+  useEffect(() => {
+    fetch('/api/pricing')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setLivePrices(data) })
+      .catch(() => {})
+  }, [])
+
+  // Annual = 2 months free (monthly × 10), same "Save 2 mo" promise regardless of price source
+  const plans = PLANS.map(plan => {
+    const live = livePrices?.[plan.checkoutPlan]
+    const monthly = live?.monthly ?? plan.monthly
+    return { ...plan, monthly, yearly: Math.round((monthly * 10) / 12), yearlyTotal: monthly * 10 }
+  })
 
   const handleCta = (plan) => {
     if (!user) {
@@ -287,7 +302,7 @@ export default function Pricing() {
       {/* Plan cards (pale) */}
       <section className="bg-blue-50 px-6 py-20">
         <div className="flex flex-wrap justify-center gap-8">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <div key={plan.name} className="w-full sm:w-[340px]">
               <PlanCard
                 plan={plan}

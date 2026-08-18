@@ -29,4 +29,14 @@ async function queryAllQuestionsGoogleAIO(questions) {
   );
 }
 
-export { queryAllQuestionsGoogleAIO };
+async function searchWeb(query) {
+  const response = await axios.post(
+    'https://google.serper.dev/search',
+    { q: query, gl: 'us', hl: 'en' },
+    { headers: { 'X-API-KEY': process.env.SERPER_API_KEY, 'Content-Type': 'application/json' }, timeout: 10000 }
+  );
+  const organic = response.data?.organic || [];
+  return organic.slice(0, 5).map((r) => ({ title: r.title, link: r.link, snippet: r.snippet || '' }));
+}
+
+export { queryAllQuestionsGoogleAIO, searchWeb };

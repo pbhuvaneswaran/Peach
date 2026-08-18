@@ -135,7 +135,7 @@ export function PromptTable({ prompts, llmsQueried, visibility, brand, competito
   )
 }
 
-function BlogOutlineCard({ blog, index }) {
+export function BlogOutlineCard({ blog, index }) {
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Blog idea {index + 1}</p>
