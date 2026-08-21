@@ -351,6 +351,13 @@ function ReportActions({ result, onReset, sidebar = false }) {
         Print
       </button>
 
+      <Link to="/dashboard" className={btnClass}>
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 12a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm10-8a1 1 0 011-1h4a1 1 0 011 1v10a1 1 0 01-1 1h-4a1 1 0 01-1-1V9z" />
+        </svg>
+        Dashboard
+      </Link>
+
       <button onClick={onReset} className="flex items-center gap-1 text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8] ml-2">
         ← New report
       </button>

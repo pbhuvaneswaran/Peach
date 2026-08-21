@@ -54,16 +54,16 @@ export function PromptRow({ promptData, brand, competitors, llmsQueried }) {
         onClick={() => setExpanded(!expanded)}
         className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 transition-colors"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <span className="flex-1 text-sm text-gray-700 font-medium">{promptData.prompt}</span>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
             {allBrands.map(b => (
               <div key={b} className="flex flex-col items-center gap-0.5">
                 <MentionCell mentioned={brandMentioned(b)} />
                 <span className="text-[10px] text-gray-400 max-w-[52px] truncate">{b}</span>
               </div>
             ))}
-            <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`hidden sm:block w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -111,11 +111,11 @@ export function PromptTable({ prompts, llmsQueried, visibility, brand, competito
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
         <h2 className="text-base font-bold text-gray-900">Prompt-by-Prompt Breakdown</h2>
         <p className="text-xs text-gray-400">Click any row to see AI answers</p>
       </div>
-      <div className="flex items-center gap-3 px-4 mb-2">
+      <div className="hidden sm:flex items-center gap-3 px-4 mb-2">
         <span className="flex-1 text-xs font-bold text-gray-400 uppercase tracking-wide">Prompt</span>
         <div className="flex gap-3 flex-shrink-0">
           {allBrands.map(b => (

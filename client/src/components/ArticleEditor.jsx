@@ -93,7 +93,7 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
         <span className="text-[11px] text-[#94A3B8]">Edits re-run quality checks automatically on save.</span>
       </div>
 
-      <div className="border border-[#BFDBFE] rounded-xl px-5 py-4 mb-5 min-h-[300px] prose prose-sm max-w-none focus-within:ring-2 focus-within:ring-[#2563EB]">
+      <div className="border border-[#BFDBFE] rounded-xl px-8 py-7 mb-5 min-h-[70vh] prose prose-base max-w-none focus-within:ring-2 focus-within:ring-[#2563EB]">
         <EditorContent editor={editor} />
       </div>
 

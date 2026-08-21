@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { ScoreBar } from '../../components/VisibilityComponents'
-import { ArticleEditor } from '../../components/ArticleEditor'
+import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
 
 const TOPIC_STATUS_LABEL = { proposed: 'Proposed', approved: 'Approved', rejected: 'Rejected' }
 const TOPIC_STATUS_COLOR = {
@@ -159,7 +159,7 @@ function OutlineEditor({ outline, onSave, onApprove }) {
   )
 }
 
-function TopicRow({ topic, outline, article, onApprove, onReject, onGenerateOutline, onSaveOutline, onApproveOutline, onGenerateArticle, articleDetail, onOpenArticle }) {
+function TopicRow({ topic, outline, article, onApprove, onReject, onGenerateOutline, onSaveOutline, onApproveOutline, onGenerateArticle, onOpenArticle }) {
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -202,13 +202,13 @@ function TopicRow({ topic, outline, article, onApprove, onReject, onGenerateOutl
             </button>
           )}
           {outline?.status === 'approved' && !article && (
-            <button disabled={busy} onClick={() => run(() => onGenerateArticle(outline))} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+            <button disabled={busy} onClick={() => run(() => onGenerateArticle(outline, topic))} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
               {busy ? 'Writing…' : 'Generate article →'}
             </button>
           )}
           {article && (
-            <button onClick={() => { if (!expanded) onOpenArticle(article.id); setExpanded(e => !e) }} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
-              {expanded ? 'Hide article' : 'Open article'} {expanded ? '▲' : '▼'}
+            <button onClick={() => onOpenArticle(article, topic.title)} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+              Open article →
             </button>
           )}
         </div>
@@ -221,22 +221,6 @@ function TopicRow({ topic, outline, article, onApprove, onReject, onGenerateOutl
             onSave={(sections) => onSaveOutline(outline, sections)}
             onApprove={() => onApproveOutline(outline)}
           />
-        </div>
-      )}
-
-      {expanded && article && (
-        <div className="border-t border-gray-100 px-4 py-4">
-          {articleDetail ? (
-            <ArticleEditor
-              articleId={article.id}
-              title={topic.title}
-              initialHtml={articleDetail.content_html}
-              initialMarkdown={articleDetail.content_markdown}
-              initialQuality={articleDetail.quality_json}
-            />
-          ) : (
-            <p className="text-sm text-gray-400">Loading article…</p>
-          )}
         </div>
       )}
     </div>
@@ -257,6 +241,7 @@ export default function ArticlesTab() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [error, setError] = useState('')
   const [articleDetails, setArticleDetails] = useState({}) // id -> full row
+  const [openArticle, setOpenArticle] = useState(null) // { id, title } | null
 
   useEffect(() => {
     Promise.all([
@@ -310,18 +295,21 @@ export default function ArticlesTab() {
   const approveOutline = (outline) =>
     api(`/api/articles/outlines/${outline.id}/approve`, { method: 'POST' }).then(refreshTopicsAndOutlines)
 
-  const generateArticle = async (outline) => {
+  const generateArticle = async (outline, topic) => {
     const data = await api('/api/articles/generate', { method: 'POST', body: JSON.stringify({ outlineId: outline.id }) })
     setArticleDetails(prev => ({ ...prev, [data.articleId]: {
       content_html: data.html, content_markdown: data.markdown, quality_json: data.quality,
     } }))
     refreshTopicsAndOutlines()
     api('/api/articles/quota').then(setQuota).catch(() => {})
+    if (data.articleId) setOpenArticle({ id: data.articleId, title: topic?.title })
   }
 
-  const loadArticleDetail = (articleId) => {
-    if (articleDetails[articleId]) return
-    api(`/api/articles/${articleId}`).then(data => setArticleDetails(prev => ({ ...prev, [articleId]: data }))).catch(() => {})
+  const openArticlePanel = (article, title) => {
+    setOpenArticle({ id: article.id, title })
+    if (!articleDetails[article.id]) {
+      api(`/api/articles/${article.id}`).then(data => setArticleDetails(prev => ({ ...prev, [article.id]: data }))).catch(() => {})
+    }
   }
 
   if (loading) {
@@ -373,14 +361,13 @@ export default function ArticlesTab() {
                 topic={topic}
                 outline={outline}
                 article={article}
-                articleDetail={article ? articleDetails[article.id] : null}
                 onApprove={approveTopic}
                 onReject={rejectTopic}
                 onGenerateOutline={generateOutlineFor}
                 onSaveOutline={saveOutline}
                 onApproveOutline={approveOutline}
                 onGenerateArticle={generateArticle}
-                onOpenArticle={loadArticleDetail}
+                onOpenArticle={openArticlePanel}
               />
             )
           })}
@@ -388,6 +375,17 @@ export default function ArticlesTab() {
       )}
 
       <AddTopicModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onAdd={addTopic} />
+
+      <ArticleEditorPanel
+        open={!!openArticle}
+        onClose={() => setOpenArticle(null)}
+        articleId={openArticle?.id}
+        title={openArticle?.title}
+        loading={!!openArticle && !articleDetails[openArticle.id]}
+        initialHtml={openArticle ? articleDetails[openArticle.id]?.content_html : ''}
+        initialMarkdown={openArticle ? articleDetails[openArticle.id]?.content_markdown : ''}
+        initialQuality={openArticle ? articleDetails[openArticle.id]?.quality_json : null}
+      />
     </div>
   )
 }

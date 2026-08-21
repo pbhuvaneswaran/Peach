@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import PeachLogo from './PeachLogo'
 
 export default function Navbar() {
   const location = useLocation()
@@ -23,46 +24,40 @@ export default function Navbar() {
 
   const navLink = (to, label) => (
     <Link to={to}
-      className={`text-sm transition-colors ${location.pathname === to ? 'text-white font-medium' : 'text-blue-200 hover:text-white'}`}>
+      className={`text-base transition-colors ${location.pathname === to ? 'text-white font-medium' : 'text-blue-200 hover:text-white'}`}>
       {label}
     </Link>
   )
 
   return (
     <nav className="bg-blue-900 sticky top-0 z-50 print:hidden border-b border-blue-800">
-      <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-28 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-          <span className="brand-wordmark text-white text-xl">Peach</span>
+        <Link to="/" className="flex items-center flex-shrink-0">
+          <PeachLogo iconClassName="h-9 w-11" textClassName="text-3xl" />
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-6">
-          {navLink('/features', 'Features')}
-          {navLink('/pricing', 'Pricing')}
-          {navLink('/blog', 'Blog')}
-        </div>
+        {/* Desktop nav + actions, grouped on the right */}
+        <div className="hidden md:flex items-center gap-10">
+          <div className="flex items-center gap-10">
+            {navLink('/features', 'Features')}
+            {navLink('/pricing', 'Pricing')}
+            {navLink('/blog', 'Blog')}
+          </div>
 
-        {/* Desktop actions */}
-        <div className="hidden md:flex items-center gap-2">
           {user ? (
-            <>
-              <span className="text-sm text-blue-200 max-w-[140px] truncate">{user.email}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base text-blue-200 max-w-[140px] truncate">{user.email}</span>
               <button onClick={handleSignOut}
-                className="text-sm text-blue-200 hover:text-white transition-colors px-3 py-1.5">
+                className="text-base text-blue-200 hover:text-white transition-colors px-3 py-1.5">
                 Sign out
               </button>
-            </>
+            </div>
           ) : (
-            <>
-              <Link to="/login" className="text-sm text-blue-200 hover:text-white transition-colors px-3 py-1.5">
-                Sign in
-              </Link>
-              <Link to="/app" onClick={() => localStorage.removeItem('peach_last_result')}
-                className="text-sm font-medium bg-white text-blue-700 px-4 py-1.5 rounded-full hover:bg-blue-50 transition-colors">
-                Get started
-              </Link>
-            </>
+            <Link to="/login"
+              className="text-base font-medium text-white border border-white/25 px-6 py-2.5 rounded-full hover:bg-white/10 transition-colors">
+              Sign in
+            </Link>
           )}
         </div>
 
@@ -90,13 +85,10 @@ export default function Navbar() {
                 className="block text-sm text-blue-100 hover:text-white">Sign out</button>
             </>
           ) : (
-            <>
-              <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Sign in</Link>
-              <Link to="/app" onClick={() => { setMobileOpen(false); localStorage.removeItem('peach_last_result') }}
-                className="inline-block text-sm font-medium bg-white text-blue-700 px-5 py-2 rounded-full">
-                Get started
-              </Link>
-            </>
+            <Link to="/login" onClick={() => setMobileOpen(false)}
+              className="inline-block text-sm font-medium text-white border border-white/25 px-5 py-2 rounded-full">
+              Sign in
+            </Link>
           )}
         </div>
       )}
