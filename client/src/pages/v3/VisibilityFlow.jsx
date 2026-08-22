@@ -6,6 +6,7 @@ import { PLATFORM_ICONS } from '../../components/llmPlatforms'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
+import ArticlesTab from './ArticlesTab'
 
 const EXAMPLES = [
   { label: 'copilotverse.io', value: 'copilotverse.io' },
@@ -13,12 +14,13 @@ const EXAMPLES = [
   { label: 'intercom.com', value: 'intercom.com' },
 ]
 
-const OUTPUT_TABS = ['Overview', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Site Audit']
+const OUTPUT_TABS = ['Overview', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Articles', 'Site Audit']
 
 const TAB_SUBLABELS = {
   'Prompts': 'Prompt library',
   'Citations': 'Sources & domains',
   'Growth Actions': 'Get cited in AI answers',
+  'Articles': 'Topics, outlines & drafts',
   'Site Audit': 'AI readiness',
 }
 
@@ -51,6 +53,11 @@ const TAB_ICONS = {
   'Site Audit': (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  ),
+  Articles: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   ),
 }
@@ -3204,6 +3211,11 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
             </GatedTabWrapper>
           )}
           {activeTab === 'Growth Actions' && <ActionPlanTab result={result} isGated={isGated} />}
+          {activeTab === 'Articles' && (
+            <GatedTabWrapper isGated={isGated}>
+              <ArticlesTab />
+            </GatedTabWrapper>
+          )}
           {activeTab === 'Site Audit' && (
             <GatedTabWrapper isGated={isGated}>
               <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />

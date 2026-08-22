@@ -2,9 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { ScoreBar, PromptTable, ActionCard, BlogAnalysis, CrawlerCheck } from '../../components/VisibilityComponents'
-import ArticlesTab from './ArticlesTab'
 
-const TABS = ['Overview', 'AI Answers', 'Content Gaps', 'Action Plan', 'Site Audit', 'Articles']
+const TABS = ['Overview', 'AI Answers', 'Content Gaps', 'Action Plan', 'Site Audit']
 const LINE_COLORS = ['#4f46e5', '#9ca3af', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']
 
 function StatCard({ label, value, sub }) {
@@ -204,7 +203,6 @@ export default function Dashboard() {
         {activeTab === 'Content Gaps' && <ContentGapsTab latestUrlRun={latestUrlRun} />}
         {activeTab === 'Action Plan' && <ActionPlanTab latestUrlRun={latestUrlRun} />}
         {activeTab === 'Site Audit' && <SiteAuditTab latestUrlRun={latestUrlRun} />}
-        {activeTab === 'Articles' && <ArticlesTab />}
       </div>
     </div>
   )
