@@ -165,19 +165,25 @@ function TopicDetailCard({ topic, busy, onApprove, onReject, onGenerateOutline }
 
 // ─── Right column: outline editor (Ithica-style expanded fields) ────────────
 
+// Normalizes older { h2, h3s } outline rows (from before the Title+Description redesign)
+// into the current { title, description } shape so existing outlines still edit cleanly.
+function normalizeSections(sections) {
+  return (sections || []).map((sec) =>
+    sec.h2 !== undefined ? { title: sec.h2, description: (sec.h3s || []).join(' ') } : sec
+  )
+}
+
 function OutlineDetailPanel({ outline, busy, onSave, onApproveAndWrite }) {
   const [h1, setH1] = useState(outline.h1 || '')
   const [targetKeyword, setTargetKeyword] = useState(outline.target_keyword || '')
   const [angle, setAngle] = useState(outline.angle || '')
-  const [sections, setSections] = useState(outline.outline_json || [])
+  const [sections, setSections] = useState(() => normalizeSections(outline.outline_json))
   const [saving, setSaving] = useState(false)
 
-  const updateH2 = (i, value) => setSections(s => s.map((sec, idx) => idx === i ? { ...sec, h2: value } : sec))
-  const updateH3 = (i, hi, value) => setSections(s => s.map((sec, idx) => idx === i ? { ...sec, h3s: sec.h3s.map((h, hidx) => hidx === hi ? value : h) } : sec))
-  const addH3 = (i) => setSections(s => s.map((sec, idx) => idx === i ? { ...sec, h3s: [...(sec.h3s || []), ''] } : sec))
-  const removeH3 = (i, hi) => setSections(s => s.map((sec, idx) => idx === i ? { ...sec, h3s: sec.h3s.filter((_, hidx) => hidx !== hi) } : sec))
-  const addH2 = () => setSections(s => [...s, { h2: '', h3s: [] }])
-  const removeH2 = (i) => setSections(s => s.filter((_, idx) => idx !== i))
+  const updateTitle = (i, value) => setSections(s => s.map((sec, idx) => idx === i ? { ...sec, title: value } : sec))
+  const updateDescription = (i, value) => setSections(s => s.map((sec, idx) => idx === i ? { ...sec, description: value } : sec))
+  const addSection = () => setSections(s => [...s, { title: '', description: '' }])
+  const removeSection = (i) => setSections(s => s.filter((_, idx) => idx !== i))
 
   const save = async () => {
     setSaving(true)
@@ -218,24 +224,17 @@ function OutlineDetailPanel({ outline, busy, onSave, onApproveAndWrite }) {
           <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-bold text-gray-400 flex-shrink-0">{i + 1}.</span>
-              <input value={sec.h2} onChange={e => updateH2(i, e.target.value)}
+              <input value={sec.title} onChange={e => updateTitle(i, e.target.value)}
                 className="flex-1 text-sm font-semibold border-b border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5 bg-transparent" />
-              <button onClick={() => removeH2(i)} className="text-xs font-semibold text-red-400 hover:text-red-600 flex-shrink-0">Remove</button>
+              <button onClick={() => removeSection(i)} className="text-xs font-semibold text-red-400 hover:text-red-600 flex-shrink-0">Remove</button>
             </div>
-            {(sec.h3s || []).map((h3, hi) => (
-              <div key={hi} className="flex items-center gap-2 ml-6 mb-1">
-                <span className="text-gray-300 font-black text-[10px] flex-shrink-0">—</span>
-                <input value={h3} onChange={e => updateH3(i, hi, e.target.value)}
-                  className="flex-1 text-xs text-gray-500 border-b border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5 bg-transparent" />
-                <button onClick={() => removeH3(i, hi)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
-              </div>
-            ))}
-            <button onClick={() => addH3(i)} className="ml-6 text-[11px] text-blue-500 hover:text-blue-700 font-semibold mt-1">+ Add detail</button>
+            <textarea value={sec.description} onChange={e => updateDescription(i, e.target.value)} rows={2}
+              className="w-full text-xs text-gray-500 border border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5 bg-transparent resize-none" />
           </div>
         ))}
       </div>
 
-      <button onClick={addH2} className="text-xs font-semibold text-blue-500 hover:text-blue-700 mb-6">+ Add section</button>
+      <button onClick={addSection} className="text-xs font-semibold text-blue-500 hover:text-blue-700 mb-6">+ Add section</button>
 
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={saving} className="text-sm font-semibold border border-gray-300 px-4 py-2 rounded-xl hover:bg-gray-50">

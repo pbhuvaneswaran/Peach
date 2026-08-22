@@ -925,8 +925,10 @@ app.post('/api/articles/generate', async (req, res) => {
     angle = outlineRow.angle || '';
   }
 
-  const sectionPrompts = (outline || []).map(s =>
-    `## ${s.h2}\n${(s.h3s || []).map(h => `### ${h}`).join('\n')}`
+  // Supports both the current { title, description } outline shape and the legacy
+  // { h2, h3s } shape still produced by the ad-hoc Growth Actions blog-topic flow.
+  const sectionPrompts = (outline || []).map((s) =>
+    s.h2 ? `## ${s.h2}\n${(s.h3s || []).map((h) => `### ${h}`).join('\n')}` : `## ${s.title}\n${s.description || ''}`
   ).join('\n\n');
 
   try {

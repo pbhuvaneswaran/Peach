@@ -28,9 +28,12 @@ function checkArticleQuality({ markdown, outline, brand }) {
   const lower = text.toLowerCase();
   const bannedFound = BANNED_PHRASES.filter((p) => lower.includes(p.toLowerCase()));
 
+  // Supports both the current { title, description } outline shape and the legacy
+  // { h2, h3s } shape still produced by the ad-hoc Growth Actions blog-topic flow.
   const missingHeadings = [];
   for (const section of outline || []) {
-    if (section.h2 && !text.includes(section.h2)) missingHeadings.push(section.h2);
+    const heading = section.h2 || section.title;
+    if (heading && !text.includes(heading)) missingHeadings.push(heading);
     for (const h3 of section.h3s || []) {
       if (!text.includes(h3)) missingHeadings.push(h3);
     }
