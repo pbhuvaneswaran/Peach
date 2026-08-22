@@ -55,6 +55,12 @@ const TAB_ICONS = {
   ),
 }
 
+const DASHBOARD_ICON = (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 12a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm10-8a1 1 0 011-1h4a1 1 0 011 1v10a1 1 0 01-1 1h-4a1 1 0 01-1-1V9z" />
+  </svg>
+)
+
 const INSIGHT_ICONS = {
   target: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-5a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z',
   search: 'M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z',
@@ -350,13 +356,6 @@ function ReportActions({ result, onReset, sidebar = false }) {
         </svg>
         Print
       </button>
-
-      <Link to="/dashboard" className={btnClass}>
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 12a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm10-8a1 1 0 011-1h4a1 1 0 011 1v10a1 1 0 01-1 1h-4a1 1 0 01-1-1V9z" />
-        </svg>
-        Dashboard
-      </Link>
 
       <button onClick={onReset} className="flex items-center gap-1 text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8] ml-2">
         ← New report
@@ -3101,22 +3100,34 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           {OUTPUT_TABS.map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-                activeTab === tab
-                  ? 'bg-[#DBEAFE] text-[#2563EB]'
-                  : 'text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554]'
-              }`}>
-              <span className={activeTab === tab ? 'text-[#2563EB]' : 'text-[#9CA3B8]'}>
-                {TAB_ICONS[tab]}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{tab}</p>
-                {TAB_SUBLABELS[tab] && (
-                  <p className="text-[10px] text-[#9CA3B8] font-normal truncate">{TAB_SUBLABELS[tab]}</p>
-                )}
-              </div>
-            </button>
+            <div key={tab}>
+              <button onClick={() => setActiveTab(tab)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                  activeTab === tab
+                    ? 'bg-[#DBEAFE] text-[#2563EB]'
+                    : 'text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554]'
+                }`}>
+                <span className={activeTab === tab ? 'text-[#2563EB]' : 'text-[#9CA3B8]'}>
+                  {TAB_ICONS[tab]}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{tab}</p>
+                  {TAB_SUBLABELS[tab] && (
+                    <p className="text-[10px] text-[#9CA3B8] font-normal truncate">{TAB_SUBLABELS[tab]}</p>
+                  )}
+                </div>
+              </button>
+              {tab === 'Overview' && (
+                <Link to="/dashboard"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554]">
+                  <span className="text-[#9CA3B8]">{DASHBOARD_ICON}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">Dashboard</p>
+                    <p className="text-[10px] text-[#9CA3B8] font-normal truncate">Articles & trends</p>
+                  </div>
+                </Link>
+              )}
+            </div>
           ))}
         </nav>
 
