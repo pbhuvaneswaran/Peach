@@ -5,7 +5,7 @@ import { LLM_COLORS } from '../../components/llmConfig'
 import { PLATFORM_ICONS } from '../../components/llmPlatforms'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { ArticleExportBar } from '../../components/ArticleExportBar'
+import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
 
 const EXAMPLES = [
   { label: 'copilotverse.io', value: 'copilotverse.io' },
@@ -2480,49 +2480,12 @@ function downloadActionRecommendation(featured, action) {
   a.click()
 }
 
-function MetaPill({ label }) {
-  return <span className="text-xs font-medium text-[#172554] bg-white/70 border border-[#F5DCC4] px-2.5 py-1 rounded-full whitespace-nowrap">{label}</span>
-}
-
-function ActionPlanHeader({ opportunityCount, competitorInsightCount, briefCount }) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-4 mb-10">
-      <div>
-        <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-widest mb-2">Your AI visibility action plan</p>
-        <h1 className="text-3xl font-bold text-[#172554] mb-2 leading-snug">The fastest path to getting cited more often.</h1>
-        <p className="text-[#667085] max-w-xl">Built from the buyer questions where competitors appeared and your brand did not.</p>
-      </div>
-      <div className="bg-white border border-[#BFDBFE] rounded-xl p-4 space-y-1.5 flex-shrink-0">
-        <p className="text-sm text-[#172554] font-medium">{opportunityCount} high-priority opportunit{opportunityCount === 1 ? 'y' : 'ies'}</p>
-        <p className="text-sm text-[#172554] font-medium">{competitorInsightCount} competitor insight{competitorInsightCount === 1 ? '' : 's'}</p>
-        <p className="text-sm text-[#172554] font-medium">{briefCount} content brief{briefCount === 1 ? '' : 's'} ready</p>
-      </div>
-    </div>
-  )
-}
-
-function OpportunityStrip({ featured, onViewRecommendation }) {
+function ActionPlanHeader() {
   return (
     <div className="mb-10">
-      <h2 className="text-xl font-bold text-[#172554] mb-4">Your highest-priority missed question</h2>
-      <div className="relative overflow-hidden bg-[#FFF0E5] border border-[#F5DCC4] rounded-2xl p-6 flex flex-wrap items-center justify-between gap-5">
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-[#2563EB]" />
-        <div className="pl-3 flex-1 min-w-[240px]">
-          <p className="text-xs font-bold text-[#B4632A] uppercase tracking-wide mb-1.5">#1 High-impact opportunity</p>
-          <p className="text-lg font-bold text-[#172554] mb-3 leading-snug">"{featured.prompt}"</p>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            <MetaPill label={`Buyer intent: ${featured.intent}`} />
-            <MetaPill label={`AI engine: ${featured.engine}`} />
-            {featured.competitor && <MetaPill label={`Competitor cited: ${featured.competitor}`} />}
-            <MetaPill label={`Priority: ${featured.priority}`} />
-          </div>
-          <p className="text-xs text-[#667085]">AI cited competitors here, but not your brand.</p>
-        </div>
-        <button onClick={onViewRecommendation}
-          className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-2.5 rounded-xl text-sm flex-shrink-0">
-          View recommendation →
-        </button>
-      </div>
+      <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-widest mb-2">Your AI visibility action plan</p>
+      <h1 className="text-3xl font-bold text-[#172554] mb-2 leading-snug">The fastest path to getting cited more often.</h1>
+      <p className="text-[#667085] max-w-xl">Built from the buyer questions where competitors appeared and your brand did not.</p>
     </div>
   )
 }
@@ -2604,45 +2567,6 @@ function ContentRecommendationCard({ featured, action, status, onStatusChange, o
           Generate content brief →
         </button>
         <button onClick={onExport} className="text-sm font-semibold text-[#2563EB] hover:underline">Export recommendation</button>
-      </div>
-    </div>
-  )
-}
-
-function EvidenceBlock({ title, body }) {
-  return (
-    <div>
-      <p className="text-sm font-semibold text-[#172554] mb-1 leading-snug">{title}</p>
-      <p className="text-sm text-[#172554]/70 leading-relaxed">{body}</p>
-    </div>
-  )
-}
-
-function EvidencePanel({ featured, priority }) {
-  const confidenceBars = priority === 'high' ? 3 : priority === 'medium' ? 2 : 1
-  return (
-    <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-7 h-full flex flex-col">
-      <h3 className="text-base font-bold text-[#172554] mb-4">Why this could get you cited</h3>
-      <div className="space-y-4 mb-6 flex-1">
-        <EvidenceBlock title="AI already sees this as a high-intent question" body="Buyers ask it when they need a practical, structured answer — not marketing copy." />
-        {featured.competitor && (
-          <EvidenceBlock
-            title={`${featured.competitor} is winning through useful, specific guidance`}
-            body="It is associated with solving this exact problem quickly."
-          />
-        )}
-        <EvidenceBlock title="Your site does not clearly own this use case yet" body="There is no focused source AI can confidently cite for this question." />
-      </div>
-      <div className="border-t border-[#DCD1F7] pt-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Opportunity confidence</p>
-          <span className="text-xs font-semibold text-[#2563EB]">{featured.priority}</span>
-        </div>
-        <div className="flex gap-1.5">
-          {[0, 1, 2].map(i => (
-            <div key={i} className={`h-1.5 flex-1 rounded-full ${i < confidenceBars ? 'bg-[#2563EB]' : 'bg-white'}`} />
-          ))}
-        </div>
       </div>
     </div>
   )
@@ -2735,6 +2659,8 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
   const [phase, setPhase] = useState('topics') // 'topics' | 'brief' | 'generating' | 'article'
   const [selectedBlog, setSelectedBlog] = useState(null)
   const [markdown, setMarkdown] = useState('')
+  const [html, setHtml] = useState('')
+  const [quality, setQuality] = useState(null)
   const [articleId, setArticleId] = useState(null)
   const [genError, setGenError] = useState('')
 
@@ -2745,6 +2671,8 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
     setPhase('topics')
     setSelectedBlog(null)
     setMarkdown('')
+    setHtml('')
+    setQuality(null)
     setArticleId(null)
     setGenError('')
     onClose()
@@ -2787,12 +2715,28 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
         return
       }
       setMarkdown(data.markdown)
+      setHtml(data.html || '')
+      setQuality(data.quality || null)
       setArticleId(data.articleId || null)
       setPhase('article')
     } catch {
       setGenError('Network error. Try again.')
       setPhase('brief')
     }
+  }
+
+  if (phase === 'article') {
+    return (
+      <ArticleEditorPanel
+        open
+        onClose={handleClose}
+        articleId={articleId}
+        title={selectedBlog?.title}
+        initialHtml={html}
+        initialMarkdown={markdown}
+        initialQuality={quality}
+      />
+    )
   }
 
   return (
@@ -2805,11 +2749,8 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
             {phase === 'brief' && (
               <button onClick={() => { setPhase('topics'); setSelectedBlog(null) }} className="text-[#667085] hover:text-[#172554] text-sm">← Topics</button>
             )}
-            {phase === 'article' && (
-              <button onClick={() => setPhase('brief')} className="text-[#667085] hover:text-[#172554] text-sm">← Outline</button>
-            )}
             <h3 className="text-lg font-bold text-[#172554]">
-              {phase === 'topics' ? 'Choose a topic' : phase === 'article' ? 'Generated article' : 'Content brief'}
+              {phase === 'topics' ? 'Choose a topic' : 'Content brief'}
             </h3>
           </div>
           <button onClick={handleClose} className="text-[#667085] hover:text-[#172554]">✕</button>
@@ -2893,17 +2834,6 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
               )}
             </>
           )}
-
-          {phase === 'article' && (
-            <>
-              <ArticleExportBar markdown={markdown} title={selectedBlog?.title} articleId={articleId} />
-
-              {/* Article content */}
-              <div className="prose prose-sm max-w-none text-[#172554]">
-                <ReactMarkdown>{markdown}</ReactMarkdown>
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -2977,23 +2907,15 @@ function ActionPlanTab({ result, isGated }) {
     return null
   }
 
-  const opportunityCount = 1
-  const competitorInsightCount = competitor ? 1 : 0
-  const briefCount = featuredAction?.blogs?.length ? 1 : 0
-
   if (isGated) {
     return (
       <div>
-        <ActionPlanHeader opportunityCount={opportunityCount} competitorInsightCount={competitorInsightCount} briefCount={briefCount} />
+        <ActionPlanHeader />
         <div className="relative mt-4">
           {/* Teaser — blurred content behind overlay */}
-          <div className="blur-sm pointer-events-none select-none opacity-60">
-            <OpportunityStrip featured={featured} onViewRecommendation={() => {}} />
-            <div className="grid lg:grid-cols-2 gap-6 items-stretch mb-2">
-              <ContentRecommendationCard featured={featured} action={featuredAction} status={status} onStatusChange={() => {}}
-                onGenerateBrief={() => {}} onExport={() => {}} />
-              <EvidencePanel featured={featured} priority={priorityRaw} />
-            </div>
+          <div className="blur-sm pointer-events-none select-none opacity-60 max-w-2xl">
+            <ContentRecommendationCard featured={featured} action={featuredAction} status={status} onStatusChange={() => {}}
+              onGenerateBrief={() => {}} onExport={() => {}} />
           </div>
           {/* Gate overlay */}
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-2xl">
@@ -3021,15 +2943,11 @@ function ActionPlanTab({ result, isGated }) {
 
   return (
     <div>
-      <ActionPlanHeader opportunityCount={opportunityCount} competitorInsightCount={competitorInsightCount} briefCount={briefCount} />
+      <ActionPlanHeader />
 
-      <OpportunityStrip featured={featured}
-        onViewRecommendation={() => document.getElementById('main-recommendation')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
-
-      <div id="main-recommendation" className="grid lg:grid-cols-2 gap-6 items-stretch mb-2 scroll-mt-24">
+      <div className="max-w-2xl mb-2">
         <ContentRecommendationCard featured={featured} action={featuredAction} status={status} onStatusChange={setStatus}
           onGenerateBrief={() => setBriefOpen(true)} onExport={() => downloadActionRecommendation(featured, featuredAction)} />
-        <EvidencePanel featured={featured} priority={priorityRaw} />
       </div>
       <div ref={sentinelRef} />
 

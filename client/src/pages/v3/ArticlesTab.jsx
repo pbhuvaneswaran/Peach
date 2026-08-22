@@ -26,17 +26,17 @@ function QuotaMeter({ quota }) {
   if (!quota) return null
   if (quota.limit === 0) {
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
         <p className="text-sm text-amber-800 font-medium">Upgrade to a paid plan to generate articles.</p>
       </div>
     )
   }
   const pct = quota.remaining === Infinity ? 0 : Math.min(100, Math.round((quota.used / quota.limit) * 100))
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
-      <ScoreBar brand="Articles used this month" pct={pct} highlight />
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+      <ScoreBar brand="Articles this month" pct={pct} highlight />
       <p className="text-xs text-gray-400 mt-2">
-        {quota.remaining === Infinity ? 'Unlimited (admin)' : `${quota.used} of ${quota.limit} used · ${quota.remaining} remaining`}
+        {quota.remaining === Infinity ? 'Unlimited (admin)' : `${quota.used} of ${quota.limit} used`}
       </p>
     </div>
   )
@@ -45,15 +45,14 @@ function QuotaMeter({ quota }) {
 function CadenceBanner({ cadence, quota }) {
   if (!cadence) return null
   return (
-    <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-6">
+    <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 mb-4">
       {cadence.available ? (
-        <p className="text-sm text-blue-900">
-          You've published <strong>~{cadence.avgPerMonth}/month</strong> over the last 6 months.
-          We recommend starting with <strong>{cadence.recommended}</strong> of your {quota?.limit ?? ''} available this month to avoid a sudden spike.
+        <p className="text-xs text-blue-900 leading-relaxed">
+          You've published <strong>~{cadence.avgPerMonth}/mo</strong> recently. We recommend starting with <strong>{cadence.recommended}</strong> of your {quota?.limit ?? ''} available this month.
         </p>
       ) : (
-        <p className="text-sm text-blue-900">
-          We couldn't find a publishing history on this site, so we recommend starting with <strong>{cadence.recommended}</strong> articles this month rather than the full quota.
+        <p className="text-xs text-blue-900 leading-relaxed">
+          No publishing history found — we recommend starting with <strong>{cadence.recommended}</strong> articles this month rather than the full quota.
         </p>
       )}
     </div>
@@ -89,7 +88,7 @@ function AddTopicModal({ open, onClose, onAdd }) {
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <textarea value={reasoning} onChange={e => setReasoning(e.target.value)} placeholder="Why this topic? (optional)" rows={2}
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input value={targetQuery} onChange={e => setTargetQuery(e.target.value)} placeholder="Target buyer query (optional)"
+          <input value={targetQuery} onChange={e => setTargetQuery(e.target.value)} placeholder="Target keyword (optional)"
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="flex gap-2 justify-end">
@@ -104,7 +103,72 @@ function AddTopicModal({ open, onClose, onAdd }) {
   )
 }
 
-function OutlineEditor({ outline, onSave, onApprove }) {
+// ─── Left column: compact selectable topic list ─────────────────────────────
+
+function TopicListItem({ topic, article, selected, onSelect }) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left px-3.5 py-3 rounded-xl border transition-colors ${
+        selected ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+      }`}
+    >
+      <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-1.5">{topic.title}</p>
+      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+        article ? (article.quality_status === 'pass' ? 'bg-emerald-100 text-emerald-700' : article.quality_status === 'flagged' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500') : TOPIC_STATUS_COLOR[topic.status]
+      }`}>
+        {article ? (article.quality_status === 'pass' ? 'Article ready' : article.quality_status === 'flagged' ? 'Needs review' : 'Article draft') : TOPIC_STATUS_LABEL[topic.status]}
+      </span>
+    </button>
+  )
+}
+
+// ─── Right column: topic detail (no outline yet) ─────────────────────────────
+
+function TopicDetailCard({ topic, busy, onApprove, onReject, onGenerateOutline }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-7">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Topic</p>
+      {topic.target_query && (
+        <span className="inline-block text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full mb-3">{topic.target_query}</span>
+      )}
+      <h2 className="text-xl font-bold text-gray-900 mb-4 leading-snug">{topic.title}</h2>
+
+      <blockquote className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3 italic leading-relaxed mb-6">
+        "{topic.reasoning}"
+      </blockquote>
+
+      {topic.status === 'proposed' && (
+        <div className="flex gap-2">
+          <button disabled={busy} onClick={onApprove}
+            className="text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl">
+            Approve topic
+          </button>
+          <button disabled={busy} onClick={onReject}
+            className="text-sm font-semibold text-gray-500 hover:text-red-500 px-4 py-2">
+            Reject
+          </button>
+        </div>
+      )}
+      {topic.status === 'approved' && (
+        <button disabled={busy} onClick={onGenerateOutline}
+          className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl">
+          {busy ? 'Generating outline…' : 'Generate outline →'}
+        </button>
+      )}
+      {topic.status === 'rejected' && (
+        <p className="text-sm text-gray-400">This topic was rejected.</p>
+      )}
+    </div>
+  )
+}
+
+// ─── Right column: outline editor (Ithica-style expanded fields) ────────────
+
+function OutlineDetailPanel({ outline, busy, onSave, onApproveAndWrite }) {
+  const [h1, setH1] = useState(outline.h1 || '')
+  const [targetKeyword, setTargetKeyword] = useState(outline.target_keyword || '')
+  const [angle, setAngle] = useState(outline.angle || '')
   const [sections, setSections] = useState(outline.outline_json || [])
   const [saving, setSaving] = useState(false)
 
@@ -117,115 +181,95 @@ function OutlineEditor({ outline, onSave, onApprove }) {
 
   const save = async () => {
     setSaving(true)
-    try { await onSave(sections) } finally { setSaving(false) }
+    try { await onSave({ h1, target_keyword: targetKeyword, angle, outline_json: sections }) } finally { setSaving(false) }
   }
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-      <div className="space-y-3 mb-3">
+    <div className="bg-white border border-gray-200 rounded-2xl p-7">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Outline</p>
+
+      <label className="block text-xs font-semibold text-gray-500 mb-1">Title</label>
+      <input value={h1} onChange={e => setH1(e.target.value)}
+        className="w-full text-base font-semibold text-gray-900 border border-gray-200 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Target keyword</label>
+          <input value={targetKeyword} onChange={e => setTargetKeyword(e.target.value)}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Angle</label>
+          <input value={angle} onChange={e => setAngle(e.target.value)}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+
+      {outline.evidence_quote && (
+        <blockquote className="text-sm text-blue-900 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 italic leading-relaxed mb-5">
+          "{outline.evidence_quote}"
+        </blockquote>
+      )}
+
+      <p className="text-xs text-gray-400 mb-3">Core sections (intro, TL;DR, closing, and FAQ are added automatically)</p>
+
+      <div className="space-y-3 mb-4">
         {sections.map((sec, i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-lg p-3">
+          <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-black text-[10px] flex-shrink-0">H2</span>
+              <span className="text-xs font-bold text-gray-400 flex-shrink-0">{i + 1}.</span>
               <input value={sec.h2} onChange={e => updateH2(i, e.target.value)}
-                className="flex-1 text-sm font-semibold border-b border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5" />
-              <button onClick={() => removeH2(i)} className="text-gray-300 hover:text-red-500 text-xs">✕</button>
+                className="flex-1 text-sm font-semibold border-b border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5 bg-transparent" />
+              <button onClick={() => removeH2(i)} className="text-xs font-semibold text-red-400 hover:text-red-600 flex-shrink-0">Remove</button>
             </div>
             {(sec.h3s || []).map((h3, hi) => (
               <div key={hi} className="flex items-center gap-2 ml-6 mb-1">
-                <span className="text-gray-300 font-black text-[10px] flex-shrink-0">H3</span>
+                <span className="text-gray-300 font-black text-[10px] flex-shrink-0">—</span>
                 <input value={h3} onChange={e => updateH3(i, hi, e.target.value)}
-                  className="flex-1 text-xs border-b border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5" />
-                <button onClick={() => removeH3(i, hi)} className="text-gray-300 hover:text-red-500 text-xs">✕</button>
+                  className="flex-1 text-xs text-gray-500 border-b border-transparent hover:border-gray-200 focus:border-blue-400 outline-none px-1 py-0.5 bg-transparent" />
+                <button onClick={() => removeH3(i, hi)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
               </div>
             ))}
-            <button onClick={() => addH3(i)} className="ml-6 text-[11px] text-blue-500 hover:text-blue-700 font-semibold mt-1">+ Add H3</button>
+            <button onClick={() => addH3(i)} className="ml-6 text-[11px] text-blue-500 hover:text-blue-700 font-semibold mt-1">+ Add detail</button>
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2">
-        <button onClick={addH2} className="text-xs font-semibold text-blue-500 hover:text-blue-700">+ Add H2 section</button>
-        <span className="flex-1" />
-        <button onClick={save} disabled={saving} className="text-xs font-semibold border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-100">
+
+      <button onClick={addH2} className="text-xs font-semibold text-blue-500 hover:text-blue-700 mb-6">+ Add section</button>
+
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={saving} className="text-sm font-semibold border border-gray-300 px-4 py-2 rounded-xl hover:bg-gray-50">
           {saving ? 'Saving…' : 'Save edits'}
         </button>
-        {outline.status !== 'approved' && (
-          <button onClick={onApprove} className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg">
-            Approve outline →
-          </button>
-        )}
+        <button disabled={busy} onClick={() => onApproveAndWrite({ h1, target_keyword: targetKeyword, angle, outline_json: sections })}
+          className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl">
+          {busy ? 'Writing…' : 'Approve & write article →'}
+        </button>
       </div>
     </div>
   )
 }
 
-function TopicRow({ topic, outline, article, onApprove, onReject, onGenerateOutline, onSaveOutline, onApproveOutline, onGenerateArticle, onOpenArticle }) {
-  const [expanded, setExpanded] = useState(false)
-  const [busy, setBusy] = useState(false)
+// ─── Right column: article ready summary ────────────────────────────────────
 
-  const run = async (fn) => {
-    setBusy(true)
-    try { await fn() } finally { setBusy(false) }
-  }
-
+function ArticleDetailCard({ article, onOpen }) {
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
-      <div className="px-4 py-3 flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TOPIC_STATUS_COLOR[topic.status]}`}>{TOPIC_STATUS_LABEL[topic.status]}</span>
-            {topic.source === 'user_added' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-600">Added by you</span>}
-            {article && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${article.quality_status === 'pass' ? 'bg-emerald-100 text-emerald-700' : article.quality_status === 'flagged' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400'}`}>
-                {article.quality_status === 'pass' ? '✓ Article ready' : article.quality_status === 'flagged' ? '⚠ Needs review' : 'Article draft'}
-              </span>
-            )}
-          </div>
-          <p className="text-sm font-semibold text-gray-800">{topic.title}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{topic.reasoning}</p>
-        </div>
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          {topic.status === 'proposed' && (
-            <div className="flex gap-1.5">
-              <button disabled={busy} onClick={() => run(() => onApprove(topic))} className="text-xs font-semibold text-emerald-600 hover:text-emerald-800">Approve</button>
-              <button disabled={busy} onClick={() => run(() => onReject(topic))} className="text-xs font-semibold text-gray-400 hover:text-red-500">Reject</button>
-            </div>
-          )}
-          {topic.status === 'approved' && !outline && (
-            <button disabled={busy} onClick={() => run(() => onGenerateOutline(topic))} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
-              {busy ? 'Generating…' : 'Generate outline →'}
-            </button>
-          )}
-          {outline && !article && (
-            <button onClick={() => setExpanded(e => !e)} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
-              {expanded ? 'Hide outline' : outline.status === 'approved' ? 'View outline' : 'Edit outline'} {expanded ? '▲' : '▼'}
-            </button>
-          )}
-          {outline?.status === 'approved' && !article && (
-            <button disabled={busy} onClick={() => run(() => onGenerateArticle(outline, topic))} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
-              {busy ? 'Writing…' : 'Generate article →'}
-            </button>
-          )}
-          {article && (
-            <button onClick={() => onOpenArticle(article, topic.title)} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
-              Open article →
-            </button>
-          )}
-        </div>
-      </div>
-
-      {expanded && outline && !article && (
-        <div className="border-t border-gray-100 px-4 py-4">
-          <OutlineEditor
-            outline={outline}
-            onSave={(sections) => onSaveOutline(outline, sections)}
-            onApprove={() => onApproveOutline(outline)}
-          />
-        </div>
-      )}
+    <div className="bg-white border border-gray-200 rounded-2xl p-7">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Article</p>
+      <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full mb-4 ${
+        article.quality_status === 'pass' ? 'bg-emerald-100 text-emerald-700' : article.quality_status === 'flagged' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+      }`}>
+        {article.quality_status === 'pass' ? '✓ Quality checks passed' : article.quality_status === 'flagged' ? '⚠ Needs review' : 'Draft'}
+      </span>
+      <p className="text-sm text-gray-500 mb-6">{article.word_count ? `${article.word_count} words` : ''}</p>
+      <button onClick={onOpen} className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl">
+        Open article →
+      </button>
     </div>
   )
 }
+
+// ─── Main tab ─────────────────────────────────────────────────────────────
 
 export default function ArticlesTab() {
   const api = useApi()
@@ -242,6 +286,8 @@ export default function ArticlesTab() {
   const [error, setError] = useState('')
   const [articleDetails, setArticleDetails] = useState({}) // id -> full row
   const [openArticle, setOpenArticle] = useState(null) // { id, title } | null
+  const [selectedTopicId, setSelectedTopicId] = useState('')
+  const [busyTopicId, setBusyTopicId] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -279,21 +325,25 @@ export default function ArticlesTab() {
     }
   }
 
-  const approveTopic = (topic) => api(`/api/articles/topics/${topic.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'approved' }) }).then(refreshTopicsAndOutlines)
-  const rejectTopic = (topic) => api(`/api/articles/topics/${topic.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'rejected' }) }).then(refreshTopicsAndOutlines)
+  const withBusy = async (topicId, fn) => {
+    setBusyTopicId(topicId)
+    try { await fn() } finally { setBusyTopicId('') }
+  }
+
+  const approveTopic = (topic) => withBusy(topic.id, () =>
+    api(`/api/articles/topics/${topic.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'approved' }) }).then(refreshTopicsAndOutlines))
+  const rejectTopic = (topic) => withBusy(topic.id, () =>
+    api(`/api/articles/topics/${topic.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'rejected' }) }).then(refreshTopicsAndOutlines))
 
   const addTopic = ({ title, reasoning, targetQuery }) =>
     api('/api/articles/topics', { method: 'POST', body: JSON.stringify({ runId: selectedRunId, title, reasoning, targetQuery }) })
-      .then(refreshTopicsAndOutlines)
+      .then((data) => { refreshTopicsAndOutlines(); if (data.topic) setSelectedTopicId(data.topic.id) })
 
-  const generateOutlineFor = (topic) =>
-    api('/api/articles/outlines/generate', { method: 'POST', body: JSON.stringify({ topicIds: [topic.id] }) }).then(refreshTopicsAndOutlines)
+  const generateOutlineFor = (topic) => withBusy(topic.id, () =>
+    api('/api/articles/outlines/generate', { method: 'POST', body: JSON.stringify({ topicIds: [topic.id] }) }).then(refreshTopicsAndOutlines))
 
-  const saveOutline = (outline, sections) =>
-    api(`/api/articles/outlines/${outline.id}`, { method: 'PATCH', body: JSON.stringify({ outline_json: sections }) }).then(refreshTopicsAndOutlines)
-
-  const approveOutline = (outline) =>
-    api(`/api/articles/outlines/${outline.id}/approve`, { method: 'POST' }).then(refreshTopicsAndOutlines)
+  const saveOutline = (outline, fields) =>
+    api(`/api/articles/outlines/${outline.id}`, { method: 'PATCH', body: JSON.stringify(fields) }).then(refreshTopicsAndOutlines)
 
   const generateArticle = async (outline, topic) => {
     const data = await api('/api/articles/generate', { method: 'POST', body: JSON.stringify({ outlineId: outline.id }) })
@@ -304,6 +354,14 @@ export default function ArticlesTab() {
     api('/api/articles/quota').then(setQuota).catch(() => {})
     if (data.articleId) setOpenArticle({ id: data.articleId, title: topic?.title })
   }
+
+  const approveAndWrite = (outline, topic, fields) => withBusy(topic.id, async () => {
+    await saveOutline(outline, fields)
+    if (outline.status !== 'approved') {
+      await api(`/api/articles/outlines/${outline.id}/approve`, { method: 'POST' })
+    }
+    await generateArticle(outline, topic)
+  })
 
   const openArticlePanel = (article, title) => {
     setOpenArticle({ id: article.id, title })
@@ -322,57 +380,87 @@ export default function ArticlesTab() {
 
   const outlineByTopicId = Object.fromEntries(outlines.map(o => [o.topic_id, o]))
   const articleByOutlineId = Object.fromEntries(articles.map(a => [a.outline_id, a]))
+  const selectedTopic = topics.find(t => t.id === selectedTopicId) || topics[0] || null
+  const selectedOutline = selectedTopic ? outlineByTopicId[selectedTopic.id] : null
+  const selectedArticle = selectedOutline ? articleByOutlineId[selectedOutline.id] : null
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-5">
         <label className="text-xs font-semibold text-gray-500">Domain:</label>
-        <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)}
+        <select value={selectedRunId} onChange={e => { setSelectedRunId(e.target.value); setSelectedTopicId('') }}
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
           {runs.map(r => <option key={r.id} value={r.id}>{r.brand} — {r.url}</option>)}
         </select>
       </div>
 
-      <QuotaMeter quota={quota} />
-      <CadenceBanner cadence={cadence} quota={quota} />
-
       {error && <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-5"><p className="text-sm text-red-600">{error}</p></div>}
 
-      <div className="flex items-center gap-3 mb-5">
-        <button onClick={generateTopics} disabled={generatingTopics}
-          className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl">
-          {generatingTopics ? 'Generating…' : topics.length > 0 ? 'Regenerate this month\'s topics' : "Generate this month's topics"}
-        </button>
-        <button onClick={() => setAddModalOpen(true)} className="text-sm font-semibold border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-xl">
-          + Add topic
-        </button>
-      </div>
+      <div className="flex gap-6 items-start">
+        {/* Left: topic list */}
+        <div className="w-80 flex-shrink-0">
+          <QuotaMeter quota={quota} />
+          <CadenceBanner cadence={cadence} quota={quota} />
 
-      {topics.length === 0 ? (
-        <p className="text-sm text-gray-400">No topics yet — generate this month's topics to get started.</p>
-      ) : (
-        <div className="space-y-2">
-          {topics.map(topic => {
-            const outline = outlineByTopicId[topic.id]
-            const article = outline ? articleByOutlineId[outline.id] : null
-            return (
-              <TopicRow
-                key={topic.id}
-                topic={topic}
-                outline={outline}
-                article={article}
-                onApprove={approveTopic}
-                onReject={rejectTopic}
-                onGenerateOutline={generateOutlineFor}
-                onSaveOutline={saveOutline}
-                onApproveOutline={approveOutline}
-                onGenerateArticle={generateArticle}
-                onOpenArticle={openArticlePanel}
-              />
-            )
-          })}
+          <div className="flex flex-col gap-2 mb-4">
+            <button onClick={generateTopics} disabled={generatingTopics}
+              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl">
+              {generatingTopics ? 'Generating…' : topics.length > 0 ? 'Regenerate topics' : "Generate this month's topics"}
+            </button>
+            <button onClick={() => setAddModalOpen(true)} className="text-sm font-semibold border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-xl">
+              + Add topic
+            </button>
+          </div>
+
+          {topics.length === 0 ? (
+            <p className="text-sm text-gray-400">No topics yet.</p>
+          ) : (
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{topics.length} grounded topics</p>
+          )}
+
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            {topics.map(topic => {
+              const outline = outlineByTopicId[topic.id]
+              const article = outline ? articleByOutlineId[outline.id] : null
+              return (
+                <TopicListItem
+                  key={topic.id}
+                  topic={topic}
+                  article={article}
+                  selected={selectedTopic ? topic.id === selectedTopic.id : false}
+                  onSelect={() => setSelectedTopicId(topic.id)}
+                />
+              )
+            })}
+          </div>
         </div>
-      )}
+
+        {/* Right: detail panel */}
+        <div className="flex-1 min-w-0">
+          {!selectedTopic ? (
+            <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+              <p className="text-sm text-gray-400">Select a topic from the list to see its details.</p>
+            </div>
+          ) : selectedArticle ? (
+            <ArticleDetailCard article={selectedArticle} onOpen={() => openArticlePanel(selectedArticle, selectedTopic.title)} />
+          ) : selectedOutline ? (
+            <OutlineDetailPanel
+              outline={selectedOutline}
+              busy={busyTopicId === selectedTopic.id}
+              onSave={(fields) => saveOutline(selectedOutline, fields)}
+              onApproveAndWrite={(fields) => approveAndWrite(selectedOutline, selectedTopic, fields)}
+            />
+          ) : (
+            <TopicDetailCard
+              topic={selectedTopic}
+              busy={busyTopicId === selectedTopic.id}
+              onApprove={() => approveTopic(selectedTopic)}
+              onReject={() => rejectTopic(selectedTopic)}
+              onGenerateOutline={() => generateOutlineFor(selectedTopic)}
+            />
+          )}
+        </div>
+      </div>
 
       <AddTopicModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onAdd={addTopic} />
 
@@ -385,6 +473,7 @@ export default function ArticlesTab() {
         initialHtml={openArticle ? articleDetails[openArticle.id]?.content_html : ''}
         initialMarkdown={openArticle ? articleDetails[openArticle.id]?.content_markdown : ''}
         initialQuality={openArticle ? articleDetails[openArticle.id]?.quality_json : null}
+        angle={openArticle ? articleDetails[openArticle.id]?.angle : ''}
       />
     </div>
   )

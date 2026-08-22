@@ -817,6 +817,7 @@ app.post('/api/articles/outlines/generate', async (req, res) => {
     .map((r) => ({
       user_id: user.id, topic_id: r.topic.id, h1: r.outline.h1,
       outline_json: r.outline.outline, status: 'draft',
+      target_keyword: r.topic.target_query, angle: r.outline.angle, evidence_quote: r.topic.reasoning,
     }));
 
   const failed = results.filter((r) => !r.outline).map((r) => r.topic.id);
@@ -835,10 +836,12 @@ app.patch('/api/articles/outlines/:id', async (req, res) => {
   const { user, error } = await authenticateUser(req);
   if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
 
-  const { h1, outline_json } = req.body;
+  const { h1, outline_json, target_keyword, angle } = req.body;
   const patch = { updated_at: new Date().toISOString() };
   if (h1) patch.h1 = h1;
   if (outline_json) patch.outline_json = outline_json;
+  if (target_keyword !== undefined) patch.target_keyword = target_keyword;
+  if (angle !== undefined) patch.angle = angle;
 
   const { data, error: updErr } = await supabaseAdmin
     .from('article_outlines').update(patch).eq('id', req.params.id).eq('user_id', user.id).select().single();
@@ -906,6 +909,7 @@ app.post('/api/articles/generate', async (req, res) => {
   }
 
   let { title, h1, outline = [], targetQuery, brand, outlineId } = req.body;
+  let angle = '';
 
   if (outlineId) {
     const { data: outlineRow, error: outlineErr } = await supabaseAdmin
@@ -916,8 +920,9 @@ app.post('/api/articles/generate', async (req, res) => {
     h1 = outlineRow.h1;
     outline = outlineRow.outline_json;
     title = outlineRow.article_topics?.title || h1;
-    targetQuery = outlineRow.article_topics?.target_query || '';
+    targetQuery = outlineRow.target_keyword || outlineRow.article_topics?.target_query || '';
     brand = outlineRow.article_topics?.brand || brand;
+    angle = outlineRow.angle || '';
   }
 
   const sectionPrompts = (outline || []).map(s =>
@@ -936,6 +941,7 @@ app.post('/api/articles/generate', async (req, res) => {
 Brand writing this article: "${brand}"
 H1: ${h1}
 Target buyer query the article must answer: "${targetQuery}"
+${angle ? `Angle to take: ${angle}` : ''}
 
 ---
 
@@ -1026,10 +1032,10 @@ app.get('/api/articles/:id', async (req, res) => {
   if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
 
   const { data, error: dbErr } = await supabaseAdmin
-    .from('articles').select('*').eq('id', req.params.id).eq('user_id', user.id).single();
+    .from('articles').select('*, article_outlines(angle)').eq('id', req.params.id).eq('user_id', user.id).single();
   if (dbErr || !data) return res.status(404).json({ error: 'article_not_found' });
 
-  res.json(data);
+  res.json({ ...data, angle: data.article_outlines?.angle || null });
 });
 
 app.patch('/api/articles/:id', async (req, res) => {

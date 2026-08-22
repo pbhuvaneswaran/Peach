@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { ArticleExportBar } from './ArticleExportBar'
 
@@ -43,6 +44,8 @@ function QualityBadges({ quality }) {
 
 export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, initialQuality }) {
   const { session } = useAuth()
+  const [mode, setMode] = useState('edit') // 'edit' | 'preview'
+  const [publishOpen, setPublishOpen] = useState(false)
   const [quality, setQuality] = useState(initialQuality)
   const [markdown, setMarkdown] = useState(initialMarkdown || '')
   const [saving, setSaving] = useState(false)
@@ -80,24 +83,58 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
 
   return (
     <div>
-      <QualityBadges quality={quality} />
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button onClick={() => setMode('preview')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${mode === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+            Preview
+          </button>
+          <button onClick={() => setMode('edit')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${mode === 'edit' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+            Edit
+          </button>
+        </div>
 
-      <div className="flex items-center gap-2 mb-4">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white px-4 py-1.5 rounded-lg transition-colors"
-        >
-          {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
-        </button>
-        <span className="text-[11px] text-[#94A3B8]">Edits re-run quality checks automatically on save.</span>
+        <div className="flex items-center gap-2">
+          {mode === 'edit' && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="text-xs font-semibold border border-gray-300 hover:bg-gray-50 disabled:opacity-60 px-4 py-1.5 rounded-lg transition-colors"
+            >
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
+            </button>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setPublishOpen(v => !v)}
+              className="text-xs font-semibold bg-gradient-to-r from-[#2563EB] to-cyan-500 hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-opacity"
+            >
+              Publish ▾
+            </button>
+            {publishOpen && (
+              <div className="absolute right-0 mt-2 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-72">
+                <ArticleExportBar markdown={markdown} title={title} articleId={articleId} onPublished={() => setPublishOpen(false)} />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="border border-[#BFDBFE] rounded-xl px-8 py-7 mb-5 min-h-[70vh] prose prose-base max-w-none focus-within:ring-2 focus-within:ring-[#2563EB]">
-        <EditorContent editor={editor} />
-      </div>
+      {mode === 'edit' && <QualityBadges quality={quality} />}
+      {mode === 'edit' && (
+        <p className="text-[11px] text-[#94A3B8] mb-4">Edits re-run quality checks automatically on save.</p>
+      )}
 
-      <ArticleExportBar markdown={markdown} title={title} articleId={articleId} />
+      {mode === 'edit' ? (
+        <div className="border border-[#BFDBFE] rounded-xl px-8 py-7 min-h-[70vh] prose prose-base max-w-none focus-within:ring-2 focus-within:ring-[#2563EB]">
+          <EditorContent editor={editor} />
+        </div>
+      ) : (
+        <div className="border border-gray-100 rounded-xl px-8 py-7 min-h-[70vh] prose prose-base max-w-none bg-gray-50">
+          <ReactMarkdown>{markdown}</ReactMarkdown>
+        </div>
+      )}
     </div>
   )
 }

@@ -20,10 +20,11 @@ Target buyer query: "${targetQuery || title}"
 
 Produce an outline with:
 - h1: the exact H1 heading (can refine the title slightly for clarity)
+- angle: exactly 1-2 sentences describing the article's angle/approach — what specific take or framing makes this piece worth writing, not a restatement of the title
 - outline: array of 3-5 sections, each { "h2": string, "h3s": ["...","..."] } — 2 H3s per H2, specific and non-generic, structured so AI engines would want to cite this as a credible source.
 
 Return ONLY valid JSON object, no explanation:
-{"h1":"...","outline":[{"h2":"...","h3s":["...","..."]}]}`;
+{"h1":"...","angle":"...","outline":[{"h2":"...","h3s":["...","..."]}]}`;
 
   const completion = await callWithTimeout(
     client.chat.completions.create({
