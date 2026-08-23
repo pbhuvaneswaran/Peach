@@ -14,7 +14,7 @@ import { queryAllQuestionsGemini } from './src/geminiClient_aeo.js';
 import { queryAllQuestionsGoogleAIO, searchWeb } from './src/googleAIOClient.js';
 import { scoreVisibility } from './src/visibilityScorer.js';
 import { readWebPage } from './src/webReader.js';
-import { analyzePageAndPrepare, extractCompetitors } from './src/competitorExtractor.js';
+import { analyzePageAndPrepare, findDirectCompetitors } from './src/competitorExtractor.js';
 import { generateActionsOpenAI } from './src/actionGenerator.js';
 import { saveRun } from './src/runLogger.js';
 import { checkCrawlerAccess } from './src/robotsChecker.js';
@@ -199,17 +199,19 @@ app.post('/api/v3/analyze', async (req, res) => {
 
     let visibility = scoreVisibility({ llmResults, brand, competitors });
 
-    // Fallback: if pre-selected competitors all scored 0%, extract real brands from LLM answers
+    // Fallback: if pre-selected competitors all scored 0%, get a second Buyer-Test-filtered
+    // opinion from the category description directly — NOT by extracting brand names out of
+    // the LLM answers, since those answers are often generic and full of broad platform names
+    // (Microsoft/Google/Amazon/IBM) that fail the Buyer Test for a narrow/niche product.
     const allCompetitorsZero = competitors.every(c => (visibility.aggregatePercentages[c] ?? 0) === 0)
     if (allCompetitorsZero) {
       try {
-        const mentionedBrands = await extractCompetitors(llmResults)
-        const realCompetitors = mentionedBrands
+        const altCompetitors = (await findDirectCompetitors(categoryDescription))
           .filter(b => b.toLowerCase() !== brand.toLowerCase())
           .slice(0, 4)
-        if (realCompetitors.length > 0) {
-          competitors = realCompetitors
-          competitorCategories = [{ category: 'Detected from AI answers', competitors: realCompetitors }]
+        if (altCompetitors.length > 0) {
+          competitors = altCompetitors
+          competitorCategories = [{ category: category || 'Alternate competitor read', competitors: altCompetitors }]
           visibility = scoreVisibility({ llmResults, brand, competitors })
         }
       } catch (err) {

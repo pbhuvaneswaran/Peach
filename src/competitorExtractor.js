@@ -146,47 +146,4 @@ Reply with ONLY the 1-2 sentence description, nothing else.`,
   return response.choices[0].message.content.trim();
 }
 
-// Fallback: extract brand names from LLM answers (used when preset competitors all score 0%,
-// and for keyword mode rankings). Same vendor-only + exclusion rules as the primary extractor,
-// since this list is user-facing and must not reintroduce blocklisted/non-vendor names.
-async function extractCompetitors(llmResults) {
-  const client = getClient();
-
-  const allText = Object.entries(llmResults)
-    .flatMap(([llm, answers]) =>
-      (answers || []).map(({ answer }) => `[${llm.toUpperCase()}] ${answer || ''}`)
-    )
-    .join('\n\n');
-
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    max_tokens: 400,
-    temperature: 0,
-    messages: [{
-      role: 'user',
-      content: `Extract brand and company names mentioned in these AI search answers that are real SOFTWARE VENDORS — sort by how often they appear (most frequent first).
-
-RULES:
-- Only real brand/product names of actual software companies, not generic terms or category descriptions
-- NEVER include the companies that BUY or USE software (banks, lenders, hospitals, enterprises, agencies) — only vendors that SELL a software product
-- NEVER include pure service firms, agencies, freelance marketplaces
-- NEVER list: Notion, ClickUp, Asana, Trello, Miro, Airtable, Slack, Fiverr, Upwork, Toptal, Freelancer, 99designs
-
-AI ANSWERS:
-${allText.slice(0, 6000)}
-
-Return ONLY a valid JSON array of strings:
-["Brand1", "Brand2", ...]`,
-    }],
-  });
-
-  const text = response.choices[0].message.content.trim();
-  try {
-    const match = text.match(/\[[\s\S]*\]/);
-    return match ? JSON.parse(match[0]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export { analyzePageAndPrepare, findDirectCompetitors, extractCategoryDescription, extractCompetitors };
+export { analyzePageAndPrepare, findDirectCompetitors, extractCategoryDescription };
