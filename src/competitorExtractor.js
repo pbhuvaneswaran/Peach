@@ -34,21 +34,20 @@ async function analyzePageAndPrepare(pageData) {
 
   const headingText = (pageData.headings || []).slice(0, 10).map(h => h.text).join(', ');
 
-  const response = await client.chat.completions.create({
+  const response = await client.responses.create({
     model: 'gpt-4o',
-    max_tokens: 2000,
     temperature: 0,
-    seed: 42,
-    response_format: { type: 'json_object' },
-    messages: [{
-      role: 'user',
-      content: `Analyze this web page and return a JSON object with exactly 3 fields:
+    tools: [{ type: 'web_search_preview' }],
+    // OpenAI doesn't allow combining web_search with json_object/json_schema mode, so the
+    // "return ONLY valid JSON" instruction below + regex extraction does the enforcement instead.
+    input: `Analyze this web page and return a JSON object with exactly 3 fields:
 
 1. "description": 1-2 sentences describing what the product does — problem it solves and who it's for. NO brand names.
 2. "categories": array of 1 to 3 objects, one per DISTINCT product line the page itself emphasizes as a named, separately-marketed offering (e.g. two named sub-products bundled under one brand). Most pages have exactly ONE distinct product line — only return more than one if the page clearly markets multiple separately-named offerings side by side (not just multiple features of one product). Each object has:
    - "category": the most specific sub-category for that product line (e.g. "AI agent platform for solopreneurs", NOT the broad "productivity tool")
    - "competitors": array of up to 4 real company/product BRAND NAMES that are DIRECT competitors for that specific product line.
    CRITICAL RULES FOR COMPETITORS:
+   - USE WEB SEARCH to find REAL, CURRENT competitors — do not rely only on well-known names you already recall. Search for this specific niche (e.g. "[category] alternatives", "[category] vs", "[category] competitors") and prefer what search results actually surface, including smaller or newer companies, over only famous/legacy platforms.
    - Return only BRAND NAMES of actual software products/companies (e.g. "Zendesk", "Intercom", "Freshdesk")
    - NEVER return category descriptions (NOT "AI customer service platform")
    - THE BUYER TEST: Ask yourself — if someone is actively evaluating THIS product line, which 3-4 other vendors would they have also requested a demo from in the same week? Those are the competitors.
@@ -78,10 +77,9 @@ ${!pageData.content || pageData.wordCount < 30 ? '\nNOTE: The crawled body conte
 
 Return ONLY valid JSON, no explanation:
 {"description":"...","categories":[{"category":"...","competitors":[...]}],"prompts":[...]}`,
-    }],
   });
 
-  const text = response.choices[0].message.content.trim();
+  const text = (response.output_text || '').trim();
   try {
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON found');
@@ -117,15 +115,13 @@ Return ONLY valid JSON, no explanation:
 async function findDirectCompetitors(categoryDescription) {
   const client = getClient();
 
-  const response = await client.chat.completions.create({
+  const response = await client.responses.create({
     model: 'gpt-4o',
-    max_tokens: 300,
     temperature: 0,
-    messages: [{
-      role: 'user',
-      content: `A product exists in this space: ${categoryDescription}
+    tools: [{ type: 'web_search_preview' }],
+    input: `A product exists in this space: ${categoryDescription}
 
-List the 4-5 most direct competitors — tools a buyer would compare side-by-side when making a purchase decision.
+USE WEB SEARCH to find the 4-5 most direct, CURRENT competitors — tools a buyer would compare side-by-side when making a purchase decision today. Search for this niche (e.g. "[category] alternatives", "[category] competitors") rather than relying only on well-known names you already recall — prefer real, current search results, including smaller or newer companies, over only famous/legacy platforms.
 
 Rules:
 - THE BUYER TEST: If someone is actively evaluating this product, which other vendors would they have also requested a demo from in the same week?
@@ -138,10 +134,9 @@ Rules:
 
 Return ONLY a valid JSON array of strings:
 ["Competitor1", "Competitor2", ...]`,
-    }],
   });
 
-  const text = response.choices[0].message.content.trim();
+  const text = (response.output_text || '').trim();
   try {
     const match = text.match(/\[[\s\S]*\]/);
     return match ? JSON.parse(match[0]) : [];
