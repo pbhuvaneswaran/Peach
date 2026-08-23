@@ -46,8 +46,10 @@ async function analyzePageAndPrepare(pageData) {
    - Vary the query style: "best X for Y", "top X tools", "X vs Y", "how to X using AI tool", "AI software for X"
 
 Page title: ${pageData.title}
+Meta description: ${pageData.metaDesc || '(none)'}
 Headings: ${headingText}
 Content: ${(pageData.content || '').slice(0, 4000)}
+${!pageData.content || pageData.wordCount < 30 ? '\nNOTE: The crawled body content above is thin or empty (common on JavaScript-rendered sites our crawler can\'t execute) — rely primarily on the title and meta description for what this product actually does. Do not guess a broad/generic category from title words alone if the meta description gives a more specific read.' : ''}
 
 Return ONLY valid JSON, no explanation:
 {"description":"...","categories":[{"category":"...","competitors":[...]}],"prompts":[...]}`,
