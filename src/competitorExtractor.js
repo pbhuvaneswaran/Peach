@@ -4,9 +4,34 @@ function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
+// Our crawler (webReader.js) is a plain HTTP fetch with no JS execution — on sites that render
+// their real content client-side (common with modern SPA frameworks), it can come back with no
+// title, no meta description, and no body text at all. When that happens there's no signal left
+// to reason from, so instead of guessing a category from nothing, ask GPT to look the site up via
+// web search (using OpenAI's own hosted browsing, not a static fetch) and describe it for real.
+async function fetchSiteSummaryViaSearch(url) {
+  const client = getClient();
+  const response = await client.responses.create({
+    model: 'gpt-4o',
+    tools: [{ type: 'web_search_preview' }],
+    input: `Visit ${url} and describe in 3-4 sentences: what the product does, who it's for, the specific problem it solves, and the specific software category it belongs to (be as specific as possible, not a broad category). Base this on the actual site content, not other sources about the company.`,
+  });
+  return response.output_text || '';
+}
+
+function isCrawlThin(pageData) {
+  return !pageData.title && !pageData.metaDesc && (!pageData.content || pageData.wordCount < 10);
+}
+
 // Single call: returns description + competitors + 8 prompts in one GPT request
 async function analyzePageAndPrepare(pageData) {
   const client = getClient();
+
+  if (isCrawlThin(pageData)) {
+    const summary = await fetchSiteSummaryViaSearch(pageData.url);
+    if (summary) pageData = { ...pageData, content: summary, wordCount: summary.split(/\s+/).length };
+  }
+
   const headingText = (pageData.headings || []).slice(0, 10).map(h => h.text).join(', ');
 
   const response = await client.chat.completions.create({
