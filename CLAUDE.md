@@ -4,6 +4,18 @@
 
 ---
 
+## Latest Instructions (2026-08-24)
+
+- **Dodo Payments is live and working end-to-end for checkout + email.** `DODO_ENV=live`, `DODO_WEBHOOK_SECRET` and `RESEND_API_KEY` are all set on Vercel Production and verified working (webhook endpoint registered at `https://www.gotopeach.com/api/webhooks/dodo`; Resend domain verified via GoDaddy DNS records — TXT `resend._domainkey`, MX `send`, TXT `send`). Checkout is locked to USD only (`feature_flags: { allow_currency_selection: false }` on `checkoutSessions.create`, `server.js`). **Not yet verified:** a real payment through Peach's own `/pricing` → checkout flow — only a Dodo-dashboard-only test payment was run, which doesn't exercise `/api/checkout` or the webhook at all (confirmed via Supabase `profiles` + Vercel logs — no hits). Deferred by user for now, not fixed.
+- **Live pricing on `/pricing`** — `GET /api/pricing` fetches the current Starter/Growth price directly from Dodo (60s in-memory cache) so the marketing page never drifts from what Dodo actually charges. `client/src/pages/Pricing.jsx` fetches on load, falls back to hardcoded defaults only if the fetch fails.
+- **Competitor identification is now grounded in live web search, not just training data.** `analyzePageAndPrepare` and `findDirectCompetitors` (`src/competitorExtractor.js`) both switched from plain `client.chat.completions.create()` to `client.responses.create({ tools: [{ type: 'web_search_preview' }], ... })` — the model can search the live web instead of only recalling what it memorized during training. This was the fix for competitor results looking nothing like what ChatGPT.com itself returns for the same question. Note: OpenAI rejects combining web search with JSON mode (`400 Web Search cannot be used with JSON mode`), so structured output relies on a "return ONLY valid JSON" prompt instruction + regex extraction, not `response_format`.
+  - **Cost/latency tradeoff, explicitly accepted but flagged as a watchpoint:** adds ~$0.023–0.025 extra OpenAI cost per call (flat $25/1,000-call fee for `web_search_preview` on gpt-4o dominates — search-result tokens themselves are free) and full analyze runs went from ~21s to ~42s. **User said Peach may need to revert this if real OpenAI spend grows too much** — if asked to revert, this is the change to undo (go back to plain `chat.completions.create()`, no tools), but that reintroduces the "doesn't match ChatGPT.com" problem it fixed, so check actual billing numbers first.
+  - Also fixed in the same pipeline: crawled `pageData.metaDesc` was captured but never fed into the prompt (now is); total crawl failures on JS-heavy sites (e.g. vercel.com returning zero content) now fall back to `web_search_preview` for the page description too, instead of GPT inventing a category from nothing.
+  - The old unguarded 0%-score fallback (`extractCompetitors()`, which extracted brand names straight out of biased LLM-answer text) was removed entirely — replaced by reusing `findDirectCompetitors()` with the same web-search grounding.
+- **`gpt-4o` + `gpt-4o-mini` are the only OpenAI models actually in use.** Some files reference `claude-sonnet-4-6` / `claude-haiku-4-5-20251001` (`actionGenerator.js`, `blogAnalyzer.js`, `gapRecommender.js`, `questionGenerator.js`, `claudeClient_aeo.js`) and `llama-3.1-sonar-small-128k-online` (`perplexityClient.js`) but those paths are dead code — `ANTHROPIC_API_KEY` and `PERPLEXITY_API_KEY` are both empty in `.env`.
+
+---
+
 ## Latest Instructions (2026-08-18)
 
 - **Article pipeline rebuilt as a 3-stage editorial workflow** — Topics (with 2-line reasoning per topic, approve/reject/add) → Outlines (AI-generated H1/H2/H3, user-editable — add/remove headings) → Article (full draft + deterministic quality checks + Google-Docs-style rich-text editor via TipTap). Lives in a new "Articles" tab on `/dashboard` (`client/src/pages/v3/ArticlesTab.jsx`) — `Dashboard.jsx` previously had no route; `/dashboard` is now wired in `AppV3.jsx`.
@@ -130,7 +142,7 @@ Dashboard accessed via "View Dashboard →" link in results header (not in main 
 | File | Purpose |
 |------|---------|
 | `server.js` | Express port 3001. Routes: POST /api/v3/analyze, GET /api/runs, GET /api/health |
-| `src/competitorExtractor.js` | `analyzePageAndPrepare()` — single GPT call: description + category + competitors + 8 prompts. Sub-category approach, explicit exclusion of generic tools + freelance platforms. |
+| `src/competitorExtractor.js` | `analyzePageAndPrepare()` — GPT call grounded in live web search (`web_search_preview` tool, Responses API): description + up to 3 product-line categories + competitors + 8 prompts. `findDirectCompetitors()` — same web-search grounding, used as the 0%-score fallback. Both use the Buyer Test framing + exclusion list. Falls back to web search for the page description itself when the crawl returns nothing. |
 | `src/actionGenerator.js` | `generateActionsOpenAI()` — gpt-4o-mini generates 3 actions from visibility gaps with LLM answer evidence |
 | `src/runLogger.js` | Saves full run JSON to `output/runs/`. Non-blocking. |
 | `src/webReader.js` | axios + cheerio. Fetches and parses web pages. |
@@ -175,8 +187,15 @@ SUPABASE_URL=<your-supabase-url>
 SUPABASE_ANON_KEY=<your-supabase-anon-key>
 SUPABASE_SERVICE_KEY=<your-supabase-service-key>
 ANTHROPIC_API_KEY=                        # empty — blog analysis skipped silently
-DODO_API_KEY=                             # Dodo Payments (replacing Stripe, not wired yet)
-DODO_WEBHOOK_SECRET=
+PERPLEXITY_API_KEY=                       # empty — perplexityClient.js is dead code
+DODO_API_KEY=<your-dodo-key>              # Dodo Payments — LIVE, checkout + webhook working
+DODO_WEBHOOK_SECRET=<your-webhook-secret> # from Dodo dashboard, live-mode endpoint
+DODO_ENV=live                             # must be 'live' to match a live-mode DODO_API_KEY
+DODO_STARTER_PRODUCT_ID=<your-product-id>
+DODO_GROWTH_PRODUCT_ID=<your-product-id>
+RESEND_API_KEY=<your-resend-key>          # email report — domain verified via GoDaddy DNS
+APP_URL=<your-app-url>                    # used for Dodo checkout return_url
+ADMIN_EMAILS=<comma-separated-emails>
 PORT=3001
 ```
 
@@ -188,7 +207,8 @@ PORT=3001
 |---------|--------|
 | Supabase auth (login/signup) | Login page built (magic link works); Google OAuth UI stubbed — needs credentials wired in Supabase dashboard |
 | Supabase run storage | localStorage used as bridge — Supabase schema not wired yet |
-| Dodo Payments checkout | Key in .env, no checkout flow yet |
+| Article pipeline Supabase schema | `sql/article_pipeline_schema.sql` written, not yet run against live Supabase project — `/api/articles/*` endpoints will fail until it is |
+| Dodo Payments end-to-end verification | Checkout/webhook/env all live and configured, but never verified with a real payment through Peach's own checkout flow (only a Dodo-dashboard-only test, which doesn't hit our endpoints at all) |
 | Scheduled monitoring (weekly re-runs) | Not started |
 | PDF report download | Blocked behind auth — modal shows "sign up" |
 
