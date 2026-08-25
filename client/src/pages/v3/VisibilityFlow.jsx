@@ -199,6 +199,7 @@ function downloadCSV(result) {
 
 function ReportActions({ result, onReset, sidebar = false }) {
   const [copied, setCopied] = useState(false)
+  const [shareError, setShareError] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -231,9 +232,35 @@ function ReportActions({ result, onReset, sidebar = false }) {
   }, [])
 
   const handleShare = async () => {
-    await navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    const url = window.location.href
+    const onCopied = () => {
+      setShareError(false)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable')
+      await navigator.clipboard.writeText(url)
+      onCopied()
+    } catch {
+      // Fallback for browsers/contexts where the async Clipboard API is blocked
+      // (missing permissions, non-secure context, etc.)
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = url
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        onCopied()
+      } catch {
+        setCopied(false)
+        setShareError(true)
+        setTimeout(() => setShareError(false), 2000)
+      }
+    }
   }
 
   const EmailModal = () => (
@@ -273,7 +300,7 @@ function ReportActions({ result, onReset, sidebar = false }) {
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
           </svg>
-          {copied ? 'Copied!' : 'Share report'}
+          {copied ? 'Copied!' : shareError ? "Couldn't copy — try again" : 'Share report'}
         </button>
         <button onClick={() => setShowEmailModal(true)} className={sideBtn}>
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,7 +363,7 @@ function ReportActions({ result, onReset, sidebar = false }) {
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
         </svg>
-        {copied ? 'Copied!' : 'Share'}
+        {copied ? 'Copied!' : shareError ? "Couldn't copy" : 'Share'}
       </button>
 
       <div ref={exportRef} className="relative">
