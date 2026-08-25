@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { LLM_COLORS } from '../../components/llmConfig'
 import { PLATFORM_ICONS } from '../../components/llmPlatforms'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
+import { PromptTable, ActionCard, ScoreBar } from '../../components/VisibilityComponents'
 import ArticlesTab from './ArticlesTab'
 
 const EXAMPLES = [
@@ -14,9 +16,10 @@ const EXAMPLES = [
   { label: 'intercom.com', value: 'intercom.com' },
 ]
 
-const OUTPUT_TABS = ['Overview', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Articles', 'Site Audit']
+const OUTPUT_TABS = ['Overview', 'AI Answers', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Articles', 'Site Audit']
 
 const TAB_SUBLABELS = {
+  'AI Answers': 'Prompt-by-prompt breakdown',
   'Prompts': 'Prompt library',
   'Citations': 'Sources & domains',
   'Growth Actions': 'Get cited in AI answers',
@@ -28,6 +31,11 @@ const TAB_ICONS = {
   Overview: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  ),
+  'AI Answers': (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>
   ),
   Prompts: (
@@ -61,12 +69,6 @@ const TAB_ICONS = {
     </svg>
   ),
 }
-
-const DASHBOARD_ICON = (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 12a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm10-8a1 1 0 011-1h4a1 1 0 011 1v10a1 1 0 01-1 1h-4a1 1 0 01-1-1V9z" />
-  </svg>
-)
 
 const INSIGHT_ICONS = {
   target: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-5a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z',
@@ -738,6 +740,92 @@ function NextBestMove({ item, onGenerateBrief }) {
   )
 }
 
+const TREND_LINE_COLORS = ['#4f46e5', '#9ca3af', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']
+
+function formatRunDate(iso) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Historical trend across past runs for this brand — ported from the old standalone
+// Dashboard page, now shown inline at the top of Overview instead of a separate page.
+function TrendAndLeaderboard({ result }) {
+  const [runs, setRuns] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/runs')
+      .then(res => res.json())
+      .then(data => setRuns(Array.isArray(data) ? data : []))
+      .catch(() => setRuns([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const chartData = useMemo(() => {
+    const urlRuns = runs.filter(r => r.mode === 'url' && r.brand === result.brand).reverse()
+    const latest = runs.find(r => r.mode === 'url' && r.brand === result.brand)
+    const brandList = Object.keys(latest?.allBrandPcts || result.visibility?.aggregatePercentages || {}).slice(0, 6)
+    return {
+      data: urlRuns.map(r => ({
+        date: formatRunDate(r.savedAt),
+        ...Object.fromEntries(brandList.map(b => [b, r.allBrandPcts?.[b] ?? null])),
+      })),
+      brands: brandList,
+    }
+  }, [runs, result.brand, result.visibility])
+
+  const leaderboard = useMemo(() => {
+    const source = runs.find(r => r.mode === 'url' && r.brand === result.brand)?.allBrandPcts
+      || result.visibility?.aggregatePercentages || {}
+    return Object.entries(source)
+      .map(([brand, pct]) => ({ brand, pct }))
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 8)
+  }, [runs, result.brand, result.visibility])
+
+  if (loading) return null
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-6 items-stretch mb-14">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
+        <h2 className="text-base font-bold text-[#172554] mb-4">Mentions over time</h2>
+        {chartData.data.length > 1 ? (
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={chartData.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F0EBF8" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#9CA3B8" />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#9CA3B8" />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {chartData.brands.map((brand, i) => (
+                <Line
+                  key={brand}
+                  type="monotone"
+                  dataKey={brand}
+                  stroke={brand === result.brand ? TREND_LINE_COLORS[0] : TREND_LINE_COLORS[(i % (TREND_LINE_COLORS.length - 1)) + 1]}
+                  strokeWidth={brand === result.brand ? 3 : 1.5}
+                  dot={{ r: 3 }}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-sm text-[#9CA3B8] py-12 text-center">Run more checks to see a trend over time.</p>
+        )}
+      </div>
+
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6">
+        <h2 className="text-base font-bold text-[#172554] mb-4">Leaderboard</h2>
+        <div className="space-y-3">
+          {leaderboard.map(r => (
+            <ScoreBar key={r.brand} brand={r.brand} pct={r.pct} highlight={r.brand === result.brand} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function OverviewTab({ result, onViewActionPlan, onComparePositioning }) {
   const agg = result.visibility?.aggregatePercentages || {}
   const brand = result.brand
@@ -779,6 +867,8 @@ function OverviewTab({ result, onViewActionPlan, onComparePositioning }) {
 
   return (
     <div>
+      <TrendAndLeaderboard result={result} />
+
       <SummaryRow
         citedCount={citedCount}
         totalPrompts={totalPrompts}
@@ -2995,6 +3085,18 @@ function ActionPlanTab({ result, isGated }) {
 
       <BeforeYouPublish />
 
+      {actions.length > 1 && (
+        <div className="mt-14">
+          <h2 className="text-2xl font-bold text-[#172554] mb-1.5">All recommended actions</h2>
+          <p className="text-[#667085] mb-6">Every content opportunity found in this run, not just the top pick above.</p>
+          <div className="space-y-4">
+            {actions.map((action, i) => (
+              <ActionCard key={i} action={action} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <ContentBriefModal open={briefOpen} onClose={() => setBriefOpen(false)} featured={featured} action={featuredAction} result={result} />
       <StickyActionFooter visible={footerVisible} onGenerateBrief={() => setBriefOpen(true)} />
     </div>
@@ -3156,16 +3258,6 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
                   )}
                 </div>
               </button>
-              {tab === 'Overview' && (
-                <Link to="/dashboard"
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554]">
-                  <span className="text-[#9CA3B8]">{DASHBOARD_ICON}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">Dashboard</p>
-                    <p className="text-[10px] text-[#9CA3B8] font-normal truncate">Articles & trends</p>
-                  </div>
-                </Link>
-              )}
             </div>
           ))}
         </nav>
@@ -3216,6 +3308,17 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
               onViewActionPlan={() => setActiveTab('Growth Actions')}
               onComparePositioning={() => setActiveTab('Prompts')}
             />
+          )}
+          {activeTab === 'AI Answers' && (
+            <GatedTabWrapper isGated={isGated}>
+              <PromptTable
+                prompts={result.prompts || []}
+                llmsQueried={result.llmsQueried || []}
+                visibility={result.visibility}
+                brand={result.brand}
+                competitors={result.competitors || []}
+              />
+            </GatedTabWrapper>
           )}
           {activeTab === 'Prompts' && (
             <GatedTabWrapper isGated={isGated}>
