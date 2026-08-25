@@ -204,14 +204,18 @@ app.post('/api/v3/analyze', async (req, res) => {
     // the LLM answers, since those answers are often generic and full of broad platform names
     // (Microsoft/Google/Amazon/IBM) that fail the Buyer Test for a narrow/niche product.
     const allCompetitorsZero = competitors.every(c => (visibility.aggregatePercentages[c] ?? 0) === 0)
+    let competitorEvidence = {};
     if (allCompetitorsZero) {
       try {
-        const altCompetitors = (await findDirectCompetitors(categoryDescription))
-          .filter(b => b.toLowerCase() !== brand.toLowerCase())
+        const found = (await findDirectCompetitors(categoryDescription))
+          .filter(c => c.name.toLowerCase() !== brand.toLowerCase())
           .slice(0, 4)
-        if (altCompetitors.length > 0) {
-          competitors = altCompetitors
-          competitorCategories = [{ category: category || 'Alternate competitor read', competitors: altCompetitors }]
+        if (found.length > 0) {
+          competitors = found.map(c => c.name)
+          competitorCategories = [{ category: category || 'Alternate competitor read', competitors }]
+          competitorEvidence = Object.fromEntries(
+            found.filter(c => c.evidence).map(c => [c.name.toLowerCase(), c.evidence])
+          )
           visibility = scoreVisibility({ llmResults, brand, competitors })
         }
       } catch (err) {
@@ -231,6 +235,7 @@ app.post('/api/v3/analyze', async (req, res) => {
       brand,
       competitors,
       competitorCategories,
+      competitorEvidence,
       prompts,
       llmsQueried: llmNames,
       visibility,

@@ -1986,7 +1986,7 @@ function PromptsTab({ result }) {
 // ─── Tab: Competitors ─────────────────────────────────────────────────────────
 
 function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraftCompetitors, newCompetitorInput, setNewCompetitorInput, onEditCompetitors, onApplyCompetitors, onCancelEdit }) {
-  const { visibility, competitors = [], competitorCategories = [], brand, llmsQueried = [] } = result
+  const { visibility, competitors = [], competitorCategories = [], competitorEvidence = {}, brand, llmsQueried = [] } = result
 
   // Map competitor name -> category label, only when more than one category was detected
   // (single-category runs render as a flat list, same as before)
@@ -2015,7 +2015,8 @@ function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraft
       byPlatform[llm] = { cited: platformCited, total: details.length, pct: details.length ? Math.round((platformCited / details.length) * 100) : 0 }
     }
     const pct = totalQuestions ? Math.round((totalCited / totalQuestions) * 100) : 0
-    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence, byPlatform, category: categoryByName[comp.toLowerCase()] || null }
+    const source = competitorEvidence[comp.toLowerCase()] || null
+    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence, byPlatform, source, category: categoryByName[comp.toLowerCase()] || null }
   }).sort((a, b) => b.pct - a.pct)
 
   // Group into { label, items }[] — a single "" group when there's only one (or zero) detected category
@@ -2142,6 +2143,17 @@ function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraft
                       <div>
                         <p className="font-bold text-[#172554]">{c.name}</p>
                         <p className="text-xs text-[#667085]">{c.cited} mentions across {llmsQueried.length} platform{llmsQueried.length !== 1 ? 's' : ''}</p>
+                        {c.source && (
+                          <a
+                            href={c.source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-[#2563EB] hover:underline inline-block mt-0.5"
+                            title="Why we consider this a competitor"
+                          >
+                            Source: {c.source.title} ↗
+                          </a>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

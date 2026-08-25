@@ -115,6 +115,10 @@ Return ONLY valid JSON, no explanation:
 async function findDirectCompetitors(categoryDescription) {
   const client = getClient();
 
+  // Deliberately NOT using JSON mode here — OpenAI strips citation annotations when the
+  // response is forced into structured JSON, so we ask for a cited numbered list instead
+  // and parse it ourselves. This is what lets us show a real source URL as evidence for
+  // each fallback-selected competitor, instead of an unexplained name.
   const response = await client.responses.create({
     model: 'gpt-4o',
     temperature: 0,
@@ -132,17 +136,28 @@ Rules:
 - Exclude generic productivity tools (Notion, Google Docs, Trello, Asana, Slack) unless the primary direct alternative for this niche
 - Prefer tools known specifically for solving this exact problem
 
-Return ONLY a valid JSON array of strings:
-["Competitor1", "Competitor2", ...]`,
+Format your answer as a numbered list, one competitor per line, exactly like:
+1. **CompanyName** — one sentence explaining why they're a direct competitor, based on your search.
+2. **CompanyName** — ...`,
   });
 
-  const text = (response.output_text || '').trim();
-  try {
-    const match = text.match(/\[[\s\S]*\]/);
-    return match ? JSON.parse(match[0]) : [];
-  } catch {
-    return [];
+  const msg = response.output.find(o => o.type === 'message');
+  if (!msg) return [];
+  const text = msg.content?.[0]?.text || '';
+  const annotations = msg.content?.[0]?.annotations || [];
+
+  const results = [];
+  const nameRegex = /^\d+\.\s*\*{0,2}([^*\n—-]+?)\*{0,2}\s*[—-]/gm;
+  const matches = [...text.matchAll(nameRegex)];
+  for (let i = 0; i < matches.length; i++) {
+    const name = matches[i][1].trim();
+    if (!name) continue;
+    const blockStart = matches[i].index;
+    const blockEnd = i + 1 < matches.length ? matches[i + 1].index : text.length;
+    const citation = annotations.find(a => a.start_index >= blockStart && a.start_index < blockEnd);
+    results.push({ name, evidence: citation ? { url: citation.url, title: citation.title } : null });
   }
+  return results;
 }
 
 // Secondary: extract category description from page (used to seed findDirectCompetitors)
