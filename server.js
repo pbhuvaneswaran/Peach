@@ -1018,9 +1018,15 @@ Return ONLY the full article in Markdown. Start with # ${h1} and end with the CT
       word_count: quality.wordCount,
       created_at: new Date().toISOString(),
     }).select('id').single();
-    if (saveErr) console.error('Article save error:', saveErr.message);
+    if (saveErr || !saved) {
+      // The article text still generated fine, but if it isn't actually persisted, showing
+      // it as a success would be misleading — the user would see it once, then lose it the
+      // moment they navigate away, with no indication anything went wrong.
+      console.error('Article save error:', saveErr?.message || 'insert returned no row');
+      return res.status(500).json({ error: 'Article was generated but could not be saved. Try again.' });
+    }
 
-    res.json({ markdown, html, quality, articleId: saved?.id });
+    res.json({ markdown, html, quality, articleId: saved.id });
   } catch (err) {
     console.error('Article generation error:', err.message);
     res.status(500).json({ error: 'Article generation failed. Try again.' });

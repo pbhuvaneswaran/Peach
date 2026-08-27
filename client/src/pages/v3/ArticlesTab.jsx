@@ -332,7 +332,14 @@ export default function ArticlesTab() {
 
   const withBusy = async (topicId, fn) => {
     setBusyTopicId(topicId)
-    try { await fn() } finally { setBusyTopicId('') }
+    setError('')
+    try {
+      await fn()
+    } catch (err) {
+      setError(err.data?.error || err.message || 'Something went wrong. Try again.')
+    } finally {
+      setBusyTopicId('')
+    }
   }
 
   const approveTopic = (topic) => withBusy(topic.id, () =>
