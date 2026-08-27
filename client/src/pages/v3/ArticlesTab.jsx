@@ -24,7 +24,7 @@ function useApi() {
 
 function QuotaMeter({ quota }) {
   if (!quota) return null
-  if (quota.limit === 0) {
+  if (quota.limit === 0 && !quota.admin) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
         <p className="text-sm text-amber-800 font-medium">Upgrade to a paid plan to generate articles.</p>
@@ -48,7 +48,7 @@ function CadenceBanner({ cadence, quota }) {
     <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 mb-4">
       {cadence.available ? (
         <p className="text-xs text-blue-900 leading-relaxed">
-          You've published <strong>~{cadence.avgPerMonth}/mo</strong> recently. We recommend starting with <strong>{cadence.recommended}</strong> of your {quota?.limit ?? ''} available this month.
+          You've published <strong>~{cadence.avgPerMonth}/mo</strong> recently. We recommend starting with <strong>{cadence.recommended}</strong> of your {quota?.admin ? 'unlimited' : (quota?.limit ?? '')} available this month.
         </p>
       ) : (
         <p className="text-xs text-blue-900 leading-relaxed">
