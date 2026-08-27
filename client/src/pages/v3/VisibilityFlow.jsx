@@ -2117,23 +2117,19 @@ function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraft
   const competitorData = competitors.map(comp => {
     let totalCited = 0, totalQuestions = 0
     const evidence = []
-    const byPlatform = {}
     for (const llm of llmsQueried) {
       const details = visibility?.perLLM?.[llm]?.details || []
-      let platformCited = 0
       for (const d of details) {
         totalQuestions++
         if (d.mentions?.[comp]) {
           totalCited++
-          platformCited++
           if (evidence.length < 2) evidence.push({ llm, question: d.question, snippet: extractSnippet(d.answer, comp) })
         }
       }
-      byPlatform[llm] = { cited: platformCited, total: details.length, pct: details.length ? Math.round((platformCited / details.length) * 100) : 0 }
     }
     const pct = totalQuestions ? Math.round((totalCited / totalQuestions) * 100) : 0
     const source = competitorEvidence[comp.toLowerCase()] || null
-    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence, byPlatform, source, category: categoryByName[comp.toLowerCase()] || null }
+    return { name: comp, pct, cited: totalCited, total: totalQuestions, evidence, source, category: categoryByName[comp.toLowerCase()] || null }
   }).sort((a, b) => b.pct - a.pct)
 
   // Group into { label, items }[] — a single "" group when there's only one (or zero) detected category
@@ -2283,22 +2279,6 @@ function CompetitorsTab({ result, editingCompetitors, draftCompetitors, setDraft
                     <div className="absolute left-0 top-0 h-2 rounded-full bg-[#2563EB]" style={{ width: `${c.pct}%` }} />
                     <div className="absolute top-0 h-2 rounded-full bg-[#10B981] opacity-30" style={{ left: 0, width: `${brandData.pct}%` }} />
                   </div>
-                  {/* Per-platform breakdown — the bar/percentage above is a ChatGPT+Gemini blend;
-                      shown separately here since the two platforms search independently and can differ a lot */}
-                  {llmsQueried.length > 1 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {llmsQueried.map(llm => {
-                        const p = c.byPlatform[llm]
-                        if (!p) return null
-                        const colors = LLM_COLORS[llm] || { bg: 'bg-gray-100', text: 'text-gray-700', label: llm }
-                        return (
-                          <span key={llm} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${colors.bg} ${colors.text}`}>
-                            {colors.label} {p.pct}% <span className="font-normal opacity-70">({p.cited}/{p.total})</span>
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
                   {c.evidence.length > 0 && (
                     <div className="space-y-3">
                       <p className="text-xs font-bold text-[#667085] uppercase tracking-wide">Where AI cited them</p>
