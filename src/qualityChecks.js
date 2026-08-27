@@ -12,8 +12,8 @@ const BANNED_PHRASES = [
   'This is where X comes in',
 ];
 
-const MIN_WORD_COUNT = 900;
-const MAX_WORD_COUNT = 2500;
+const MIN_WORD_COUNT = 1700;
+const MAX_WORD_COUNT = 2300;
 const MAX_BRAND_MENTIONS = 8;
 
 function escapeRegExp(s) {

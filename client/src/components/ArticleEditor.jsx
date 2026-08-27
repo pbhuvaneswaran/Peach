@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
+import Underline from '@tiptap/extension-underline'
+import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { ArticleExportBar } from './ArticleExportBar'
+import { EditorToolbar } from './EditorToolbar'
 
 const QUALITY_LABELS = {
   wordCountOk: 'Word count',
@@ -52,7 +58,19 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
   const [saved, setSaved] = useState(false)
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      TextStyle,
+      Color,
+      FontSize,
+      Underline,
+      Link.configure({ openOnClick: false }),
+      Image,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
     content: initialHtml || '',
   })
 
@@ -113,7 +131,7 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
               Publish ▾
             </button>
             {publishOpen && (
-              <div className="absolute right-0 mt-2 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-72">
+              <div className="absolute right-0 mt-2 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-80">
                 <ArticleExportBar markdown={markdown} title={title} articleId={articleId} onPublished={() => setPublishOpen(false)} />
               </div>
             )}
@@ -127,9 +145,12 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
       )}
 
       {mode === 'edit' ? (
-        <div className="border border-[#BFDBFE] rounded-xl px-8 py-7 min-h-[70vh] prose prose-base max-w-none focus-within:ring-2 focus-within:ring-[#2563EB]">
-          <EditorContent editor={editor} />
-        </div>
+        <>
+          <EditorToolbar editor={editor} />
+          <div className="border border-[#BFDBFE] rounded-xl px-8 py-7 min-h-[70vh] prose prose-base max-w-none focus-within:ring-2 focus-within:ring-[#2563EB]">
+            <EditorContent editor={editor} />
+          </div>
+        </>
       ) : (
         <div className="border border-gray-100 rounded-xl px-8 py-7 min-h-[70vh] prose prose-base max-w-none bg-gray-50">
           <ReactMarkdown>{markdown}</ReactMarkdown>

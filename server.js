@@ -22,6 +22,8 @@ import { analyzeCadence, recommendPace } from './src/blogCadenceAnalyzer.js';
 import { generateTopics } from './src/topicIdeator.js';
 import { generateOutline } from './src/outlineGenerator.js';
 import { checkArticleQuality, BANNED_PHRASES } from './src/qualityChecks.js';
+import { signState, verifyState } from './src/oauthState.js';
+import { getPublisher } from './src/publishers/registry.js';
 
 dotenv.config();
 
@@ -35,6 +37,7 @@ const supabaseAdmin = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_
   : null;
 
 const hasKey = (name) => !!process.env[name];
+const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 // Shared auth helper — used by every /api/articles/* and /api/v3/runs route below.
 async function authenticateUser(req) {
@@ -790,7 +793,10 @@ app.get('/api/articles/topics', async (req, res) => {
   let query = supabaseAdmin.from('article_topics').select('*').eq('user_id', user.id);
   if (req.query.runId) query = query.eq('run_id', req.query.runId);
   if (req.query.monthKey) query = query.eq('month_key', req.query.monthKey);
-  const { data, error: dbErr } = await query.order('created_at', { ascending: true });
+  // Secondary sort by id: topics from one "generate this month's topics" batch share the
+  // exact same created_at (single INSERT), so created_at alone doesn't guarantee a stable
+  // order across repeated fetches — the frontend relies on this list's order staying put.
+  const { data, error: dbErr } = await query.order('created_at', { ascending: true }).order('id', { ascending: true });
   if (dbErr) return res.status(500).json({ error: dbErr.message });
 
   res.json(data || []);
@@ -942,7 +948,7 @@ app.post('/api/articles/generate', async (req, res) => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
-      max_tokens: 4000,
+      max_tokens: 5500,
       messages: [{
         role: 'user',
         content: `You are a senior B2B content writer. Write a complete, publication-ready article in the style of ClickUp's blog and Hiver's guides — conversational but authoritative, evidence-backed, and written for busy professionals who scan before they read.
@@ -954,28 +960,27 @@ ${angle ? `Angle to take: ${angle}` : ''}
 
 ---
 
+The finished article (excluding the CTA) must be **1700–2300 words total**. Use the section-length targets below to get there — do not write a short, summary-style piece.
+
 STYLE GUIDE (follow exactly):
 
-**INTRODUCTION (150–200 words, 3–4 short paragraphs)**
+**INTRODUCTION (200–250 words, 3–4 paragraphs)**
 - Open with a vivid scenario, a surprising stat, or a bold claim — never "In today's world" or "As businesses grow"
 - Use the problem-agitate-solve framework: name the challenge, make it feel real, then hint at the solution
 - End the intro with 1 clear sentence that tells the reader what they'll learn
 - Use "you" and "your team" throughout
 
-**H2 SECTIONS**
-- Open every H2 with 1–2 punchy sentences that state a problem or make a claim — not a dictionary definition
-- Then expand with 120–180 words of prose, mixing short (1–2 sentence) punchy paras with 3–4 sentence explanatory ones
-- Include at least one concrete example, real stat, or scenario per H2 — made up but believable (e.g. "teams using X saw a 40% drop in...")
-- Use bullet or numbered lists ONLY when you have 3+ items that genuinely benefit from scanning — never bullet everything
+**EACH SECTION (250–350 words of prose per section — this is the bulk of the article's length)**
+- Open every section with 1–2 punchy sentences that state a problem or make a claim — not a dictionary definition
+- Use the section's description as guidance for what to cover, then expand it substantially: multiple paragraphs, mixing short (1–2 sentence) punchy paras with longer 3–5 sentence explanatory ones
+- Include at least one concrete example, real stat, or scenario per section — made up but believable (e.g. "teams using X saw a 40% drop in...")
+- If a section has sub-headings (H3s) in the structure below, give each 100–150 words of its own; otherwise cover the same ground as flowing prose under the section heading
+- Use bullet or numbered lists ONLY when you have 3+ items that genuinely benefit from scanning — never bullet everything, and never let a list substitute for the required prose length
 - Numbered lists for steps/processes, bullet lists for features/benefits
-- End each H2 with a transition sentence that flows into the next topic
+- End each section with a transition sentence that flows into the next topic
 
-**H3 SUBSECTIONS**
-- 80–120 words of focused prose or a tight numbered/bulleted list
-- Be specific — name tactics, tools, frameworks, not vague advice
-
-**CONCLUSION (3 short paragraphs)**
-- Paragraph 1: Summarise the core insight in 2 sentences
+**CONCLUSION (150–200 words, 3 paragraphs)**
+- Paragraph 1: Summarise the core insight in 2-3 sentences
 - Paragraph 2: Reframe why this matters for the reader's business specifically
 - Paragraph 3: Bridge directly to the CTA
 
@@ -1078,16 +1083,237 @@ app.post('/api/articles/:id/publish', async (req, res) => {
   const { user, error } = await authenticateUser(req);
   if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
 
-  const { target, publishedUrl } = req.body;
+  const { target, targetId, publishedUrl } = req.body;
   if (!target) return res.status(400).json({ error: 'target is required' });
 
+  const publisher = getPublisher(target);
+  let resolvedUrl = publishedUrl || null;
+
+  if (publisher && !publisher.clientSide) {
+    if (!targetId) return res.status(400).json({ error: 'targetId is required for this connector' });
+
+    const { data: targetRow, error: targetErr } = await supabaseAdmin
+      .from('publish_targets').select('*').eq('id', targetId).eq('user_id', user.id).eq('type', target).single();
+    if (targetErr || !targetRow) return res.status(404).json({ error: 'publish_target_not_found' });
+
+    const { data: article, error: articleErr } = await supabaseAdmin
+      .from('articles').select('title, content_markdown, content_html').eq('id', req.params.id).eq('user_id', user.id).single();
+    if (articleErr || !article) return res.status(404).json({ error: 'article_not_found' });
+
+    try {
+      const result = await publisher.publish({
+        title: article.title, markdown: article.content_markdown, html: article.content_html, config: targetRow.config_json,
+      });
+      resolvedUrl = result.url || null;
+    } catch (err) {
+      console.error('Publish error:', err.message);
+      return res.status(502).json({ error: err.message || 'Publish failed' });
+    }
+  }
+
   const { data, error: updErr } = await supabaseAdmin.from('articles').update({
-    publish_status: 'published', published_target: target, published_at: new Date().toISOString(),
+    publish_status: 'published', published_target: target, published_url: resolvedUrl, published_at: new Date().toISOString(),
   }).eq('id', req.params.id).eq('user_id', user.id).select().single();
   if (updErr) return res.status(500).json({ error: updErr.message });
   if (!data) return res.status(404).json({ error: 'article_not_found' });
 
   res.json(data);
+});
+
+// ─── Publish targets: generic CRUD ───────────────────────────────────────────
+app.get('/api/publish-targets', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('publish_targets').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
+  if (dbErr) return res.status(500).json({ error: dbErr.message });
+
+  res.json((data || []).map((row) => {
+    const publisher = getPublisher(row.type);
+    if (publisher && !publisher.clientSide) {
+      // Server-side connectors: never return the stored token/secret to the browser.
+      const { token, ...safeConfig } = row.config_json || {};
+      return { id: row.id, type: row.type, config: safeConfig };
+    }
+    // Client-side connectors (self-hosted WordPress): the browser needs the full config to publish directly.
+    return { id: row.id, type: row.type, config: row.config_json || {} };
+  }));
+});
+
+app.post('/api/publish-targets', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { type, config } = req.body;
+  const publisher = getPublisher(type);
+  if (!publisher) return res.status(400).json({ error: 'unknown_publisher_type' });
+  if (!publisher.validateCreds(config)) return res.status(400).json({ error: 'invalid_config' });
+
+  const { data, error: insErr } = await supabaseAdmin
+    .from('publish_targets').insert({ user_id: user.id, type, config_json: config }).select().single();
+  if (insErr) return res.status(500).json({ error: insErr.message });
+
+  res.json({ id: data.id, type: data.type, config: publisher.clientSide ? data.config_json : {} });
+});
+
+app.patch('/api/publish-targets/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data: existing, error: findErr } = await supabaseAdmin
+    .from('publish_targets').select('*').eq('id', req.params.id).eq('user_id', user.id).single();
+  if (findErr || !existing) return res.status(404).json({ error: 'publish_target_not_found' });
+
+  const config = { ...existing.config_json, ...req.body };
+  const { data, error: updErr } = await supabaseAdmin
+    .from('publish_targets').update({ config_json: config }).eq('id', req.params.id).eq('user_id', user.id).select().single();
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  const publisher = getPublisher(data.type);
+  res.json({ id: data.id, type: data.type, config: publisher?.clientSide ? data.config_json : {} });
+});
+
+app.delete('/api/publish-targets/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { error: delErr } = await supabaseAdmin
+    .from('publish_targets').delete().eq('id', req.params.id).eq('user_id', user.id);
+  if (delErr) return res.status(500).json({ error: delErr.message });
+
+  res.json({ ok: true });
+});
+
+// ─── GitHub OAuth ─────────────────────────────────────────────────────────────
+app.get('/api/auth/github/start', async (req, res) => {
+  const token = req.query.token;
+  if (!token || !supabaseAdmin) return res.status(401).send('Unauthorized');
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return res.status(401).send('Unauthorized');
+  if (!hasKey('GITHUB_CLIENT_ID')) return res.status(503).send('GitHub integration not configured');
+
+  const state = signState(user.id);
+  const redirectUri = `${APP_URL}/api/auth/github/callback`;
+  const url = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(process.env.GITHUB_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo&state=${state}`;
+  res.redirect(url);
+});
+
+app.get('/api/auth/github/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const userId = verifyState(state);
+  if (!userId) return res.status(400).send('Invalid or expired request. Please try connecting again.');
+
+  try {
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: `${APP_URL}/api/auth/github/callback`,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error(tokenData.error_description || 'No access token returned');
+
+    const { data, error: insErr } = await supabaseAdmin
+      .from('publish_targets').insert({ user_id: userId, type: 'github', config_json: { token: tokenData.access_token } }).select().single();
+    if (insErr) throw new Error(insErr.message);
+
+    res.redirect(`${APP_URL}/app?github_target=${data.id}`);
+  } catch (err) {
+    console.error('GitHub OAuth callback error:', err.message);
+    res.redirect(`${APP_URL}/app?github_error=1`);
+  }
+});
+
+app.get('/api/github/repos', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const targetId = req.query.targetId;
+  const { data: targetRow, error: targetErr } = await supabaseAdmin
+    .from('publish_targets').select('*').eq('id', targetId).eq('user_id', user.id).eq('type', 'github').single();
+  if (targetErr || !targetRow) return res.status(404).json({ error: 'publish_target_not_found' });
+
+  try {
+    const reposRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+      headers: { Authorization: `Bearer ${targetRow.config_json.token}`, Accept: 'application/vnd.github+json' },
+    });
+    if (!reposRes.ok) throw new Error(`GitHub API returned ${reposRes.status}`);
+    const repos = await reposRes.json();
+    res.json(repos.map((r) => ({ full_name: r.full_name, default_branch: r.default_branch })));
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ─── WordPress.com OAuth ──────────────────────────────────────────────────────
+app.get('/api/auth/wordpress/start', async (req, res) => {
+  const token = req.query.token;
+  if (!token || !supabaseAdmin) return res.status(401).send('Unauthorized');
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return res.status(401).send('Unauthorized');
+  if (!hasKey('WPCOM_CLIENT_ID')) return res.status(503).send('WordPress.com integration not configured');
+
+  const state = signState(user.id);
+  const redirectUri = `${APP_URL}/api/auth/wordpress/callback`;
+  const url = `https://public-api.wordpress.com/oauth2/authorize?client_id=${encodeURIComponent(process.env.WPCOM_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=global&state=${state}`;
+  res.redirect(url);
+});
+
+app.get('/api/auth/wordpress/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const userId = verifyState(state);
+  if (!userId) return res.status(400).send('Invalid or expired request. Please try connecting again.');
+
+  try {
+    const tokenRes = await fetch('https://public-api.wordpress.com/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.WPCOM_CLIENT_ID,
+        client_secret: process.env.WPCOM_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: `${APP_URL}/api/auth/wordpress/callback`,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error(tokenData.error_description || 'No access token returned');
+
+    const { data, error: insErr } = await supabaseAdmin
+      .from('publish_targets').insert({ user_id: userId, type: 'wordpress_com', config_json: { token: tokenData.access_token } }).select().single();
+    if (insErr) throw new Error(insErr.message);
+
+    res.redirect(`${APP_URL}/app?wpcom_target=${data.id}`);
+  } catch (err) {
+    console.error('WordPress.com OAuth callback error:', err.message);
+    res.redirect(`${APP_URL}/app?wpcom_error=1`);
+  }
+});
+
+app.get('/api/wordpress/sites', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const targetId = req.query.targetId;
+  const { data: targetRow, error: targetErr } = await supabaseAdmin
+    .from('publish_targets').select('*').eq('id', targetId).eq('user_id', user.id).eq('type', 'wordpress_com').single();
+  if (targetErr || !targetRow) return res.status(404).json({ error: 'publish_target_not_found' });
+
+  try {
+    const sitesRes = await fetch('https://public-api.wordpress.com/rest/v1.1/me/sites', {
+      headers: { Authorization: `Bearer ${targetRow.config_json.token}` },
+    });
+    if (!sitesRes.ok) throw new Error(`WordPress.com API returned ${sitesRes.status}`);
+    const data = await sitesRes.json();
+    res.json((data.sites || []).map((s) => ({ ID: s.ID, name: s.name, URL: s.URL })));
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 

@@ -1,19 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { marked } from 'marked'
-import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import { PublishConnectModal } from './PublishConnectModal'
 
-// Shared publish/export bar — used by both the ad-hoc ContentBriefModal (VisibilityFlow.jsx)
-// and the Articles dashboard tab, so the WordPress-publish flow only exists in one place.
+const TYPE_LABELS = {
+  wordpress: 'WordPress',
+  wordpress_com: 'WordPress.com',
+  github: 'GitHub',
+}
+
+// Shared publish panel — used by both the ad-hoc ContentBriefModal (VisibilityFlow.jsx)
+// and the article editor, so every publishing integration only exists in one place.
 export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
+  const { session } = useAuth()
   const [copied, setCopied] = useState('')
-  const [wpPhase, setWpPhase] = useState('hidden') // 'hidden' | 'connect' | 'publishing' | 'done' | 'error'
-  const [wpUrl, setWpUrl] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('peach_wp_creds') || '{}').url || '' } catch { return '' }
-  })
-  const [wpPass, setWpPass] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('peach_wp_creds') || '{}').password || '' } catch { return '' }
-  })
-  const [wpError, setWpError] = useState('')
+  const [targets, setTargets] = useState([])
+  const [connectOpen, setConnectOpen] = useState(false)
+  const [publishingId, setPublishingId] = useState('')
+  const [publishedUrls, setPublishedUrls] = useState({})
+  const [wpPhase, setWpPhase] = useState({}) // targetId -> 'publishing' | 'done' | 'error'
+  const [error, setError] = useState('')
+
+  const authHeaders = useCallback(() => {
+    const headers = { 'Content-Type': 'application/json' }
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+    return headers
+  }, [session])
+
+  const refreshTargets = useCallback(() => {
+    fetch('/api/publish-targets', { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((data) => setTargets(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [authHeaders])
+
+  useEffect(() => { refreshTargets() }, [refreshTargets])
 
   const copyMarkdown = () => {
     navigator.clipboard.writeText(markdown)
@@ -27,14 +48,11 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
     setTimeout(() => setCopied(''), 2000)
   }
 
-  const recordPublish = async () => {
+  const recordPublish = async (target, publishedUrl) => {
     if (!articleId) return
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers = { 'Content-Type': 'application/json' }
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
       await fetch(`/api/articles/${articleId}/publish`, {
-        method: 'POST', headers, body: JSON.stringify({ target: 'wordpress' }),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ target, publishedUrl }),
       })
       onPublished && onPublished()
     } catch {
@@ -42,47 +60,54 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
     }
   }
 
-  const publishToWP = async (url, password) => {
-    setWpPhase('publishing')
-    setWpError('')
+  const publishToWordPress = async (t) => {
+    setWpPhase((p) => ({ ...p, [t.id]: 'publishing' }))
+    setError('')
     try {
-      const base = url.replace(/\/$/, '')
+      const base = t.config.url.replace(/\/$/, '')
       const htmlContent = marked.parse(markdown || '')
-      const wpRes = await fetch(`${base}/wp-json/wp/v2/posts`, {
+      const res = await fetch(`${base}/wp-json/wp/v2/posts`, {
         method: 'POST',
-        headers: {
-          'Authorization': 'Basic ' + btoa(`admin:${password}`),
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: 'Basic ' + btoa(`admin:${t.config.password}`), 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title || 'Peach Article', content: htmlContent, status: 'draft' }),
       })
-      if (!wpRes.ok) throw new Error(`WordPress returned ${wpRes.status}`)
-      setWpPhase('done')
-      recordPublish()
+      if (!res.ok) throw new Error(`WordPress returned ${res.status}`)
+      const data = await res.json()
+      setWpPhase((p) => ({ ...p, [t.id]: 'done' }))
+      setPublishedUrls((u) => ({ ...u, [t.id]: data.link }))
+      recordPublish('wordpress', data.link)
     } catch (err) {
-      setWpError(err.message || 'Could not publish. Check your site URL and application password.')
-      setWpPhase('error')
+      setError(err.message || 'Could not publish to WordPress.')
+      setWpPhase((p) => ({ ...p, [t.id]: 'error' }))
     }
   }
 
-  const handleWordPress = () => {
-    const saved = JSON.parse(localStorage.getItem('peach_wp_creds') || '{}')
-    if (!saved.url || !saved.password) {
-      setWpPhase('connect')
-      return
+  const publishServerSide = async (t) => {
+    setPublishingId(t.id)
+    setError('')
+    try {
+      const res = await fetch(`/api/articles/${articleId}/publish`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ target: t.type, targetId: t.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Publish failed')
+      setPublishedUrls((u) => ({ ...u, [t.id]: data.published_url }))
+      onPublished && onPublished()
+    } catch (err) {
+      setError(err.message || 'Publish failed.')
+    } finally {
+      setPublishingId('')
     }
-    publishToWP(saved.url, saved.password)
   }
 
-  const saveWpAndPublish = () => {
-    if (!wpUrl.trim() || !wpPass.trim()) return
-    localStorage.setItem('peach_wp_creds', JSON.stringify({ url: wpUrl.trim(), password: wpPass.trim() }))
-    publishToWP(wpUrl.trim(), wpPass.trim())
+  const handlePublish = (t) => {
+    if (t.type === 'wordpress') publishToWordPress(t)
+    else publishServerSide(t)
   }
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-4">
         <button onClick={copyMarkdown}
           className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
           {copied === 'md' ? '✓ Copied!' : '⬇ Copy Markdown'}
@@ -91,34 +116,41 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
           className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
           {copied === 'html' ? '✓ Copied!' : '⬇ Copy HTML'}
         </button>
-        <button onClick={handleWordPress}
-          className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
-          {wpPhase === 'done' ? '✓ Published as draft' : wpPhase === 'publishing' ? 'Publishing…' : '⬆ Publish to WordPress'}
-        </button>
-        <span className="text-[11px] text-[#94A3B8] self-center ml-1">More integrations (Webflow, Notion, HubSpot) coming soon</span>
       </div>
 
-      {(wpPhase === 'connect' || wpPhase === 'error') && (
-        <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 mb-5">
-          <p className="text-sm font-semibold text-[#172554] mb-3">Connect WordPress</p>
-          <div className="space-y-2 mb-3">
-            <input value={wpUrl} onChange={e => setWpUrl(e.target.value)}
-              placeholder="https://yoursite.com"
-              className="w-full text-sm border border-[#BFDBFE] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white" />
-            <input value={wpPass} onChange={e => setWpPass(e.target.value)}
-              type="password" placeholder="WordPress Application Password"
-              className="w-full text-sm border border-[#BFDBFE] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white" />
-          </div>
-          <p className="text-xs text-[#667085] mb-3">
-            Get an Application Password in WordPress → Users → Profile → Application Passwords.
-          </p>
-          {wpError && <p className="text-xs text-red-600 mb-2">{wpError}</p>}
-          <button onClick={saveWpAndPublish}
-            className="text-sm font-semibold bg-[#2563EB] text-white px-4 py-2 rounded-lg hover:bg-[#1D4ED8]">
-            Connect & publish as draft
-          </button>
+      {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+
+      {targets.length > 0 && (
+        <div className="space-y-1.5 mb-3">
+          {targets.map((t) => {
+            const url = publishedUrls[t.id]
+            const wpBusy = wpPhase[t.id] === 'publishing'
+            const busy = publishingId === t.id || wpBusy
+            return (
+              <div key={t.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
+                <span className="text-xs font-semibold text-gray-700">{TYPE_LABELS[t.type] || t.type}</span>
+                {url ? (
+                  <a href={url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-emerald-600 hover:underline">
+                    ✓ View post →
+                  </a>
+                ) : (
+                  <button onClick={() => handlePublish(t)} disabled={busy}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-60">
+                    {busy ? 'Publishing…' : 'Publish →'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
+
+      <button onClick={() => setConnectOpen(true)}
+        className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+        + Connect an integration
+      </button>
+
+      <PublishConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} onConnected={refreshTargets} />
     </div>
   )
 }

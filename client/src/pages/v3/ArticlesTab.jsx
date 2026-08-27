@@ -301,7 +301,13 @@ export default function ArticlesTab() {
 
   const refreshTopicsAndOutlines = useCallback(() => {
     if (!selectedRunId) return
-    api(`/api/articles/topics?runId=${selectedRunId}`).then(setTopics).catch(() => {})
+    api(`/api/articles/topics?runId=${selectedRunId}`).then((data) => {
+      setTopics(data)
+      // Lock in an explicit selection the first time topics load, rather than relying on
+      // a `topics[0]` fallback re-derived on every render — once the user (or this default)
+      // has picked a topic by id, later refetches must not silently swap which one is shown.
+      setSelectedTopicId((prev) => (prev && data.some((t) => t.id === prev)) ? prev : (data[0]?.id || ''))
+    }).catch(() => {})
     api('/api/articles/outlines').then(setOutlines).catch(() => {})
     api('/api/articles').then(setArticles).catch(() => {})
   }, [api, selectedRunId])

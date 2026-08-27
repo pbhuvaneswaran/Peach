@@ -12,6 +12,7 @@ import UseCases from './pages/UseCases'
 import CaseStudies from './pages/CaseStudies'
 import Onboarding from './pages/Onboarding'
 import AuthCallback from './pages/AuthCallback'
+import { OAuthConnectionResume } from './components/OAuthConnectionResume'
 
 function Layout({ children, noFooter }) {
   return (
@@ -27,6 +28,7 @@ export default function AppV3() {
   return (
     <AuthProvider>
     <BrowserRouter>
+      <OAuthConnectionResume />
       <Routes>
         <Route path="/" element={<Layout><HomeV2 /></Layout>} />
         <Route path="/v2" element={<Layout><HomeV2 /></Layout>} />
