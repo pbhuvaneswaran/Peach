@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+
 const FONT_SIZES = [
   { label: 'Small', value: '13px' },
   { label: 'Normal', value: '16px' },
@@ -7,10 +9,15 @@ const FONT_SIZES = [
 
 const COLORS = ['#172554', '#DC2626', '#2563EB', '#059669', '#7C3AED', '#EA580C']
 
+// Clicking a plain <button> blurs the editor first, which collapses/loses whatever text
+// was highlighted — by the time the click handler runs, "toggle bold" has nothing (or the
+// wrong thing) selected and can end up applying to the whole block instead. Preventing the
+// button's mousedown default keeps focus (and the selection) in the editor the whole time.
 function ToolbarButton({ active, onClick, title, children }) {
   return (
     <button
       type="button"
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       title={title}
       className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-semibold transition-colors ${
@@ -27,7 +34,29 @@ function Divider() {
 }
 
 export function EditorToolbar({ editor }) {
+  // Native <select>s and the color <input> need their own default mousedown behavior to
+  // open at all, so they can't use the same preventDefault guard as the buttons above —
+  // instead, remember the last real (non-collapsed) text selection and restore it before
+  // running their command, so the mark still lands on what the user actually highlighted.
+  const lastRangeRef = useRef(null)
+
+  useEffect(() => {
+    if (!editor) return
+    const handler = () => {
+      const { from, to } = editor.state.selection
+      if (from !== to) lastRangeRef.current = { from, to }
+    }
+    editor.on('selectionUpdate', handler)
+    return () => editor.off('selectionUpdate', handler)
+  }, [editor])
+
   if (!editor) return null
+
+  const withRestoredSelection = (run) => {
+    let chain = editor.chain().focus()
+    if (lastRangeRef.current) chain = chain.setTextSelection(lastRangeRef.current)
+    run(chain).run()
+  }
 
   const headingValue = editor.isActive('heading', { level: 1 }) ? '1'
     : editor.isActive('heading', { level: 2 }) ? '2'
@@ -35,13 +64,15 @@ export function EditorToolbar({ editor }) {
     : 'p'
 
   const setHeading = (value) => {
-    if (value === 'p') editor.chain().focus().setParagraph().run()
-    else editor.chain().focus().toggleHeading({ level: Number(value) }).run()
+    withRestoredSelection((chain) => value === 'p' ? chain.setParagraph() : chain.toggleHeading({ level: Number(value) }))
   }
 
   const setFontSize = (value) => {
-    if (!value) editor.chain().focus().unsetFontSize().run()
-    else editor.chain().focus().setFontSize(value).run()
+    withRestoredSelection((chain) => value ? chain.setFontSize(value) : chain.unsetFontSize())
+  }
+
+  const setColor = (value) => {
+    withRestoredSelection((chain) => chain.setColor(value))
   }
 
   const addLink = () => {
@@ -90,10 +121,10 @@ export function EditorToolbar({ editor }) {
 
       <div className="flex items-center gap-1 px-1">
         {COLORS.map((c) => (
-          <button key={c} type="button" title={c} onClick={() => editor.chain().focus().setColor(c).run()}
+          <button key={c} type="button" title={c} onMouseDown={(e) => e.preventDefault()} onClick={() => setColor(c)}
             className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: c }} />
         ))}
-        <input type="color" title="Custom color" onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+        <input type="color" title="Custom color" onChange={(e) => setColor(e.target.value)}
           className="w-6 h-6 border-0 bg-transparent cursor-pointer" />
       </div>
 

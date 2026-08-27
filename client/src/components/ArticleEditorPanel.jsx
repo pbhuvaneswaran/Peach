@@ -7,7 +7,9 @@ export function ArticleEditorPanel({ open, onClose, articleId, title, initialHtm
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="hidden sm:block sm:w-[30%] bg-[#172554]/40" onClick={onClose} />
+      {/* No onClick here on purpose — an accidental click outside the panel must never
+          discard an in-progress edit. Closing only happens via the explicit control below. */}
+      <div className="hidden sm:block sm:w-[30%] bg-[#172554]/40" />
       <div className="w-full sm:w-[70%] h-full bg-white shadow-2xl flex flex-col ml-auto">
         <div className="px-6 sm:px-10 py-4 border-b border-gray-100 shrink-0">
           <button onClick={onClose} className="text-sm font-semibold text-gray-500 hover:text-gray-800 mb-2">← Back to outline</button>
