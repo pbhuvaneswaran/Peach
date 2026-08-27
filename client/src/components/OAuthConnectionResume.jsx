@@ -29,34 +29,50 @@ export function OAuthConnectionResume() {
   const [step, setStep] = useState(initial.step) // null | 'github' | 'wordpress_com' | 'error'
   const [targetId, setTargetId] = useState(initial.targetId)
   const [options, setOptions] = useState([])
+  const [loadingOptions, setLoadingOptions] = useState(false)
   const [selected, setSelected] = useState('')
   const [pathPrefix, setPathPrefix] = useState('content')
   const [format, setFormat] = useState('md')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!step || step === 'error' || !targetId || !session?.access_token) return
     const url = step === 'github' ? `/api/github/repos?targetId=${targetId}` : `/api/wordpress/sites?targetId=${targetId}`
-    fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } })
-      .then((r) => r.json())
-      .then((data) => setOptions(Array.isArray(data) ? data : []))
-      .catch(() => setOptions([]))
+    // Deferring the initial setState calls to a microtask (rather than calling them
+    // synchronously at the top of the effect) avoids a cascading-render lint warning —
+    // the fetch itself is already async, so this costs nothing in practice.
+    Promise.resolve()
+      .then(() => { setLoadingOptions(true); setError('') })
+      .then(() => fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } }))
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(data.error || `Could not load ${step === 'github' ? 'repositories' : 'sites'} (${r.status}).`)
+        setOptions(Array.isArray(data) ? data : [])
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoadingOptions(false))
   }, [step, targetId, session])
 
   if (!step) return null
 
-  const close = () => { setStep(null); setTargetId(null); setOptions([]); setSelected('') }
+  const close = () => { setStep(null); setTargetId(null); setOptions([]); setSelected(''); setError('') }
 
   const save = async () => {
     if (!selected) return
     setSaving(true)
+    setError('')
     try {
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }
       const body = step === 'github'
         ? (() => { const [owner, repo] = selected.split('/'); return { owner, repo, branch: options.find((o) => o.full_name === selected)?.default_branch || 'main', pathPrefix, format } })()
         : { siteId: selected }
-      await fetch(`/api/publish-targets/${targetId}`, { method: 'PATCH', headers, body: JSON.stringify(body) })
+      const res = await fetch(`/api/publish-targets/${targetId}`, { method: 'PATCH', headers, body: JSON.stringify(body) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Could not save this connection (${res.status}).`)
       close()
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Try again.')
     } finally {
       setSaving(false)
     }
@@ -77,16 +93,20 @@ export function OAuthConnectionResume() {
           <>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Connected to GitHub</h3>
             <p className="text-sm text-gray-500 mb-4">Choose which repo to publish articles into.</p>
-            <select value={selected} onChange={(e) => setSelected(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Select a repository…</option>
-              {options.map((o) => <option key={o.full_name} value={o.full_name}>{o.full_name}</option>)}
-            </select>
+            {loadingOptions ? (
+              <p className="text-sm text-gray-400 mb-5">Loading your repositories…</p>
+            ) : (
+              <select value={selected} onChange={(e) => setSelected(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Select a repository…</option>
+                {options.map((o) => <option key={o.full_name} value={o.full_name}>{o.full_name}</option>)}
+              </select>
+            )}
             <label className="block text-xs font-semibold text-gray-500 mb-1">Folder</label>
             <input value={pathPrefix} onChange={(e) => setPathPrefix(e.target.value)}
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <label className="block text-xs font-semibold text-gray-500 mb-1">File format</label>
-            <div className="flex gap-2 mb-5">
+            <div className="flex gap-2 mb-3">
               {['md', 'mdx'].map((f) => (
                 <button key={f} onClick={() => setFormat(f)}
                   className={`text-xs font-semibold px-3 py-1.5 rounded-lg border ${format === f ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>
@@ -94,6 +114,7 @@ export function OAuthConnectionResume() {
                 </button>
               ))}
             </div>
+            {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
             <button onClick={save} disabled={!selected || saving}
               className="w-full text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-2.5 rounded-xl">
               {saving ? 'Saving…' : 'Finish connecting'}
@@ -105,11 +126,16 @@ export function OAuthConnectionResume() {
           <>
             <h3 className="text-lg font-bold text-gray-900 mb-1">Connected to WordPress.com</h3>
             <p className="text-sm text-gray-500 mb-4">Choose which site to publish articles into.</p>
-            <select value={selected} onChange={(e) => setSelected(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-5 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Select a site…</option>
-              {options.map((o) => <option key={o.ID} value={o.ID}>{o.name} ({o.URL})</option>)}
-            </select>
+            {loadingOptions ? (
+              <p className="text-sm text-gray-400 mb-5">Loading your sites…</p>
+            ) : (
+              <select value={selected} onChange={(e) => setSelected(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Select a site…</option>
+                {options.map((o) => <option key={o.ID} value={o.ID}>{o.name} ({o.URL})</option>)}
+              </select>
+            )}
+            {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
             <button onClick={save} disabled={!selected || saving}
               className="w-full text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-2.5 rounded-xl">
               {saving ? 'Saving…' : 'Finish connecting'}

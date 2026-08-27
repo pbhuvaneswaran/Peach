@@ -4,6 +4,19 @@
 
 ---
 
+## Latest Instructions (2026-08-28)
+
+- **Dashboard page removed entirely.** The separate `/dashboard` route (5-tab layout: Overview, AI Answers, Content Gaps, Action Plan, Site Audit) duplicated the main results page and diverged from it, and its data source (`GET /api/runs`, reading `output/runs/*.json` off local disk) doesn't work reliably on Vercel serverless anyway. Its useful content was folded into the main report (`VisibilityFlow.jsx`): the Overview tab now opens with a "Mentions over time" trend chart + Leaderboard (fetched client-side from `/api/runs`, same data source as before); a new **AI Answers** tab (positioned above Prompts in the sidebar) shows the full prompt-by-prompt breakdown table; Growth Actions gained an "All recommended actions" section listing every action from the run, not just the top pick. Content Gaps was dropped entirely — it only ever showed "0 topics missing" in practice, not worth porting. `Dashboard.jsx` deleted, `/dashboard` route and sidebar link removed.
+- **Share button fixed.** `navigator.clipboard.writeText()` had no error handling — if rejected (blocked permissions, non-secure context) it silently did nothing. Added a `document.execCommand('copy')` fallback and a visible "Couldn't copy" state. Note: this only fixes the button's reliability — the copied link is still just `.../app` with no report ID, so it doesn't actually show that specific report to whoever opens it. Real sharing (persisted run + shareable ID + a loader on `/app`) is a separate, larger gap, not built.
+- **Competitor citation evidence.** Fallback-selected competitors (the 0%-rescue path, `findDirectCompetitors()` in `src/competitorExtractor.js`) now show a real "Source: [title] ↗" link under their name. Root cause of the prior missing evidence: OpenAI strips citation annotations when a response is forced into JSON mode, even after a real web search happened — fixed by asking for a cited numbered list instead of raw JSON and parsing the citation nearest each list item. Threaded through `server.js` as `competitorEvidence` (name → `{url, title}`) in the analyze response. Scoped to the fallback path only — no added OpenAI cost, since it already made a search call.
+- **Per-platform citation breakdown was tried and reverted.** A version showing "ChatGPT 25% · Gemini 38%" badges per competitor (instead of only the blended %) was built, shipped, then explicitly reverted after review — decided the blended number alone is preferred. If this comes up again, the code pattern is in git history (`8613423`, reverted by `c29b3aa`) but is not currently present.
+- **Admin accounts no longer see the article-generation upgrade banner incorrectly.** `GET /api/articles/quota` already exempted `ADMIN_EMAILS` (`{ admin: true, remaining: Infinity }`) but never overrode `limit` itself, which stays `0` for an admin with no paid `plan` set in Supabase. The frontend `QuotaMeter` (`ArticlesTab.jsx`) checked `limit === 0` without looking at `admin` first, so admin/test accounts (confirmed for `pbhuvanesh25@gmail.com`, `profiles.plan: null`) always saw "Upgrade to a paid plan to generate articles" despite being fully exempted server-side. Fixed the same way in `CadenceBanner` ("of 0 available" → "of unlimited available" for admins).
+- **From a concurrent session working in this same repo** (not this thread, but landed in the same history — worth knowing about): **GitHub OAuth** and **WordPress.com OAuth** publishing were added alongside the existing self-hosted-WordPress-via-Application-Passwords flow (now a guided 3-step wizard). A **word-count regression** was fixed — articles were landing ~800 words after an earlier outline-shape simplification; the style-guide prompt's per-section targets were rewritten for the current `{title, description}` outline shape, `max_tokens` raised 4000→5500, and the quality-check threshold raised to 1700–2300 words. Article generation **no longer silently swallows a failed Supabase save** — `/api/articles/generate` used to return 200 with the generated markdown even when the DB insert failed, so the article looked saved but wasn't there on refresh. New **`SETUP.md`** documents every env var the app reads, including the new OAuth ones (`GITHUB_CLIENT_ID/SECRET`, `WPCOM_CLIENT_ID/SECRET`, `OAUTH_STATE_SECRET`).
+- **Deploy status:** everything above except the per-platform-breakdown revert and the admin-quota fix is confirmed live on gotopeach.com (verified via production bundle inspection). The revert and admin-quota fix are committed but not yet pushed/deployed as of this entry.
+- **Backlink/citation feature discussed, not built.** Explored adding backlinks to generated articles (like outrank.so / seosorted.app's "backlink exchange"). Two options identified: (A) a real credits-based customer-to-customer reciprocal exchange (SEOSorted's model — earn credits by hosting inbound links, spend credits to place outbound ones; doesn't need exact 1:1 pairing, but needs a decent pool of actively-publishing customers to be worth building — Peach doesn't have that yet) vs (B) generated articles cite real, authoritative external sources via the same `web_search_preview`-grounding pattern already proven in the competitor-evidence feature (no customer network needed, works immediately, but isn't a reciprocal exchange — doesn't get the customer backlinks in return). User wants to research further before deciding; nothing implemented. Worth knowing if this resumes: the current article-generation prompt (`server.js`, `POST /api/articles/generate`) explicitly instructs the model to include "made up but believable" fabricated stats per section — mixing that with genuine external citations in the same article is worth reconsidering before shipping either option.
+
+---
+
 ## Latest Instructions (2026-08-24)
 
 - **Dodo Payments is live and working end-to-end for checkout + email.** `DODO_ENV=live`, `DODO_WEBHOOK_SECRET` and `RESEND_API_KEY` are all set on Vercel Production and verified working (webhook endpoint registered at `https://www.gotopeach.com/api/webhooks/dodo`; Resend domain verified via GoDaddy DNS records — TXT `resend._domainkey`, MX `send`, TXT `send`). Checkout is locked to USD only (`feature_flags: { allow_currency_selection: false }` on `checkoutSessions.create`, `server.js`). **Not yet verified:** a real payment through Peach's own `/pricing` → checkout flow — only a Dodo-dashboard-only test payment was run, which doesn't exercise `/api/checkout` or the webhook at all (confirmed via Supabase `profiles` + Vercel logs — no hits). Deferred by user for now, not fixed.
@@ -123,17 +136,7 @@
 5. **Prompt-by-Prompt Breakdown** — expandable table with all LLM answers (PromptTable component)
 6. **Technical Checks** (collapsible) — robots.txt crawler check + blog gaps
 
-### Dashboard — `/dashboard`
-
-5 tabs: **Overview · AI Answers · Content Gaps · Action Plan · Site Audit**
-
-- Overview: stat cards + Recharts line chart (URL runs for same brand only) + leaderboard (latest run's brands only — no cross-run mixing)
-- AI Answers: PromptTable from latest run
-- Content Gaps: BlogAnalysis from latest URL run
-- Action Plan: ActionCards from latest URL run
-- Site Audit: CrawlerCheck + BlogAnalysis
-
-Dashboard accessed via "View Dashboard →" link in results header (not in main navbar).
+**No separate Dashboard page anymore** (removed 2026-08-28) — everything lives in the sidebar tabs on the results page itself: Overview (now opens with a Recharts "Mentions over time" trend chart + Leaderboard, same `/api/runs` data source the old Dashboard used, above the diagnostic content) · **AI Answers** (new tab, full PromptTable breakdown) · Prompts · Competitors · Citations · Growth Actions (now includes an "All recommended actions" list below the featured card) · Articles · Site Audit.
 
 ---
 
@@ -170,8 +173,10 @@ client/src/
                                 PromptTable, ActionCard, BlogAnalysis, CrawlerCheck
   pages/
     v3/
-      VisibilityFlow.jsx      — URL-only input, localStorage persistence, diagnostic results
-      Dashboard.jsx           — 5-tab dashboard, Recharts, latest-run-only leaderboard
+      VisibilityFlow.jsx      — URL-only input, localStorage persistence, diagnostic results,
+                                 all sidebar tabs (Overview trend chart, AI Answers, Prompts,
+                                 Competitors, Citations, Growth Actions, Site Audit)
+      ArticlesTab.jsx          — Articles tab: topics → outlines → draft → publish
 ```
 
 ---
