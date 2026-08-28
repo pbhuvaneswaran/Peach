@@ -39,7 +39,7 @@ function MentionCell({ mentioned }) {
     : <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-50 text-red-400 text-xs">✗</span>
 }
 
-export function PromptRow({ promptData, brand, competitors, llmsQueried }) {
+export function PromptRow({ promptData, brand, competitors, llmsQueried, custom = false, notYetRun = false, actions = null }) {
   const [expanded, setExpanded] = useState(false)
   const allBrands = [brand, ...competitors]
 
@@ -50,26 +50,40 @@ export function PromptRow({ promptData, brand, competitors, llmsQueried }) {
 
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 transition-colors"
+      <div
+        onClick={() => !notYetRun && setExpanded(!expanded)}
+        className={`w-full text-left px-4 py-3 bg-white transition-colors ${notYetRun ? '' : 'cursor-pointer hover:bg-gray-50'}`}
       >
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <span className="flex-1 text-sm text-gray-700 font-medium">{promptData.prompt}</span>
+          <span className="flex-1 text-sm text-gray-700 font-medium flex items-center gap-2">
+            {promptData.prompt}
+            {custom && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full shrink-0">custom</span>}
+          </span>
           <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
-            {allBrands.map(b => (
-              <div key={b} className="flex flex-col items-center gap-0.5">
-                <MentionCell mentioned={brandMentioned(b)} />
-                <span className="text-[10px] text-gray-400 max-w-[52px] truncate">{b}</span>
+            {notYetRun ? (
+              <span className="text-xs text-gray-400">Not yet run</span>
+            ) : (
+              allBrands.map(b => (
+                <div key={b} className="flex flex-col items-center gap-0.5">
+                  <MentionCell mentioned={brandMentioned(b)} />
+                  <span className="text-[10px] text-gray-400 max-w-[52px] truncate">{b}</span>
+                </div>
+              ))
+            )}
+            {actions && (
+              <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1">
+                {actions}
               </div>
-            ))}
-            <svg className={`hidden sm:block w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            )}
+            {!notYetRun && (
+              <svg className={`hidden sm:block w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
           </div>
         </div>
-      </button>
-      {expanded && (
+      </div>
+      {expanded && !notYetRun && (
         <div className="border-t border-gray-100 bg-gray-50 px-4 py-4 space-y-4">
           {llmsQueried.map(llm => {
             const c = LLM_COLORS[llm]
@@ -96,41 +110,6 @@ export function PromptRow({ promptData, brand, competitors, llmsQueried }) {
           })}
         </div>
       )}
-    </div>
-  )
-}
-
-export function PromptTable({ prompts, llmsQueried, visibility, brand, competitors }) {
-  const allBrands = [brand, ...competitors]
-  const promptTable = prompts.map(prompt => ({
-    prompt,
-    perLLM: Object.fromEntries(
-      (llmsQueried || []).map(llm => [llm, visibility?.perLLM?.[llm]?.details || []])
-    ),
-  }))
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
-        <h2 className="text-base font-bold text-gray-900">Prompt-by-Prompt Breakdown</h2>
-        <p className="text-xs text-gray-400">Click any row to see AI answers</p>
-      </div>
-      <div className="hidden sm:flex items-center gap-3 px-4 mb-2">
-        <span className="flex-1 text-xs font-bold text-gray-400 uppercase tracking-wide">Prompt</span>
-        <div className="flex gap-3 flex-shrink-0">
-          {allBrands.map(b => (
-            <span key={b} className={`text-[10px] font-bold uppercase tracking-wide w-6 text-center ${b === brand ? 'text-blue-600' : 'text-gray-400'}`}>
-              {b.slice(0, 5)}
-            </span>
-          ))}
-          <span className="w-4" />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        {promptTable.map((pd, i) => (
-          <PromptRow key={i} promptData={pd} brand={brand} competitors={competitors} llmsQueried={llmsQueried} />
-        ))}
-      </div>
     </div>
   )
 }

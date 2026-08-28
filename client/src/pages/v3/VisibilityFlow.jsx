@@ -7,7 +7,7 @@ import { PLATFORM_ICONS } from '../../components/llmPlatforms'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
-import { PromptTable, ActionCard, ScoreBar } from '../../components/VisibilityComponents'
+import { PromptRow, ActionCard, ScoreBar } from '../../components/VisibilityComponents'
 import ArticlesTab from './ArticlesTab'
 
 const EXAMPLES = [
@@ -16,10 +16,9 @@ const EXAMPLES = [
   { label: 'intercom.com', value: 'intercom.com' },
 ]
 
-const OUTPUT_TABS = ['Overview', 'AI Answers', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Articles', 'Site Audit']
+const OUTPUT_TABS = ['Overview', 'Prompts', 'Competitors', 'Citations', 'Growth Actions', 'Articles', 'Site Audit']
 
 const TAB_SUBLABELS = {
-  'AI Answers': 'Prompt-by-prompt breakdown',
   'Prompts': 'Prompt library',
   'Citations': 'Sources & domains',
   'Growth Actions': 'Get cited in AI answers',
@@ -31,11 +30,6 @@ const TAB_ICONS = {
   Overview: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-    </svg>
-  ),
-  'AI Answers': (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>
   ),
   Prompts: (
@@ -1690,28 +1684,6 @@ function GeneratePromptsModal({ existing, onClose, onSave }) {
   )
 }
 
-function LLMStatusDots({ prompt, visibility, brand, llmsQueried }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      {(llmsQueried || []).map(llm => {
-        const detail = visibility?.perLLM?.[llm]?.details?.find(d => d.question === prompt)
-        const cited = detail?.mentions?.[brand] === true
-        const colors = { chatgpt: cited ? '#10B981' : '#EF4444', gemini: cited ? '#3B82F6' : '#EF4444', googleaio: cited ? '#F59E0B' : '#EF4444' }
-        const color = colors[llm] || (cited ? '#10B981' : '#EF4444')
-        const labels = { chatgpt: 'GPT', gemini: 'Gemini', googleaio: 'AIO' }
-        return (
-          <span key={llm} title={`${labels[llm] || llm}: ${cited ? 'cited' : 'not cited'}`}
-            className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border"
-            style={{ color, borderColor: color + '40', background: color + '12' }}>
-            <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: color }} />
-            {labels[llm] || llm}
-          </span>
-        )
-      })}
-    </div>
-  )
-}
-
 // ─── Run Confirm Modal ────────────────────────────────────────────────────────
 
 function RunConfirmModal({ promptCount, llmsQueried, onConfirm, onClose }) {
@@ -1883,7 +1855,7 @@ function PromptsTab({ result }) {
           const d = data.visibility?.perLLM?.[llm]?.details?.find(x => x.question === promptText)
           if (d?.answer) for (const m of d.answer.matchAll(domainRegex)) seen.add(m[1].toLowerCase())
         }
-        newResults[promptText] = { pct, domainCount: seen.size, llmsQueried, ran: true }
+        newResults[promptText] = { pct, domainCount: seen.size, llmsQueried, ran: true, perLLM: data.visibility?.perLLM }
       }
       setCustomResults(newResults)
 
@@ -1912,26 +1884,6 @@ function PromptsTab({ result }) {
   const allPrompts = [...basePrompts, ...customPrompts]
   const paged = allPrompts.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
   const totalPages = Math.ceil(allPrompts.length / PER_PAGE)
-
-  const getVisibilityPct = (prompt) => {
-    const llms = result.llmsQueried || []
-    if (!llms.length) return 0
-    const cited = llms.filter(llm => {
-      const d = result.visibility?.perLLM?.[llm]?.details?.find(x => x.question === prompt)
-      return d?.mentions?.[result.brand] === true
-    }).length
-    return Math.round((cited / llms.length) * 100)
-  }
-
-  const getDomainCount = (prompt) => {
-    const domainRegex = /\b([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:com|io|ai|co|org|net|app|dev))\b/g
-    const seen = new Set()
-    for (const llm of (result.llmsQueried || [])) {
-      const d = result.visibility?.perLLM?.[llm]?.details?.find(x => x.question === prompt)
-      if (d?.answer) for (const m of d.answer.matchAll(domainRegex)) seen.add(m[1].toLowerCase())
-    }
-    return seen.size
-  }
 
   const pendingCustom = customPrompts.filter(p => !customResults[p.text]?.ran)
 
@@ -1982,90 +1934,67 @@ function PromptsTab({ result }) {
         />
       )}
 
-      {/* Prompt table */}
-      <div className="bg-white border border-[#BFDBFE] rounded-2xl overflow-hidden mb-8">
-        <div className="grid text-xs font-bold text-[#667085] uppercase tracking-wide px-5 py-3 border-b border-[#BFDBFE] bg-[#FAFAFA]"
-          style={{ gridTemplateColumns: '1fr 200px 80px 60px 80px' }}>
-          <span>Prompt</span>
-          <span>Platforms</span>
-          <span className="text-right">Visibility</span>
-          <span className="text-right">Sources</span>
-          <span />
+      {/* Prompt-by-prompt breakdown */}
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
+          <h3 className="text-base font-bold text-[#172554]">Prompt-by-Prompt Breakdown</h3>
+          <p className="text-xs text-[#9CA3B8]">Click any row to see AI answers</p>
         </div>
         {paged.length === 0 && (
           <p className="text-sm text-[#667085] text-center py-10">No prompts yet. Add one above or run an analysis.</p>
         )}
-        {paged.map((p, i) => (
-          <div key={i} className="grid items-center px-5 py-3.5 border-b border-[#F0EBF8] hover:bg-[#FAFAFA] transition-colors"
-            style={{ gridTemplateColumns: '1fr 200px 80px 60px 80px' }}>
-            <div className="flex items-center gap-2 pr-4 min-w-0">
-              <span className="text-sm text-[#172554] truncate">{p.text}</span>
-              {p.custom && <span className="text-[10px] font-bold text-[#2563EB] bg-[#DBEAFE] px-1.5 py-0.5 rounded-full shrink-0">custom</span>}
-            </div>
-            {(() => {
-              const cr = p.custom ? customResults[p.text] : null
-              const hasRun = cr?.ran
-              return (
-                <>
-                  <div>
-                    {p.custom && !hasRun
-                      ? <span className="text-xs text-[#9CA3B8]">Not yet run</span>
-                      : <LLMStatusDots
-                          prompt={p.text}
-                          visibility={hasRun ? { perLLM: Object.fromEntries((cr.llmsQueried || []).map(llm => [llm, { details: [{ question: p.text, mentions: { [result.brand]: cr.pct > 0 } }] }])) } : result.visibility}
-                          brand={result.brand}
-                          llmsQueried={hasRun ? cr.llmsQueried : result.llmsQueried}
-                        />
-                    }
-                  </div>
-                  <div className="text-right">
-                    {p.custom && !hasRun
-                      ? <span className="text-xs text-[#9CA3B8]">—</span>
-                      : <span className={`text-sm font-bold ${(hasRun ? cr.pct : getVisibilityPct(p.text)) > 0 ? 'text-[#10B981]' : 'text-[#667085]'}`}>
-                          {hasRun ? cr.pct : getVisibilityPct(p.text)}%
-                        </span>
-                    }
-                  </div>
-                  <div className="text-right">
-                    {p.custom && !hasRun
-                      ? <span className="text-xs text-[#9CA3B8]">—</span>
-                      : <span className="text-sm text-[#667085]">{hasRun ? cr.domainCount : getDomainCount(p.text)}</span>
-                    }
-                  </div>
-                  <div className="flex items-center justify-end gap-1">
-                    {p.custom && !hasRun && !runState && (
+        <div className="space-y-1.5">
+          {paged.map((p, i) => {
+            const cr = p.custom ? customResults[p.text] : null
+            const hasRun = !p.custom || cr?.ran
+            const llmsForRow = p.custom ? (cr?.llmsQueried || []) : (result.llmsQueried || [])
+            const perLLM = Object.fromEntries(
+              llmsForRow.map(llm => [llm, (p.custom ? cr?.perLLM?.[llm]?.details : result.visibility?.perLLM?.[llm]?.details) || []])
+            )
+            return (
+              <PromptRow
+                key={i}
+                promptData={{ prompt: p.text, perLLM }}
+                brand={result.brand}
+                competitors={result.competitors || []}
+                llmsQueried={llmsForRow}
+                custom={p.custom}
+                notYetRun={p.custom && !hasRun}
+                actions={p.custom ? (
+                  <>
+                    {!hasRun && !runState && (
                       <button onClick={() => setRunConfirmPrompts([p.text])}
                         title="Run this prompt now"
                         className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] border border-[#D8D0FA] rounded-lg px-2 py-1 hover:bg-[#DBEAFE]">
                         Run
                       </button>
                     )}
-                    {p.custom && (
-                      <button onClick={() => removeCustom(customPrompts.indexOf(p))} className="text-[#9CA3B8] hover:text-red-400 p-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                      </button>
-                    )}
-                  </div>
-                </>
-              )
-            })()}
-          </div>
-        ))}
+                    <button onClick={() => removeCustom(customPrompts.indexOf(p))} className="text-[#9CA3B8] hover:text-red-400 p-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </>
+                ) : null}
+              />
+            )
+          })}
+        </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-5 py-3 text-xs text-[#667085]">
-          <span>Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, allPrompts.length)} of {allPrompts.length}</span>
-          <div className="flex items-center gap-2">
-            <span>Rows per page <strong>10</strong></span>
-            <span>Page {page + 1} of {totalPages}</span>
-            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
-            </button>
-            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-            </button>
+        {allPrompts.length > 0 && (
+          <div className="flex items-center justify-between pt-4 mt-2 border-t border-[#F0EBF8] text-xs text-[#667085]">
+            <span>Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, allPrompts.length)} of {allPrompts.length}</span>
+            <div className="flex items-center gap-2">
+              <span>Rows per page <strong>10</strong></span>
+              <span>Page {page + 1} of {totalPages}</span>
+              <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="p-1 rounded border border-[#BFDBFE] disabled:opacity-30 hover:bg-gray-50">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Brand keywords */}
@@ -3315,17 +3244,6 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
               onViewActionPlan={() => setActiveTab('Growth Actions')}
               onComparePositioning={() => setActiveTab('Prompts')}
             />
-          )}
-          {activeTab === 'AI Answers' && (
-            <GatedTabWrapper isGated={isGated}>
-              <PromptTable
-                prompts={result.prompts || []}
-                llmsQueried={result.llmsQueried || []}
-                visibility={result.visibility}
-                brand={result.brand}
-                competitors={result.competitors || []}
-              />
-            </GatedTabWrapper>
           )}
           {activeTab === 'Prompts' && (
             <GatedTabWrapper isGated={isGated}>
