@@ -183,6 +183,8 @@ client/src/
 
 ## API Keys (.env)
 
+Full checklist with where to get each value: **`SETUP.md`** (added 2026-08-27, includes the newer GitHub/WordPress.com OAuth vars — `GITHUB_CLIENT_ID/SECRET`, `WPCOM_CLIENT_ID/SECRET`, `OAUTH_STATE_SECRET` — not listed below).
+
 ```
 GEMINI_API_KEY=<your-gemini-key>          # Gemini Advanced key (AQ.Ab8R... format, NOT AI Studio)
 GEMINI_MODEL=gemini-2.5-flash             # MUST be 2.5-flash
@@ -212,10 +214,11 @@ PORT=3001
 |---------|--------|
 | Supabase auth (login/signup) | Login page built (magic link works); Google OAuth UI stubbed — needs credentials wired in Supabase dashboard |
 | Supabase run storage | localStorage used as bridge — Supabase schema not wired yet |
-| Article pipeline Supabase schema | `sql/article_pipeline_schema.sql` written, not yet run against live Supabase project — `/api/articles/*` endpoints will fail until it is |
 | Dodo Payments end-to-end verification | Checkout/webhook/env all live and configured, but never verified with a real payment through Peach's own checkout flow (only a Dodo-dashboard-only test, which doesn't hit our endpoints at all) |
 | Scheduled monitoring (weekly re-runs) | Not started |
 | PDF report download | Blocked behind auth — modal shows "sign up" |
+| Backlink/citation feature for articles | Discussed 2026-08-28, not built. Option A (real credits-based customer-to-customer exchange, SEOSorted-style) needs a bigger customer pool than Peach has now. Option B (web-search-grounded citations to real external sources in generated articles, reusing the pattern from competitor source-citations) is the likely near-term direction. User wants to research further before deciding. |
+| Real "Share" functionality | Share button copies the URL reliably now (fixed 2026-08-25), but the link has no report ID — reports only live in localStorage, so a shared link doesn't show the recipient anything. Needs a persisted, shareable run ID + a loader on `/app` to actually work. |
 
 ---
 
