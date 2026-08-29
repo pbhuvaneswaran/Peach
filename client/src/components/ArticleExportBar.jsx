@@ -7,6 +7,7 @@ const TYPE_LABELS = {
   wordpress: 'WordPress',
   wordpress_com: 'WordPress.com',
   github: 'GitHub',
+  peach_hosted: 'Peach-hosted blog',
 }
 
 // Shared publish panel — used by both the ad-hoc ContentBriefModal (VisibilityFlow.jsx)
@@ -20,6 +21,8 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
   const [publishedUrls, setPublishedUrls] = useState({})
   const [wpPhase, setWpPhase] = useState({}) // targetId -> 'publishing' | 'done' | 'error'
   const [error, setError] = useState('')
+  const [blogHandle, setBlogHandle] = useState(undefined) // undefined = not loaded yet, null = not set
+  const [customDomain, setCustomDomain] = useState(null) // { domain, verified } | null
 
   const authHeaders = useCallback(() => {
     const headers = { 'Content-Type': 'application/json' }
@@ -32,9 +35,21 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
       .then((r) => r.json())
       .then((data) => setTargets(Array.isArray(data) ? data : []))
       .catch(() => {})
+    fetch('/api/blog-handle', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => {
+        setBlogHandle(data.handle || null)
+        setCustomDomain(data.customDomain?.verified ? data.customDomain : null)
+      })
+      .catch(() => setBlogHandle(null))
   }, [authHeaders])
 
   useEffect(() => { refreshTargets() }, [refreshTargets])
+
+  // Peach-hosted blog is always available — no OAuth row in publish_targets, just merged in here.
+  const allTargets = blogHandle !== undefined
+    ? [{ id: 'peach_hosted', type: 'peach_hosted', config: {} }, ...targets]
+    : targets
 
   const copyMarkdown = () => {
     navigator.clipboard.writeText(markdown)
@@ -101,6 +116,7 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
   }
 
   const handlePublish = (t) => {
+    if (t.type === 'peach_hosted' && !blogHandle) { setConnectOpen(true); return }
     if (t.type === 'wordpress') publishToWordPress(t)
     else publishServerSide(t)
   }
@@ -120,15 +136,17 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
 
       {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
 
-      {targets.length > 0 && (
+      {allTargets.length > 0 && (
         <div className="space-y-1.5 mb-3">
-          {targets.map((t) => {
+          {allTargets.map((t) => {
             const url = publishedUrls[t.id]
             const wpBusy = wpPhase[t.id] === 'publishing'
             const busy = publishingId === t.id || wpBusy
+            const needsSetup = t.type === 'peach_hosted' && !blogHandle
+            const label = t.type === 'peach_hosted' && customDomain ? customDomain.domain : (TYPE_LABELS[t.type] || t.type)
             return (
               <div key={t.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
-                <span className="text-xs font-semibold text-gray-700">{TYPE_LABELS[t.type] || t.type}</span>
+                <span className="text-xs font-semibold text-gray-700">{label}</span>
                 {url ? (
                   <a href={url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-emerald-600 hover:underline">
                     ✓ View post →
@@ -136,7 +154,7 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
                 ) : (
                   <button onClick={() => handlePublish(t)} disabled={busy}
                     className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-60">
-                    {busy ? 'Publishing…' : 'Publish →'}
+                    {busy ? 'Publishing…' : needsSetup ? 'Set up →' : 'Publish →'}
                   </button>
                 )}
               </div>

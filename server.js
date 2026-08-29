@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
+import dns from 'dns';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -24,6 +25,7 @@ import { generateOutline } from './src/outlineGenerator.js';
 import { checkArticleQuality, BANNED_PHRASES } from './src/qualityChecks.js';
 import { signState, verifyState } from './src/oauthState.js';
 import { getPublisher } from './src/publishers/registry.js';
+import { slugify } from './src/publishers/peachHosted.js';
 
 dotenv.config();
 
@@ -67,6 +69,11 @@ function getArticleQuota(profile) {
     monthExpired,
     resetAt: profile?.articles_reset_at || null,
   };
+}
+
+const CUSTOM_DOMAIN_PLANS = ['growth', 'enterprise'];
+function canUseCustomDomain(profile, isAdmin) {
+  return isAdmin || CUSTOM_DOMAIN_PLANS.includes(profile?.plan);
 }
 
 const turndownService = new TurndownService({ headingStyle: 'atx' });
@@ -624,6 +631,23 @@ app.get('/api/v3/runs', async (req, res) => {
   })));
 });
 
+// Full saved report for one run — same shape POST /api/v3/analyze returns, so the
+// frontend can hydrate `result` state directly without re-running the analysis.
+app.get('/api/v3/runs/:id', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('runs')
+    .select('id, url, brand, created_at, result_json')
+    .eq('id', req.params.id)
+    .eq('user_id', user.id)
+    .single();
+  if (dbErr || !data) return res.status(404).json({ error: 'run_not_found' });
+
+  res.json({ ...data.result_json, runId: data.id, savedAt: data.created_at });
+});
+
 app.get('/api/articles/quota', async (req, res) => {
   const { user, error } = await authenticateUser(req);
   if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
@@ -1094,8 +1118,31 @@ app.post('/api/articles/:id/publish', async (req, res) => {
 
   const publisher = getPublisher(target);
   let resolvedUrl = publishedUrl || null;
+  let slug = null;
 
-  if (publisher && !publisher.clientSide) {
+  if (target === 'peach_hosted') {
+    const { data: profile, error: profErr } = await supabaseAdmin
+      .from('profiles').select('public_blog_handle, custom_domain, custom_domain_verified').eq('id', user.id).single();
+    if (profErr || !profile?.public_blog_handle) {
+      return res.status(400).json({ error: 'blog_handle_not_set' });
+    }
+
+    const { data: article, error: articleErr } = await supabaseAdmin
+      .from('articles').select('title').eq('id', req.params.id).eq('user_id', user.id).single();
+    if (articleErr || !article) return res.status(404).json({ error: 'article_not_found' });
+
+    const base = slugify(article.title);
+    const { data: existingSlugs } = await supabaseAdmin
+      .from('articles').select('slug').eq('user_id', user.id).like('slug', `${base}%`);
+    const taken = new Set((existingSlugs || []).map((r) => r.slug));
+    slug = base;
+    let n = 2;
+    while (taken.has(slug)) { slug = `${base}-${n}`; n += 1; }
+
+    resolvedUrl = profile.custom_domain_verified
+      ? `https://${profile.custom_domain}/blog/${slug}`
+      : `${APP_URL}/blog/${profile.public_blog_handle}/${slug}`;
+  } else if (publisher && !publisher.clientSide) {
     if (!targetId) return res.status(400).json({ error: 'targetId is required for this connector' });
 
     const { data: targetRow, error: targetErr } = await supabaseAdmin
@@ -1117,9 +1164,13 @@ app.post('/api/articles/:id/publish', async (req, res) => {
     }
   }
 
-  const { data, error: updErr } = await supabaseAdmin.from('articles').update({
+  const updateFields = {
     publish_status: 'published', published_target: target, published_url: resolvedUrl, published_at: new Date().toISOString(),
-  }).eq('id', req.params.id).eq('user_id', user.id).select().single();
+  };
+  if (slug) updateFields.slug = slug;
+
+  const { data, error: updErr } = await supabaseAdmin.from('articles').update(updateFields)
+    .eq('id', req.params.id).eq('user_id', user.id).select().single();
   if (updErr) return res.status(500).json({ error: updErr.message });
   if (!data) return res.status(404).json({ error: 'article_not_found' });
 
@@ -1339,6 +1390,264 @@ app.post('/api/profile/save', async (req, res) => {
   );
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ok: true });
+});
+
+// ─── Peach-hosted blog: handle setup ─────────────────────────────────────────
+app.get('/api/blog-handle', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('profiles').select('public_blog_handle, company_name, plan, custom_domain, custom_domain_verified')
+    .eq('id', user.id).single();
+  if (dbErr) return res.status(500).json({ error: dbErr.message });
+
+  const isAdmin = ADMIN_EMAILS.has((user.email || '').toLowerCase());
+
+  res.json({
+    handle: data?.public_blog_handle || null,
+    suggested: slugify(data?.company_name || ''),
+    customDomain: { domain: data?.custom_domain || null, verified: !!data?.custom_domain_verified },
+    canUseCustomDomain: canUseCustomDomain(data, isAdmin),
+  });
+});
+
+app.post('/api/blog-handle', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const handle = slugify(req.body?.handle || '');
+  if (!handle) return res.status(400).json({ error: 'invalid_handle' });
+
+  const { error: updErr } = await supabaseAdmin
+    .from('profiles').update({ public_blog_handle: handle }).eq('id', user.id);
+  if (updErr) {
+    if (updErr.code === '23505') return res.status(409).json({ error: 'handle_taken' });
+    return res.status(500).json({ error: updErr.message });
+  }
+
+  res.json({ handle });
+});
+
+// ─── Custom domain support (Growth/Enterprise) ───────────────────────────────
+const DOMAIN_REGEX = /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/;
+
+async function vercelApi(path, options = {}) {
+  if (!hasKey('VERCEL_API_TOKEN') || !hasKey('VERCEL_PROJECT_ID')) {
+    throw new Error('custom_domains_not_configured');
+  }
+  const qs = process.env.VERCEL_TEAM_ID ? `?teamId=${encodeURIComponent(process.env.VERCEL_TEAM_ID)}` : '';
+  const res = await fetch(`https://api.vercel.com/v10/projects/${process.env.VERCEL_PROJECT_ID}${path}${qs}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${process.env.VERCEL_API_TOKEN}`, 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error?.message || `Vercel API returned ${res.status}`);
+  return data;
+}
+
+// Best-effort split for display purposes only — DNS lookups always use the full FQDN.
+function domainRecords(domain, token) {
+  const labels = domain.split('.');
+  const relativeName = labels.length > 2 ? labels.slice(0, -2).join('.') : '@';
+  return {
+    txt: { name: `_peach-verify.${relativeName}`, value: token },
+    cname: { name: relativeName, value: 'cname.vercel-dns.com' },
+  };
+}
+
+app.post('/api/custom-domain', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data: profile, error: profErr } = await supabaseAdmin
+    .from('profiles').select('plan').eq('id', user.id).single();
+  if (profErr) return res.status(500).json({ error: profErr.message });
+
+  const isAdmin = ADMIN_EMAILS.has((user.email || '').toLowerCase());
+  if (!canUseCustomDomain(profile, isAdmin)) {
+    return res.status(403).json({ error: 'plan_upgrade_required', message: 'Custom domains are available on Growth and Enterprise plans.' });
+  }
+
+  const domain = String(req.body?.domain || '').trim().toLowerCase();
+  if (!DOMAIN_REGEX.test(domain)) return res.status(400).json({ error: 'invalid_domain' });
+
+  const token = crypto.randomBytes(16).toString('hex');
+  const { error: updErr } = await supabaseAdmin
+    .from('profiles').update({
+      custom_domain: domain, custom_domain_verification_token: token, custom_domain_verified: false, custom_domain_added_at: null,
+    }).eq('id', user.id);
+  if (updErr) {
+    if (updErr.code === '23505') return res.status(409).json({ error: 'domain_taken', message: 'That domain is already connected to another account.' });
+    return res.status(500).json({ error: updErr.message });
+  }
+
+  res.json({ domain, records: domainRecords(domain, token) });
+});
+
+app.get('/api/custom-domain/verify', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data: profile, error: profErr } = await supabaseAdmin
+    .from('profiles').select('custom_domain, custom_domain_verification_token').eq('id', user.id).single();
+  if (profErr) return res.status(500).json({ error: profErr.message });
+  if (!profile?.custom_domain) return res.json({ status: 'none' });
+
+  let matched = false;
+  try {
+    const records = await dns.promises.resolveTxt(`_peach-verify.${profile.custom_domain}`);
+    matched = records.some((chunks) => chunks.join('') === profile.custom_domain_verification_token);
+  } catch {
+    // NXDOMAIN / no record yet — not an error, just not propagated
+  }
+  if (!matched) {
+    return res.json({ status: 'pending_dns', domain: profile.custom_domain, records: domainRecords(profile.custom_domain, profile.custom_domain_verification_token) });
+  }
+
+  try {
+    await vercelApi('/domains', { method: 'POST', body: JSON.stringify({ name: profile.custom_domain }) });
+  } catch (err) {
+    return res.json({ status: 'error', message: err.message });
+  }
+
+  const { error: updErr } = await supabaseAdmin
+    .from('profiles').update({ custom_domain_verified: true, custom_domain_added_at: new Date().toISOString() }).eq('id', user.id);
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  res.json({ status: 'verified', domain: profile.custom_domain });
+});
+
+app.delete('/api/custom-domain', async (req, res) => {
+  const { user, error } = await authenticateUser(req);
+  if (error) return res.status(error === 'no_supabase' ? 503 : 401).json({ error });
+
+  const { data: profile } = await supabaseAdmin.from('profiles').select('custom_domain').eq('id', user.id).single();
+  if (profile?.custom_domain) {
+    try { await vercelApi(`/domains/${profile.custom_domain}`, { method: 'DELETE' }); }
+    catch (err) { console.error('Vercel domain removal error:', err.message); }
+  }
+
+  const { error: updErr } = await supabaseAdmin.from('profiles').update({
+    custom_domain: null, custom_domain_verified: false, custom_domain_verification_token: null, custom_domain_added_at: null,
+  }).eq('id', user.id);
+  if (updErr) return res.status(500).json({ error: updErr.message });
+
+  res.json({ ok: true });
+});
+
+// ─── Peach-hosted blog: public server-rendered pages ─────────────────────────
+const escapeHtml = (s) => String(s || '').replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+// Shared by the handle-based route and the custom-domain host-based route, so the
+// meta/canonical/JSON-LD markup an AI crawler sees never drifts between the two.
+function renderArticleHtml({ siteName, article, canonical, backHref }) {
+  const siteTitle = escapeHtml(siteName);
+  const title = escapeHtml(article.title);
+  const plainExcerpt = (article.content_markdown || '').replace(/[#*`_>\[\]!-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const description = escapeHtml(plainExcerpt);
+  const bodyHtml = markdownToHtml(article.content_markdown);
+  const publishedAt = article.published_at || article.created_at;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    datePublished: publishedAt,
+    author: { '@type': 'Organization', name: siteName },
+  };
+
+  return `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title} · ${siteTitle}</title>
+<meta name="description" content="${description}">
+<link rel="canonical" href="${canonical}">
+<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:40px 20px;color:#1a1a1a;line-height:1.7}
+h1{font-size:32px;margin-bottom:8px}.meta{color:#999;font-size:13px;margin-bottom:32px}
+img{max-width:100%}a{color:#2563eb}nav a{font-size:13px;color:#666}</style>
+</head><body>
+${backHref ? `<nav><a href="${backHref}">&larr; ${siteTitle} Blog</a></nav>` : ''}
+<h1>${title}</h1>
+<p class="meta">${new Date(publishedAt).toLocaleDateString()}</p>
+${bodyHtml}
+</body></html>`;
+}
+
+// Custom-domain articles — same one-segment shape as /blog/:handle below, so this must be
+// registered first: it falls through via next() to /blog/:handle for any request whose Host
+// header isn't a verified custom domain, instead of shadowing that route for everyone.
+app.get('/blog/:slug', async (req, res, next) => {
+  const host = (req.headers.host || '').split(':')[0].toLowerCase();
+  const { data: profile } = await supabaseAdmin
+    .from('profiles').select('id, company_name, custom_domain')
+    .eq('custom_domain', host).eq('custom_domain_verified', true).single();
+  if (!profile) return next();
+
+  const { data: article } = await supabaseAdmin
+    .from('articles').select('title, content_markdown, created_at, published_at')
+    .eq('user_id', profile.id).eq('slug', req.params.slug)
+    .eq('publish_status', 'published').eq('published_target', 'peach_hosted')
+    .single();
+  if (!article) return res.status(404).send('Not found');
+
+  const canonical = `https://${host}/blog/${req.params.slug}`;
+  res.set('Content-Type', 'text/html; charset=utf-8')
+    .send(renderArticleHtml({ siteName: profile.company_name || host, article, canonical, backHref: null }));
+});
+
+app.get('/blog/:handle', async (req, res) => {
+  const { data: profile } = await supabaseAdmin
+    .from('profiles').select('id, company_name').eq('public_blog_handle', req.params.handle).single();
+  if (!profile) return res.status(404).send('Not found');
+
+  const { data: articles } = await supabaseAdmin
+    .from('articles').select('title, slug, created_at, published_at')
+    .eq('user_id', profile.id).eq('publish_status', 'published').eq('published_target', 'peach_hosted')
+    .order('published_at', { ascending: false });
+
+  const title = escapeHtml(profile.company_name || req.params.handle);
+  const items = (articles || []).map((a) => `
+    <li>
+      <a href="/blog/${req.params.handle}/${a.slug}">${escapeHtml(a.title)}</a>
+      <span class="date">${new Date(a.published_at || a.created_at).toLocaleDateString()}</span>
+    </li>`).join('\n');
+
+  res.set('Content-Type', 'text/html; charset=utf-8').send(`<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title} Blog</title>
+<meta name="description" content="Articles from ${title}">
+<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:40px 20px;color:#1a1a1a}
+h1{font-size:28px}ul{list-style:none;padding:0}li{padding:16px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between;gap:16px}
+a{color:#1a1a1a;text-decoration:none;font-weight:600}a:hover{color:#2563eb}.date{color:#999;font-size:13px;white-space:nowrap}</style>
+</head><body>
+<h1>${title} Blog</h1>
+<ul>${items || '<li>No articles published yet.</li>'}</ul>
+</body></html>`);
+});
+
+app.get('/blog/:handle/:slug', async (req, res) => {
+  const { data: profile } = await supabaseAdmin
+    .from('profiles').select('id, company_name').eq('public_blog_handle', req.params.handle).single();
+  if (!profile) return res.status(404).send('Not found');
+
+  const { data: article } = await supabaseAdmin
+    .from('articles').select('title, content_markdown, created_at, published_at')
+    .eq('user_id', profile.id).eq('slug', req.params.slug).eq('publish_status', 'published').eq('published_target', 'peach_hosted')
+    .single();
+  if (!article) return res.status(404).send('Not found');
+
+  const canonical = `${APP_URL}/blog/${req.params.handle}/${req.params.slug}`;
+  res.set('Content-Type', 'text/html; charset=utf-8').send(renderArticleHtml({
+    siteName: profile.company_name || req.params.handle,
+    article,
+    canonical,
+    backHref: `/blog/${req.params.handle}`,
+  }));
 });
 
 // Serve React frontend from dist/ (after `npm run build`)

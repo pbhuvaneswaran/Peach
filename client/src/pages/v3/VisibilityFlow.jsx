@@ -3309,11 +3309,61 @@ export default function V3VisibilityFlow() {
     return t ? Number(t) : null
   })
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const { session } = useAuth()
+  const [savedRuns, setSavedRuns] = useState(null) // null = not loaded yet, [] = loaded, none saved
+  const [loadingSavedRun, setLoadingSavedRun] = useState(false)
+  const [showNewAnalysisForm, setShowNewAnalysisForm] = useState(false)
+
+  useEffect(() => {
+    if (result || !session?.access_token) return
+    fetch('/api/v3/runs', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setSavedRuns(Array.isArray(data) ? data : []))
+      .catch(() => setSavedRuns([]))
+  }, [result, session])
+
+  // One card per distinct hostname — most recent run for that host, since a free-tier
+  // account can have up to 3 re-runs of the same site (server.js's run-limit logic).
+  const savedWebsites = (() => {
+    if (!savedRuns) return []
+    const byHost = new Map()
+    for (const r of savedRuns) {
+      let host
+      try { host = new URL(/^https?:\/\//i.test(r.url) ? r.url : `https://${r.url}`).hostname.replace(/^www\./, '') }
+      catch { host = r.url }
+      if (!byHost.has(host)) byHost.set(host, r)
+    }
+    return [...byHost.values()]
+  })()
+
+  const openSavedRun = async (runId) => {
+    if (!session?.access_token) return
+    setLoadingSavedRun(true)
+    try {
+      const res = await fetch(`/api/v3/runs/${runId}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not load that report')
+      // This only ever runs from the onClick below (an async event handler), same safe
+      // pattern as handleRun's Date.now() elsewhere in this file; the analyzer just can't
+      // trace it through the .map() closure that calls it.
+      // eslint-disable-next-line react-hooks/purity
+      const now = Date.now()
+      localStorage.setItem('peach_last_result', JSON.stringify(data))
+      localStorage.setItem('peach_last_result_time', String(now))
+      setResult(data)
+      setResultTime(now)
+    } catch {
+      setError('Could not load that saved report. Try again.')
+    } finally {
+      setLoadingSavedRun(false)
+    }
+  }
 
   const handleReset = () => {
     localStorage.removeItem('peach_last_result')
     localStorage.removeItem('peach_last_result_time')
     setResult(null)
+    setShowNewAnalysisForm(false)
   }
 
   const handleRun = async () => {
@@ -3412,6 +3462,50 @@ export default function V3VisibilityFlow() {
             localStorage.setItem('peach_last_result', JSON.stringify(updated))
           }}
         />
+      </div>
+    )
+  }
+
+  if (savedWebsites.length > 0 && !showNewAnalysisForm) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {showUpgradeModal && <UpgradeModal />}
+        <div className="max-w-2xl mx-auto px-6 py-20">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">Your websites</h1>
+            <p className="text-gray-400 text-base">Pick one to see its saved report — no need to re-run the analysis.</p>
+          </div>
+
+          {error && <p className="text-sm text-red-500 mb-4 text-center">{error}</p>}
+
+          <div className="space-y-3 mb-6">
+            {savedWebsites.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => openSavedRun(r.id)}
+                disabled={loadingSavedRun}
+                className="w-full text-left bg-white border border-gray-200 hover:border-blue-300 rounded-2xl p-5 shadow-sm transition-colors disabled:opacity-60"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">{r.brand}</p>
+                    <p className="text-xs text-gray-400">{r.url}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-blue-600">{r.visibilityScore ?? 0}%</p>
+                    <p className="text-[10px] text-gray-400">{new Date(r.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <button onClick={() => setShowNewAnalysisForm(true)} className="text-sm font-semibold text-blue-600 hover:text-blue-800">
+              + Analyze a new website
+            </button>
+          </div>
+        </div>
       </div>
     )
   }

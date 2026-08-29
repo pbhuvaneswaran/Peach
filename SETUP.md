@@ -38,6 +38,18 @@ Self-hosted WordPress (the third publish option) needs no env vars — it's per-
 
 **Vercel production note:** if you register separate OAuth apps for local vs production (different callback URLs), you'll need separate `GITHUB_CLIENT_ID`/`WPCOM_CLIENT_ID` values in Vercel's env vars vs your local `.env` — or register one app with production's callback URL and only test the OAuth flows against production. Either way, whatever URL you register as the callback must exactly match the `APP_URL` value active on that side.
 
+## Needed for custom domain support (Growth/Enterprise, not yet set)
+
+Lets a Growth/Enterprise customer connect their own domain (e.g. `blog.interactlabs.ai`) so their Peach-hosted articles serve there instead of `gotopeach.com/blog/:handle`. Without these, `GET /api/custom-domain/verify` returns a clear "not configured" error rather than a bare 500.
+
+| Var | ✅/⬜ | Where to get it |
+|---|---|---|
+| `VERCEL_API_TOKEN` | ⬜ | vercel.com/account/tokens → Create Token |
+| `VERCEL_PROJECT_ID` | ⬜ | The Peach project's Settings → General page on Vercel |
+| `VERCEL_TEAM_ID` | ⬜ | Only needed if the Vercel project lives under a team (not a personal account) — Settings → General on the team |
+
+Run `sql/custom_domain_support.sql` in the Supabase SQL editor before this feature is usable — it adds `custom_domain`, `custom_domain_verified`, `custom_domain_verification_token`, `custom_domain_added_at` to `profiles`.
+
 ## Other
 
 | Var | ✅/⬜ | What it's for |

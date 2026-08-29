@@ -1,12 +1,14 @@
 import { WORDPRESS } from './base.js';
 import { GITHUB } from './github.js';
 import { WORDPRESS_COM } from './wordpressCom.js';
+import { PEACH_HOSTED } from './peachHosted.js';
 
 // Add new connectors here as they're built (Webflow, Notion, Contentful, HubSpot, etc.)
 const PUBLISHERS = {
   wordpress: WORDPRESS,
   wordpress_com: WORDPRESS_COM,
   github: GITHUB,
+  peach_hosted: PEACH_HOSTED,
 };
 
 function getPublisher(type) {
