@@ -1577,6 +1577,20 @@ ${bodyHtml}
 </body></html>`;
 }
 
+// If this request was forwarded by a reverse proxy on the customer's own domain (path-based
+// custom domain publishing — customerdomain.com/blog/:slug proxying to gotopeach.com/blog/:handle/:slug),
+// well-behaved proxies (Vercel rewrites, Cloudflare Workers, Nginx proxy_pass, etc.) set
+// X-Forwarded-Host to the domain the visitor actually requested. Trust it only when it matches
+// this profile's own *verified* custom_domain, so canonical/SEO credit goes to the customer's
+// domain instead of gotopeach.com, and a spoofed header can't claim someone else's content.
+function getVerifiedForwardedHost(req, profile) {
+  const forwarded = (req.headers['x-forwarded-host'] || '').split(',')[0].trim().split(':')[0].toLowerCase();
+  if (forwarded && profile.custom_domain_verified && forwarded === (profile.custom_domain || '').toLowerCase()) {
+    return forwarded;
+  }
+  return null;
+}
+
 // Custom-domain articles — same one-segment shape as /blog/:handle below, so this must be
 // registered first: it falls through via next() to /blog/:handle for any request whose Host
 // header isn't a verified custom domain, instead of shadowing that route for everyone.
@@ -1601,7 +1615,7 @@ app.get('/blog/:slug', async (req, res, next) => {
 
 app.get('/blog/:handle', async (req, res) => {
   const { data: profile } = await supabaseAdmin
-    .from('profiles').select('id, company_name').eq('public_blog_handle', req.params.handle).single();
+    .from('profiles').select('id, company_name, custom_domain, custom_domain_verified').eq('public_blog_handle', req.params.handle).single();
   if (!profile) return res.status(404).send('Not found');
 
   const { data: articles } = await supabaseAdmin
@@ -1609,10 +1623,11 @@ app.get('/blog/:handle', async (req, res) => {
     .eq('user_id', profile.id).eq('publish_status', 'published').eq('published_target', 'peach_hosted')
     .order('published_at', { ascending: false });
 
+  const forwardedHost = getVerifiedForwardedHost(req, profile);
   const title = escapeHtml(profile.company_name || req.params.handle);
   const items = (articles || []).map((a) => `
     <li>
-      <a href="/blog/${req.params.handle}/${a.slug}">${escapeHtml(a.title)}</a>
+      <a href="${forwardedHost ? `/blog/${a.slug}` : `/blog/${req.params.handle}/${a.slug}`}">${escapeHtml(a.title)}</a>
       <span class="date">${new Date(a.published_at || a.created_at).toLocaleDateString()}</span>
     </li>`).join('\n');
 
@@ -1632,7 +1647,7 @@ a{color:#1a1a1a;text-decoration:none;font-weight:600}a:hover{color:#2563eb}.date
 
 app.get('/blog/:handle/:slug', async (req, res) => {
   const { data: profile } = await supabaseAdmin
-    .from('profiles').select('id, company_name').eq('public_blog_handle', req.params.handle).single();
+    .from('profiles').select('id, company_name, custom_domain, custom_domain_verified').eq('public_blog_handle', req.params.handle).single();
   if (!profile) return res.status(404).send('Not found');
 
   const { data: article } = await supabaseAdmin
@@ -1641,12 +1656,15 @@ app.get('/blog/:handle/:slug', async (req, res) => {
     .single();
   if (!article) return res.status(404).send('Not found');
 
-  const canonical = `${APP_URL}/blog/${req.params.handle}/${req.params.slug}`;
+  const forwardedHost = getVerifiedForwardedHost(req, profile);
+  const canonical = forwardedHost
+    ? `https://${forwardedHost}/blog/${req.params.slug}`
+    : `${APP_URL}/blog/${req.params.handle}/${req.params.slug}`;
   res.set('Content-Type', 'text/html; charset=utf-8').send(renderArticleHtml({
     siteName: profile.company_name || req.params.handle,
     article,
     canonical,
-    backHref: `/blog/${req.params.handle}`,
+    backHref: forwardedHost ? '/blog' : `/blog/${req.params.handle}`,
   }));
 });
 
