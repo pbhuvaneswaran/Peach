@@ -175,17 +175,135 @@ function PeachHostedWizard({ onConnected, onCancel }) {
 const POLL_MS = 10000
 const POLL_TIMEOUT_MS = 5 * 60 * 1000
 
+// Shared press-feedback + custom ease-out for every button in this file's wizards.
+// cubic-bezier curve per the emil-design-eng standard — stronger than the built-in
+// CSS ease-out, gives buttons a more intentional, responsive feel on click.
+const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
+const btnBase = 'transition-transform duration-150 active:scale-[0.97]'
+function btnStyle() { return { transitionTimingFunction: EASE_OUT } }
+
+// Wraps a wizard step's content so switching steps (e.g. none -> pending_dns -> verified)
+// fades + scales in instead of hard-cutting, per emil-design-eng: never animate from
+// scale(0), start from a barely-smaller scale + opacity so it reads as one continuous
+// surface rather than two different screens.
+function StepTransition({ stepKey, children }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(false)
+    const raf = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(raf)
+  }, [stepKey])
+  return (
+    <div
+      className="transition-[opacity,transform] duration-200"
+      style={{
+        transitionTimingFunction: EASE_OUT,
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? 'scale(1)' : 'scale(0.97)',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// A labeled, copyable code block — used by the reverse-proxy setup snippets.
+function CodeBlock({ label, code }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    try { navigator.clipboard.writeText(code) } catch { /* ignore */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
+        <button onClick={copy} className={`text-[10px] font-semibold ${copied ? 'text-emerald-600' : 'text-blue-600 hover:text-blue-800'} ${btnBase}`} style={btnStyle()}>
+          {copied ? '✓ Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="text-[11px] font-mono text-gray-700 p-3 overflow-x-auto whitespace-pre-wrap break-all">{code}</pre>
+    </div>
+  )
+}
+
+// Per-platform reverse-proxy snippets, forwarding <domain>/blog/* to the customer's stable
+// Peach-hosted target (gotopeach.com/blog/:handle/*). Each explicitly sets X-Forwarded-Host
+// where the platform doesn't already do it automatically, since server.js's canonical-URL
+// logic (getVerifiedForwardedHost) only trusts that header to attribute SEO credit correctly.
+function proxyPlatforms(handle, domain) {
+  const target = `https://www.gotopeach.com/blog/${handle}`
+  return {
+    vercel: {
+      label: 'Vercel',
+      note: 'Add to your vercel.json (Vercel forwards X-Forwarded-Host automatically for external rewrites).',
+      code: `{
+  "rewrites": [
+    { "source": "/blog", "destination": "${target}" },
+    { "source": "/blog/:slug", "destination": "${target}/:slug" }
+  ]
+}`,
+    },
+    cloudflare: {
+      label: 'Cloudflare Worker',
+      note: `Add a Worker route for ${domain}/blog/* pointing at this script.`,
+      code: `export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const dest = new URL(
+      "https://www.gotopeach.com" + url.pathname.replace("/blog", "/blog/${handle}") + url.search
+    );
+    const proxyReq = new Request(dest, request);
+    proxyReq.headers.set("X-Forwarded-Host", url.hostname);
+    return fetch(proxyReq);
+  }
+}`,
+    },
+    netlify: {
+      label: 'Netlify',
+      note: 'Add to your _redirects file (Netlify forwards X-Forwarded-Host automatically for proxy rules).',
+      code: `/blog  ${target}  200!
+/blog/*  ${target}/:splat  200!`,
+    },
+    nginx: {
+      label: 'Nginx',
+      note: 'Add to your server block.',
+      code: `location /blog/ {
+    proxy_pass ${target}/;
+    proxy_set_header Host www.gotopeach.com;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}`,
+    },
+    other: {
+      label: 'Other platform',
+      note: 'Any platform that can reverse-proxy: forward every request under /blog/* on your domain to the URL below, preserving the path after /blog, and set an X-Forwarded-Host header equal to your own domain so Peach can give your domain SEO credit.',
+      code: `${target}/*`,
+    },
+  }
+}
+
 function CustomDomainWizard({ onConnected, onCancel }) {
   const { session } = useAuth()
   const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` }
 
-  const [status, setStatus] = useState('loading') // loading | locked | none | pending_dns | verified | error
+  const [status, setStatus] = useState('loading') // loading | locked | none | pending_dns | verified | proxy_setup
   const [domainInput, setDomainInput] = useState('')
   const [domain, setDomain] = useState(null)
   const [records, setRecords] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
+
+  // Proxy-setup step needs the customer's blog handle (the /blog/:handle/* target they
+  // proxy to). If they connected a custom domain without ever setting one up via the
+  // Peach-hosted-blog option, offer to pick one right here instead of sending them away.
+  const [handle, setHandle] = useState(null)
+  const [handleInput, setHandleInput] = useState('')
+  const [handleSaving, setHandleSaving] = useState(false)
+  const [handleError, setHandleError] = useState('')
+  const [platform, setPlatform] = useState('vercel')
 
   const checkVerification = async () => {
     try {
@@ -204,6 +322,8 @@ function CustomDomainWizard({ onConnected, onCancel }) {
     fetch('/api/blog-handle', { headers: authHeaders })
       .then((r) => (r.ok ? r.json() : {}))
       .then((data) => {
+        setHandle(data.handle || null)
+        setHandleInput(data.handle || data.suggested || '')
         if (!data.canUseCustomDomain) { setStatus('locked'); return }
         if (data.customDomain?.domain && data.customDomain.verified) {
           setDomain(data.customDomain.domain)
@@ -218,6 +338,21 @@ function CustomDomainWizard({ onConnected, onCancel }) {
       .catch(() => setStatus('none'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const saveHandle = async () => {
+    setHandleSaving(true)
+    setHandleError('')
+    try {
+      const res = await fetch('/api/blog-handle', { method: 'POST', headers: authHeaders, body: JSON.stringify({ handle: handleInput }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error === 'handle_taken' ? 'That handle is already taken.' : (data.error || 'Could not save.'))
+      setHandle(data.handle)
+    } catch (err) {
+      setHandleError(err.message || 'Could not save.')
+    } finally {
+      setHandleSaving(false)
+    }
+  }
 
   // Poll while pending, stop on verified/locked/none or a 5-minute timeout.
   useEffect(() => {
@@ -264,101 +399,141 @@ function CustomDomainWizard({ onConnected, onCancel }) {
     }
   }
 
-  const copy = (value) => { try { navigator.clipboard.writeText(value) } catch { /* ignore */ } }
-
   if (status === 'loading') return <p className="text-sm text-gray-500">Loading…</p>
 
   if (status === 'locked') {
     return (
-      <div>
+      <StepTransition stepKey={status}>
         <h3 className="text-base font-bold text-gray-900 mb-1">Custom domain</h3>
         <p className="text-sm text-gray-500 mb-5">
-          Publish to your own domain (e.g. <span className="font-mono">blog.yoursite.com</span>) with no Peach branding in the URL —
+          Publish to your own domain (e.g. <span className="font-mono">yoursite.com/blog</span>) with no Peach branding in the URL —
           available on Growth and Enterprise plans.
         </p>
         <div className="flex gap-2 justify-end">
-          <button onClick={onCancel} className="text-sm font-semibold text-gray-500 px-4 py-2">← Back</button>
-          <a href="/pricing" className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+          <button onClick={onCancel} className={`text-sm font-semibold text-gray-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>← Back</button>
+          <a href="/pricing" className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
             Upgrade →
           </a>
         </div>
-      </div>
+      </StepTransition>
     )
   }
 
   if (status === 'verified') {
     return (
-      <div>
+      <StepTransition stepKey={status}>
         <h3 className="text-base font-bold text-gray-900 mb-1">Custom domain</h3>
         <p className="text-sm text-emerald-600 font-semibold mb-1">✓ Connected</p>
         <p className="text-sm text-gray-500 mb-5 font-mono">{domain}</p>
         {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
         <div className="flex gap-2 justify-end">
-          <button onClick={disconnect} disabled={busy} className="text-sm font-semibold text-red-600 hover:text-red-800 disabled:opacity-60 px-4 py-2">
+          <button onClick={disconnect} disabled={busy} className={`text-sm font-semibold text-red-600 hover:text-red-800 disabled:opacity-60 px-4 py-2 ${btnBase}`} style={btnStyle()}>
             {busy ? 'Disconnecting…' : 'Disconnect'}
           </button>
-          <button onClick={onConnected} className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+          <button onClick={() => setStatus('proxy_setup')} className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
             Continue →
           </button>
         </div>
-      </div>
+      </StepTransition>
     )
   }
 
   if (status === 'none') {
     return (
-      <div>
+      <StepTransition stepKey={status}>
         <h3 className="text-base font-bold text-gray-900 mb-1">Connect your domain</h3>
-        <p className="text-sm text-gray-500 mb-3">Enter the domain or subdomain you want your blog to serve at.</p>
-        <input value={domainInput} onChange={(e) => setDomainInput(e.target.value)} placeholder="blog.yoursite.com"
+        <p className="text-sm text-gray-500 mb-3">Enter the domain you want your blog to publish under (e.g. <span className="font-mono">yoursite.com</span> — your blog will live at <span className="font-mono">yoursite.com/blog</span>).</p>
+        <input value={domainInput} onChange={(e) => setDomainInput(e.target.value)} placeholder="yoursite.com"
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
         <div className="flex gap-2 justify-end">
-          <button onClick={onCancel} className="text-sm font-semibold text-gray-500 px-4 py-2">← Back</button>
+          <button onClick={onCancel} className={`text-sm font-semibold text-gray-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>← Back</button>
           <button onClick={connectDomain} disabled={!domainInput.trim() || busy}
-            className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg">
+            className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
             {busy ? 'Connecting…' : 'Connect domain'}
           </button>
         </div>
-      </div>
+      </StepTransition>
     )
   }
 
-  // pending_dns
-  return (
-    <div>
-      <h3 className="text-base font-bold text-gray-900 mb-1">Verify domain ownership</h3>
-      <p className="text-sm text-gray-500 mb-4">Add these DNS records at your domain provider, then check verification.</p>
-      {records && (
-        <div className="space-y-2 mb-4">
-          <div className="border border-gray-200 rounded-lg p-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">TXT record</p>
-            <p className="text-xs font-mono text-gray-700 break-all">Name: {records.txt.name}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-mono text-gray-700 break-all">Value: {records.txt.value}</p>
-              <button onClick={() => copy(records.txt.value)} className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">Copy</button>
-            </div>
+  if (status === 'pending_dns') {
+    return (
+      <StepTransition stepKey={status}>
+        <h3 className="text-base font-bold text-gray-900 mb-1">Verify domain ownership</h3>
+        <p className="text-sm text-gray-500 mb-4">Add this DNS record at your domain provider to prove you own <span className="font-mono">{domain}</span>, then check verification. This does not change where your site is hosted.</p>
+        {records && (
+          <div className="mb-4">
+            <CodeBlock label={`TXT record — ${records.txt.name}`} code={records.txt.value} />
           </div>
-          <div className="border border-gray-200 rounded-lg p-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">CNAME record</p>
-            <p className="text-xs font-mono text-gray-700 break-all">Name: {records.cname.name}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-mono text-gray-700 break-all">Value: {records.cname.value}</p>
-              <button onClick={() => copy(records.cname.value)} className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">Copy</button>
-            </div>
-          </div>
+        )}
+        {timedOut && <p className="text-xs text-amber-600 mb-3">Still not verified? Double-check the TXT record — DNS propagation can take a few minutes to a few hours.</p>}
+        {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+        <div className="flex gap-2 justify-end">
+          <button onClick={disconnect} disabled={busy} className={`text-sm font-semibold text-gray-500 px-4 py-2 disabled:opacity-60 ${btnBase}`} style={btnStyle()}>Cancel</button>
+          <button onClick={checkVerification} disabled={busy}
+            className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
+            Check verification
+          </button>
         </div>
-      )}
-      {timedOut && <p className="text-xs text-amber-600 mb-3">Still not verified? Double-check your DNS records — propagation can take a few minutes to a few hours.</p>}
-      {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+      </StepTransition>
+    )
+  }
+
+  // proxy_setup — final step: point <domain>/blog/* at Peach via a reverse proxy on the
+  // customer's own hosting platform. Needs a blog handle first (the stable target path);
+  // offer to pick one inline if they connected a custom domain without setting one up.
+  if (!handle) {
+    return (
+      <StepTransition stepKey="proxy_setup_handle">
+        <h3 className="text-base font-bold text-gray-900 mb-1">Almost there — pick a handle</h3>
+        <p className="text-sm text-gray-500 mb-3">
+          This is your stable Peach-hosted target — <span className="font-mono">{domain}/blog</span> will proxy to it. It's not shown publicly once your domain is set up.
+        </p>
+        <input value={handleInput} onChange={(e) => setHandleInput(e.target.value)} placeholder="your-brand"
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        {handleError && <p className="text-xs text-red-600 mb-3">{handleError}</p>}
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => setStatus('verified')} className={`text-sm font-semibold text-gray-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>← Back</button>
+          <button onClick={saveHandle} disabled={!handleInput.trim() || handleSaving}
+            className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
+            {handleSaving ? 'Saving…' : 'Save & continue'}
+          </button>
+        </div>
+      </StepTransition>
+    )
+  }
+
+  const platforms = proxyPlatforms(handle, domain)
+  const active = platforms[platform]
+
+  return (
+    <StepTransition stepKey="proxy_setup">
+      <h3 className="text-base font-bold text-gray-900 mb-1">Set up the redirect</h3>
+      <p className="text-sm text-gray-500 mb-4">
+        One last step on your end: forward <span className="font-mono">{domain}/blog/*</span> to Peach. Pick your hosting platform below for the exact config.
+      </p>
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {Object.entries(platforms).map(([key, p]) => (
+          <button key={key} onClick={() => setPlatform(key)}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${btnBase} ${
+              platform === key ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`} style={btnStyle()}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-gray-500 mb-2">{active.note}</p>
+      <div className="mb-5">
+        <CodeBlock label={active.label} code={active.code} />
+      </div>
       <div className="flex gap-2 justify-end">
-        <button onClick={disconnect} disabled={busy} className="text-sm font-semibold text-gray-500 px-4 py-2 disabled:opacity-60">Cancel</button>
-        <button onClick={checkVerification} disabled={busy}
-          className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg">
-          Check verification
+        <button onClick={() => setStatus('verified')} className={`text-sm font-semibold text-gray-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>← Back</button>
+        <button onClick={onConnected} className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
+          Done →
         </button>
       </div>
-    </div>
+    </StepTransition>
   )
 }
 
