@@ -10,6 +10,9 @@
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index" }
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/blog", "destination": "https://www.gotopeach.com/blog/peach" },
+    { "source": "/blog/:slug", "destination": "https://www.gotopeach.com/blog/peach/:slug" },
+    { "source": "/blog/:path*", "destination": "/api/index" }
   ]
 }

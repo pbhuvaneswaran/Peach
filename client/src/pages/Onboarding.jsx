@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { resolvePostAuthRedirect } from '../lib/postAuthIntent'
+import { btnBase, btnStyle } from '../lib/motion'
 
 const INDUSTRIES = [
   'SaaS / Software',
@@ -159,7 +160,8 @@ export default function Onboarding() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors mt-2"
+            className={`w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors mt-2 ${btnBase}`}
+            style={btnStyle()}
           >
             {saving ? 'Saving…' : 'Continue to Peach →'}
           </button>

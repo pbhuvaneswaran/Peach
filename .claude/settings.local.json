@@ -11,7 +11,9 @@
       "Bash(curl -s http://localhost:3001/api/health)",
       "Bash(python3 -m json.tool)",
       "Bash(curl -s http://localhost:3001/api/runs)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} runs found'\\); print\\(d[0].keys\\(\\) if d else 'none'\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} runs found'\\); print\\(d[0].keys\\(\\) if d else 'none'\\)\")",
+      "Bash(npx eslint *)",
+      "Bash(timeout 90 npx vite build)"
     ]
   }
 }

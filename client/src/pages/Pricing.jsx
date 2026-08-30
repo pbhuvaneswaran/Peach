@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ALL_PLATFORMS, PlatformChip, PlatformRow } from '../components/llmPlatforms'
 import { useAuth } from '../context/AuthContext'
 import { setPostAuthIntent } from '../lib/postAuthIntent'
+import { btnBase, btnStyle } from '../lib/motion'
 
 function Check() {
   return (
@@ -110,7 +111,7 @@ const FAQS = [
 function FAQItem({ item, open, onToggle }) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-lg">
-      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#EFF6FF] transition-colors">
+      <button onClick={onToggle} className={`w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#EFF6FF] transition-colors ${btnBase}`} style={btnStyle()}>
         <span className="font-semibold text-[#172554] text-[15px]">{item.q}</span>
         <span className="w-6 h-6 flex items-center justify-center text-[#2563EB] text-lg flex-shrink-0">{open ? '−' : '+'}</span>
       </button>
@@ -131,7 +132,7 @@ function PlanCard({ plan, annual, expanded, onToggleExpand, onCta, checkingOut }
   const soonFeatures = plan.soon || []
 
   return (
-    <div className={`relative rounded-[20px] p-8 flex flex-col bg-white border transition-all ${
+    <div className={`relative rounded-[20px] p-8 flex flex-col bg-white border transition-[background-color,border-color,box-shadow] duration-200 ${
       highlighted ? 'border-[#2563EB] bg-[#EFF6FF] shadow-md' : 'border-[#BFDBFE] shadow-sm'
     }`}>
       {highlighted && (
@@ -175,7 +176,7 @@ function PlanCard({ plan, annual, expanded, onToggleExpand, onCta, checkingOut }
           ))}
         </ul>
         {hasMore && (
-          <button onClick={onToggleExpand} className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] mt-3">
+          <button onClick={onToggleExpand} className={`text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] mt-3 ${btnBase}`} style={btnStyle()}>
             {expanded ? 'Show fewer features ↑' : 'See all features ↓'}
           </button>
         )}
@@ -197,7 +198,8 @@ function PlanCard({ plan, annual, expanded, onToggleExpand, onCta, checkingOut }
       <button
         onClick={() => onCta && onCta(plan)}
         disabled={checkingOut}
-        className="w-full text-sm font-semibold py-3 rounded-xl transition-colors bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white"
+        className={`w-full text-sm font-semibold py-3 rounded-xl transition-colors bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white ${btnBase}`}
+        style={btnStyle()}
       >
         {checkingOut ? 'Redirecting...' : `${plan.cta} →`}
       </button>
@@ -285,13 +287,15 @@ export default function Pricing() {
         <div className="inline-flex items-center gap-1 bg-white/10 border border-white/20 rounded-xl p-1">
           <button
             onClick={() => setAnnual(false)}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${!annual ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-100'}`}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-[background-color,color,box-shadow] duration-200 ${!annual ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-100'} ${btnBase}`}
+            style={btnStyle()}
           >
             Monthly
           </button>
           <button
             onClick={() => setAnnual(true)}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 ${annual ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-100'}`}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-[background-color,color,box-shadow] duration-200 flex items-center gap-1.5 ${annual ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-100'} ${btnBase}`}
+            style={btnStyle()}
           >
             Annual
             <span className="text-[10px] font-black bg-[#DCF5E4] text-[#1B8A4A] px-1.5 py-0.5 rounded-full">Save 2 mo</span>
@@ -343,7 +347,8 @@ export default function Pricing() {
           <Link
             to="/login"
             onClick={() => localStorage.removeItem('peach_last_result')}
-            className="inline-block bg-white hover:bg-blue-50 text-blue-700 font-semibold px-8 py-3.5 rounded-xl transition-colors"
+            className={`inline-block bg-white hover:bg-blue-50 text-blue-700 font-semibold px-8 py-3.5 rounded-xl transition-colors ${btnBase}`}
+            style={btnStyle()}
           >
             Check your AI visibility →
           </Link>

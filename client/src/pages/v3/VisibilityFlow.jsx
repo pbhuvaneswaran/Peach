@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
 import { PromptRow, ActionCard, ScoreBar } from '../../components/VisibilityComponents'
 import ArticlesTab from './ArticlesTab'
+import { btnBase, btnStyle, StepTransition, Modal } from '../../lib/motion'
 
 const EXAMPLES = [
   { label: 'copilotverse.io', value: 'copilotverse.io' },
@@ -257,82 +258,81 @@ function ReportActions({ result, onReset, sidebar = false }) {
     }
   }
 
-  const EmailModal = () => (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-        <h3 className="text-base font-bold text-[#172554] mb-1">Email this report</h3>
-        <p className="text-xs text-[#667085] mb-4">We'll send a summary with your score, gaps, and recommended actions.</p>
-        <input
-          type="email"
-          value={emailAddr}
-          onChange={e => setEmailAddr(e.target.value)}
-          placeholder={user?.email || 'you@company.com'}
-          className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={handleEmailReport}
-            disabled={emailSending}
-            className="flex-1 bg-[#2563EB] text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-[#1D4ED8] disabled:opacity-60 transition-colors"
-          >
-            {emailSent ? '✓ Sent!' : emailSending ? 'Sending…' : 'Send report'}
-          </button>
-          <button onClick={() => setShowEmailModal(false)} className="text-sm text-[#667085] px-4 py-2.5 rounded-xl hover:bg-[#EFF6FF]">
-            Cancel
-          </button>
-        </div>
+  const emailModalEl = (
+    <Modal show={showEmailModal} onClose={() => setShowEmailModal(false)} panelClassName="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+      <h3 className="text-base font-bold text-[#172554] mb-1">Email this report</h3>
+      <p className="text-xs text-[#667085] mb-4">We'll send a summary with your score, gaps, and recommended actions.</p>
+      <input
+        type="email"
+        value={emailAddr}
+        onChange={e => setEmailAddr(e.target.value)}
+        placeholder={user?.email || 'you@company.com'}
+        className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={handleEmailReport}
+          disabled={emailSending}
+          className={`flex-1 bg-[#2563EB] text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-[#1D4ED8] disabled:opacity-60 transition-colors ${btnBase}`}
+          style={btnStyle()}
+        >
+          {emailSent ? '✓ Sent!' : emailSending ? 'Sending…' : 'Send report'}
+        </button>
+        <button onClick={() => setShowEmailModal(false)} className={`text-sm text-[#667085] px-4 py-2.5 rounded-xl hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>
+          Cancel
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 
   if (sidebar) {
     const sideBtn = 'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554] rounded-lg transition-colors'
     return (
       <div className="space-y-0.5 print:hidden">
-        {showEmailModal && <EmailModal />}
-        <button onClick={handleShare} className={sideBtn}>
+        {emailModalEl}
+        <button onClick={handleShare} className={`${sideBtn} ${btnBase}`} style={btnStyle()}>
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
           </svg>
           {copied ? 'Copied!' : shareError ? "Couldn't copy — try again" : 'Share report'}
         </button>
-        <button onClick={() => setShowEmailModal(true)} className={sideBtn}>
+        <button onClick={() => setShowEmailModal(true)} className={`${sideBtn} ${btnBase}`} style={btnStyle()}>
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
           Email report
         </button>
         <div ref={exportRef} className="relative">
-          <button onClick={() => setShowExportMenu(v => !v)} className={sideBtn}>
+          <button onClick={() => setShowExportMenu(v => !v)} className={`${sideBtn} ${btnBase}`} style={btnStyle()}>
             <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
             </svg>
             Export
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full left-0 mb-1 w-36 bg-white border border-[#BFDBFE] rounded-xl shadow-lg py-1.5 z-50">
+            <div className="absolute bottom-full left-0 mb-1 w-36 bg-white border border-[#BFDBFE] rounded-xl shadow-lg py-1.5 z-50 origin-bottom-left animate-scale-in-bottom">
               <button onClick={() => { downloadCSV(result); setShowExportMenu(false) }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">CSV</button>
+                className={`w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>CSV</button>
               <button onClick={() => { setShowPdfModal(true); setShowExportMenu(false) }}
-                className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">PDF</button>
+                className={`w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>PDF</button>
             </div>
           )}
         </div>
-        <button onClick={onReset} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2563EB] hover:bg-[#DBEAFE] rounded-lg transition-colors">
+        <button onClick={onReset} className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2563EB] hover:bg-[#DBEAFE] rounded-lg transition-colors ${btnBase}`} style={btnStyle()}>
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m13.657-6.657l-.707.707M7.05 16.95l-.707.707m11.314 0l-.707-.707M7.05 7.05l-.707-.707" />
           </svg>
           New report
         </button>
         {showPdfModal && (
-          <div className="absolute left-full ml-2 bottom-0 w-64 bg-white border border-[#BFDBFE] rounded-xl shadow-lg p-4 z-50">
+          <div className="absolute left-full ml-2 bottom-0 w-64 bg-white border border-[#BFDBFE] rounded-xl shadow-lg p-4 z-50 origin-bottom-left animate-scale-in-bottom">
             <p className="text-sm font-semibold text-[#172554] mb-1">Download PDF report</p>
             <p className="text-xs text-[#667085] mb-3">Sign up to download full PDF reports for your brand</p>
             <div className="flex gap-2">
-              <Link to="/pricing" className="flex-1 text-center bg-[#2563EB] text-white text-xs font-semibold px-3 py-2 rounded-lg">
+              <Link to="/pricing" className={`flex-1 text-center bg-[#2563EB] text-white text-xs font-semibold px-3 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
                 Create account
               </Link>
-              <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#EFF6FF]">
+              <button onClick={() => setShowPdfModal(false)} className={`text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>
                 Not now
               </button>
             </div>
@@ -346,14 +346,14 @@ function ReportActions({ result, onReset, sidebar = false }) {
 
   return (
     <div className="flex items-center gap-2 print:hidden">
-      {showEmailModal && <EmailModal />}
-      <button onClick={() => setShowEmailModal(true)} className={btnClass}>
+      {emailModalEl}
+      <button onClick={() => setShowEmailModal(true)} className={`${btnClass} ${btnBase}`} style={btnStyle()}>
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
         Email report
       </button>
-      <button onClick={handleShare} className={btnClass}>
+      <button onClick={handleShare} className={`${btnClass} ${btnBase}`} style={btnStyle()}>
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6a2.5 2.5 0 11.702 1.737L8.34 10.87a2.5 2.5 0 010 2.26l5.862 3.132a2.5 2.5 0 11-.702 1.737 2.5 2.5 0 01.014-.28l-5.862-3.132a2.5 2.5 0 110-3.174l5.862-3.132A2.5 2.5 0 0113.5 6z" />
         </svg>
@@ -361,7 +361,7 @@ function ReportActions({ result, onReset, sidebar = false }) {
       </button>
 
       <div ref={exportRef} className="relative">
-        <button onClick={() => setShowExportMenu(v => !v)} className={btnClass}>
+        <button onClick={() => setShowExportMenu(v => !v)} className={`${btnClass} ${btnBase}`} style={btnStyle()}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
           </svg>
@@ -371,35 +371,35 @@ function ReportActions({ result, onReset, sidebar = false }) {
           </svg>
         </button>
         {showExportMenu && (
-          <div className="absolute top-full right-0 mt-2 w-36 bg-white border border-[#BFDBFE] rounded-xl shadow-lg py-1.5 z-50">
+          <div className="absolute top-full right-0 mt-2 w-36 bg-white border border-[#BFDBFE] rounded-xl shadow-lg py-1.5 z-50 origin-top-right animate-scale-in-top">
             <button onClick={() => { downloadCSV(result); setShowExportMenu(false) }}
-              className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">CSV</button>
+              className={`w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>CSV</button>
             <button onClick={() => { setShowPdfModal(true); setShowExportMenu(false) }}
-              className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF]">PDF</button>
+              className={`w-full text-left px-3.5 py-2 text-xs font-medium text-[#172554] hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>PDF</button>
           </div>
         )}
       </div>
 
-      <button onClick={() => window.print()} className={btnClass}>
+      <button onClick={() => window.print()} className={`${btnClass} ${btnBase}`} style={btnStyle()}>
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-12 0h12v4H6v-4z" />
         </svg>
         Print
       </button>
 
-      <button onClick={onReset} className="flex items-center gap-1 text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8] ml-2">
+      <button onClick={onReset} className={`flex items-center gap-1 text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8] ml-2 ${btnBase}`} style={btnStyle()}>
         ← New report
       </button>
 
       {showPdfModal && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-[#BFDBFE] rounded-xl shadow-lg p-4 z-50">
+        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-[#BFDBFE] rounded-xl shadow-lg p-4 z-50 origin-top-right animate-scale-in-top">
           <p className="text-sm font-semibold text-[#172554] mb-1">Download PDF report</p>
           <p className="text-xs text-[#667085] mb-3">Sign up to download full PDF reports for your brand</p>
           <div className="flex gap-2">
-            <Link to="/pricing" className="flex-1 text-center bg-[#2563EB] text-white text-xs font-semibold px-3 py-2 rounded-lg">
+            <Link to="/pricing" className={`flex-1 text-center bg-[#2563EB] text-white text-xs font-semibold px-3 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
               Create account
             </Link>
-            <button onClick={() => setShowPdfModal(false)} className="text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#EFF6FF]">
+            <button onClick={() => setShowPdfModal(false)} className={`text-xs text-[#667085] px-3 py-2 rounded-lg hover:bg-[#EFF6FF] ${btnBase}`} style={btnStyle()}>
               Not now
             </button>
           </div>
@@ -578,7 +578,7 @@ function SummaryRow({ citedCount, totalPrompts, gapsCount, topCompetitor, onView
   const pct = totalPrompts > 0 ? Math.round((citedCount / totalPrompts) * 100) : 0
   return (
     <div className="grid md:grid-cols-3 gap-5 mb-14">
-      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 flex items-center justify-between transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 flex items-center justify-between transition-[border-color,box-shadow,transform] hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
         <div>
           <p className="text-[11px] font-bold text-[#667085] uppercase tracking-wide mb-2">Your AI visibility</p>
           <p className="text-3xl font-bold text-[#172554]">{citedCount} / {totalPrompts}</p>
@@ -587,7 +587,7 @@ function SummaryRow({ citedCount, totalPrompts, gapsCount, topCompetitor, onView
         <CircularProgress pct={pct} />
       </div>
 
-      <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-6 transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="bg-[#FFF1E7] border border-[#F5DCC4] rounded-2xl p-6 transition-[border-color,box-shadow,transform] hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
         <p className="text-[11px] font-bold text-[#B4632A] uppercase tracking-wide mb-2">Biggest gap</p>
         <p className="text-3xl font-bold text-[#172554]">{gapsCount}</p>
         <p className="text-sm text-[#667085] mt-1 mb-3">high-intent prompt{gapsCount === 1 ? '' : 's'} where competitors were cited instead</p>
@@ -596,7 +596,7 @@ function SummaryRow({ citedCount, totalPrompts, gapsCount, topCompetitor, onView
         )}
       </div>
 
-      <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-6 transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="bg-[#DBEAFE] border border-[#DCD1F7] rounded-2xl p-6 transition-[border-color,box-shadow,transform] hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
         <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wide mb-2">Top competitor</p>
         <div className="flex items-center gap-3 mb-1">
           <div className="w-9 h-9 rounded-full bg-white border border-[#DCD1F7] flex items-center justify-center text-sm font-bold text-[#2563EB] flex-shrink-0">
@@ -691,7 +691,7 @@ function ActionPanel({ item, action, onViewActionPlan }) {
         <p className="text-sm text-[#172554] font-medium">"{item.prompt}"</p>
       </div>
       <button onClick={onViewActionPlan}
-        className="inline-flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-3 rounded-xl transition-colors text-sm">
+        className={`inline-flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-3 rounded-xl transition-colors text-sm ${btnBase}`} style={btnStyle()}>
         View full action plan →
       </button>
     </div>
@@ -706,7 +706,7 @@ function CompetitorInsightCard({ comp, result, onComparePositioning }) {
   const tags = ['Marketplace', 'Quick hiring', 'Specialist services', 'Freelancers'].slice(0, 4)
 
   return (
-    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 transition-all hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="bg-white border border-[#BFDBFE] rounded-2xl p-6 transition-[border-color,box-shadow,transform] hover:border-[#2563EB]/40 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[#DBEAFE] rounded-full flex items-center justify-center text-sm font-bold text-[#2563EB]">
@@ -753,7 +753,7 @@ function NextBestMove({ item, onGenerateBrief }) {
         Your highest-impact opportunity is content that directly answers "{item.prompt}" — the exact language AI is already using to cite competitors instead of you.
       </p>
       <button onClick={onGenerateBrief}
-        className="inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
+        className={`inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3 ${btnBase}`} style={btnStyle()}>
         Generate content brief →
       </button>
       <p className="text-xs text-[#667085]">Based on live AI answers and competitor citations.</p>
@@ -1165,7 +1165,7 @@ function CompetitorPresenceMap({ brand, compData, total, onCompetitorClick }) {
                     style={{ width: size, height: size }}>
                     {comp.count} / {total}
                     {hovered === comp.name && (
-                      <div className="absolute bottom-full mb-2 w-44 bg-[#172554] text-white text-[11px] rounded-lg px-3 py-2 leading-relaxed z-20 text-left">
+                      <div className="absolute bottom-full mb-2 w-44 bg-[#172554] text-white text-[11px] rounded-lg px-3 py-2 leading-relaxed z-20 text-left animate-scale-in-bottom">
                         <p className="font-semibold mb-0.5">{comp.name}</p>
                         <p className="text-white/80">{comp.count} of {total} questions</p>
                         {comp.prompts.slice(0, 2).map(p => <p key={p} className="text-white/70 truncate mt-0.5">"{p}"</p>)}
@@ -1186,7 +1186,7 @@ function CompetitorPresenceMap({ brand, compData, total, onCompetitorClick }) {
           <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-3">Competitor mentions</p>
           <div className="space-y-2">
             {compData.map(comp => (
-              <div key={comp.name} className={`rounded-xl p-4 transition-all ${comp.name === topName ? 'bg-[#FFF1E7] border border-[#F5DCC4]' : 'border border-[#BFDBFE] hover:border-[#DCD1F7]'}`}>
+              <div key={comp.name} className={`rounded-xl p-4 transition-[background-color,border-color] ${comp.name === topName ? 'bg-[#FFF1E7] border border-[#F5DCC4]' : 'border border-[#BFDBFE] hover:border-[#DCD1F7]'}`}>
                 <div className="flex items-center justify-between gap-3">
                   <button onClick={() => onCompetitorClick(comp.name)} className="font-semibold text-[#172554] hover:text-[#2563EB] transition-colors text-left">
                     {comp.name}
@@ -1221,7 +1221,7 @@ function HighestPriorityOpportunity({ topCompetitor, brand, llmsQueried, onSeeHo
         AI cited {topCompetitor.name} because it is strongly associated with the buyer questions above. Build content that connects {brand} to that same need.
       </p>
       <button onClick={onSeeHowToGetCited}
-        className="inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
+        className={`inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3 ${btnBase}`} style={btnStyle()}>
         See how to get cited →
       </button>
       <p className="text-xs text-[#667085]">Based on live AI answers across {engineNames}.</p>
@@ -1577,7 +1577,7 @@ function WhatToFixFirst({ brand, onBuildActionPlan }) {
         ))}
       </ul>
       <button onClick={onBuildActionPlan}
-        className="inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3">
+        className={`inline-flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm mb-3 ${btnBase}`} style={btnStyle()}>
         Build my AI visibility action plan →
       </button>
       <p className="text-xs text-[#667085]">Based on your site content, crawler access, and live AI-answer patterns.</p>
@@ -1590,129 +1590,123 @@ function WhatToFixFirst({ brand, onBuildActionPlan }) {
 const LS_CUSTOM_PROMPTS = 'peach_custom_prompts'
 const LS_BRAND_KEYWORDS = 'peach_brand_keywords'
 
-function AddPromptModal({ onClose, onSave }) {
+function AddPromptModal({ show, onClose, onSave }) {
   const [text, setText] = useState('')
   const [intent, setIntent] = useState('Other')
   const [priority, setPriority] = useState('Medium')
   const [persona, setPersona] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-[#172554]">Add prompt</h3>
-          <button onClick={onClose} className="text-[#667085] hover:text-[#172554]">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
+    <Modal show={show} onClose={onClose} panelClassName="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-lg font-bold text-[#172554]">Add prompt</h3>
+        <button onClick={onClose} className={`text-[#667085] hover:text-[#172554] ${btnBase}`} style={btnStyle()}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p className="text-sm text-[#667085] mb-5">Save a buyer question you already know you want to track.</p>
+      <label className="block text-sm font-semibold text-[#172554] mb-1.5">Prompt</label>
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={4}
+        placeholder="What is the best AI SEO platform for agencies?"
+        className="w-full border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] resize-none mb-4" />
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-semibold text-[#172554] mb-1.5">Intent</label>
+          <select value={intent} onChange={e => setIntent(e.target.value)}
+            className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
+            {['Awareness','Consideration','Decision','Other'].map(o => <option key={o}>{o}</option>)}
+          </select>
         </div>
-        <p className="text-sm text-[#667085] mb-5">Save a buyer question you already know you want to track.</p>
-        <label className="block text-sm font-semibold text-[#172554] mb-1.5">Prompt</label>
-        <textarea value={text} onChange={e => setText(e.target.value)} rows={4}
-          placeholder="What is the best AI SEO platform for agencies?"
-          className="w-full border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] resize-none mb-4" />
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-semibold text-[#172554] mb-1.5">Intent</label>
-            <select value={intent} onChange={e => setIntent(e.target.value)}
-              className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
-              {['Awareness','Consideration','Decision','Other'].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-[#172554] mb-1.5">Priority</label>
-            <select value={priority} onChange={e => setPriority(e.target.value)}
-              className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
-              {['High','Medium','Low'].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="mb-6">
-          <label className="block text-sm font-semibold text-[#172554] mb-1.5">Persona</label>
-          <input value={persona} onChange={e => setPersona(e.target.value)} placeholder="agency owner"
-            className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
-        </div>
-        <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-gray-50">Cancel</button>
-          <button disabled={!text.trim()} onClick={() => { onSave({ text: text.trim(), intent, priority, persona, custom: true }); onClose() }}
-            className="px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8] disabled:opacity-40">Save prompt</button>
+        <div>
+          <label className="block text-sm font-semibold text-[#172554] mb-1.5">Priority</label>
+          <select value={priority} onChange={e => setPriority(e.target.value)}
+            className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
+            {['High','Medium','Low'].map(o => <option key={o}>{o}</option>)}
+          </select>
         </div>
       </div>
-    </div>
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-[#172554] mb-1.5">Persona</label>
+        <input value={persona} onChange={e => setPersona(e.target.value)} placeholder="agency owner"
+          className="w-full border border-[#BFDBFE] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]" />
+      </div>
+      <div className="flex justify-end gap-3">
+        <button onClick={onClose} className={`px-4 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-gray-50 ${btnBase}`} style={btnStyle()}>Cancel</button>
+        <button disabled={!text.trim()} onClick={() => { onSave({ text: text.trim(), intent, priority, persona, custom: true }); onClose() }}
+          className={`px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8] disabled:opacity-40 ${btnBase}`} style={btnStyle()}>Save prompt</button>
+      </div>
+    </Modal>
   )
 }
 
-function GeneratePromptsModal({ existing, onClose, onSave }) {
+function GeneratePromptsModal({ show, existing, onClose, onSave }) {
   const [batch, setBatch] = useState(10)
   const suggestions = existing.slice(0, batch)
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-[#172554]">Generate prompts</h3>
-          <button onClick={onClose} className="text-[#667085] hover:text-[#172554]">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <p className="text-sm text-[#667085] mb-5">Choose how many buyer questions to draft. You can review, remove, or skip any prompt before saving.</p>
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-semibold text-[#172554]">Batch size</label>
-            <span className="text-sm font-bold text-[#172554] border border-[#BFDBFE] rounded-lg px-3 py-1">{batch}</span>
-          </div>
-          <div className="flex gap-3 mb-3">
-            {[5, 8, existing.length || 10].map(n => (
-              <button key={n} onClick={() => setBatch(n)}
-                className={`flex-1 py-2 rounded-xl border text-sm font-semibold transition-colors ${batch === n ? 'border-[#172554] bg-[#172554] text-white' : 'border-[#BFDBFE] text-[#667085] hover:border-[#172554]'}`}>
-                {batch === n && '✓ '}{n}
-              </button>
-            ))}
-          </div>
-          <input type="range" min={1} max={existing.length || 10} value={batch} onChange={e => setBatch(Number(e.target.value))}
-            className="w-full accent-[#172554]" />
-          <div className="flex justify-between text-xs text-[#667085] mt-1"><span>1</span><span>{existing.length || 10}</span></div>
-        </div>
-        <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-gray-50">Cancel</button>
-          <button onClick={() => {
-            suggestions.forEach(p => onSave({ text: p, intent: 'Other', priority: 'Medium', persona: '', custom: true }))
-            onClose()
-          }} className="px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8]">
-            Generate {batch} prompt{batch !== 1 ? 's' : ''}
-          </button>
-        </div>
+    <Modal show={show} onClose={onClose} panelClassName="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-lg font-bold text-[#172554]">Generate prompts</h3>
+        <button onClick={onClose} className={`text-[#667085] hover:text-[#172554] ${btnBase}`} style={btnStyle()}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
       </div>
-    </div>
+      <p className="text-sm text-[#667085] mb-5">Choose how many buyer questions to draft. You can review, remove, or skip any prompt before saving.</p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-sm font-semibold text-[#172554]">Batch size</label>
+          <span className="text-sm font-bold text-[#172554] border border-[#BFDBFE] rounded-lg px-3 py-1">{batch}</span>
+        </div>
+        <div className="flex gap-3 mb-3">
+          {[5, 8, existing.length || 10].map(n => (
+            <button key={n} onClick={() => setBatch(n)}
+              className={`flex-1 py-2 rounded-xl border text-sm font-semibold transition-colors ${btnBase} ${batch === n ? 'border-[#172554] bg-[#172554] text-white' : 'border-[#BFDBFE] text-[#667085] hover:border-[#172554]'}`} style={btnStyle()}>
+              {batch === n && '✓ '}{n}
+            </button>
+          ))}
+        </div>
+        <input type="range" min={1} max={existing.length || 10} value={batch} onChange={e => setBatch(Number(e.target.value))}
+          className="w-full accent-[#172554]" />
+        <div className="flex justify-between text-xs text-[#667085] mt-1"><span>1</span><span>{existing.length || 10}</span></div>
+      </div>
+      <div className="flex justify-end gap-3">
+        <button onClick={onClose} className={`px-4 py-2 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-gray-50 ${btnBase}`} style={btnStyle()}>Cancel</button>
+        <button onClick={() => {
+          suggestions.forEach(p => onSave({ text: p, intent: 'Other', priority: 'Medium', persona: '', custom: true }))
+          onClose()
+        }} className={`px-4 py-2 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8] ${btnBase}`} style={btnStyle()}>
+          Generate {batch} prompt{batch !== 1 ? 's' : ''}
+        </button>
+      </div>
+    </Modal>
   )
 }
 
 // ─── Run Confirm Modal ────────────────────────────────────────────────────────
 
-function RunConfirmModal({ promptCount, llmsQueried, onConfirm, onClose }) {
+function RunConfirmModal({ show, promptCount, llmsQueried, onConfirm, onClose }) {
   const llmCount = llmsQueried.length
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#BFDBFE]">
-          <h3 className="text-base font-bold text-[#172554]">Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now?</h3>
-          <button onClick={onClose} className="text-[#9CA3B8] hover:text-[#172554]">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div className="px-6 py-5 space-y-3 text-sm text-[#4B5563]">
-          <p>Run now checks {promptCount === 1 ? 'this prompt' : 'these prompts'} across {llmCount} AI platform{llmCount !== 1 ? 's' : ''} and will use {promptCount * llmCount} AI checks.</p>
-          <p className="font-semibold text-[#172554]">{promptCount * llmCount} AI check{promptCount * llmCount !== 1 ? 's' : ''} will be used.</p>
-        </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#BFDBFE] bg-[#FAFAFA]">
-          <button onClick={onClose}
-            className="px-4 py-2.5 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-white">
-            Cancel
-          </button>
-          <button onClick={onConfirm}
-            className="px-4 py-2.5 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8]">
-            Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now
-          </button>
-        </div>
+    <Modal show={show} onClose={onClose} panelClassName="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#BFDBFE]">
+        <h3 className="text-base font-bold text-[#172554]">Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now?</h3>
+        <button onClick={onClose} className={`text-[#9CA3B8] hover:text-[#172554] ${btnBase}`} style={btnStyle()}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
       </div>
-    </div>
+      <div className="px-6 py-5 space-y-3 text-sm text-[#4B5563]">
+        <p>Run now checks {promptCount === 1 ? 'this prompt' : 'these prompts'} across {llmCount} AI platform{llmCount !== 1 ? 's' : ''} and will use {promptCount * llmCount} AI checks.</p>
+        <p className="font-semibold text-[#172554]">{promptCount * llmCount} AI check{promptCount * llmCount !== 1 ? 's' : ''} will be used.</p>
+      </div>
+      <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#BFDBFE] bg-[#FAFAFA]">
+        <button onClick={onClose}
+          className={`px-4 py-2.5 text-sm font-semibold border border-[#BFDBFE] rounded-xl hover:bg-white ${btnBase}`} style={btnStyle()}>
+          Cancel
+        </button>
+        <button onClick={onConfirm}
+          className={`px-4 py-2.5 text-sm font-semibold bg-[#2563EB] text-white rounded-xl hover:bg-[#1D4ED8] ${btnBase}`} style={btnStyle()}>
+          Run {promptCount} prompt{promptCount !== 1 ? 's' : ''} now
+        </button>
+      </div>
+    </Modal>
   )
 }
 
@@ -1889,16 +1883,15 @@ function PromptsTab({ result }) {
 
   return (
     <div>
-      {showAdd && <AddPromptModal onClose={() => setShowAdd(false)} onSave={saveCustom} />}
-      {showGenerate && <GeneratePromptsModal existing={result.prompts || []} onClose={() => setShowGenerate(false)} onSave={saveCustom} />}
-      {runConfirmPrompts && (
-        <RunConfirmModal
-          promptCount={runConfirmPrompts.length}
-          llmsQueried={result.llmsQueried || ['chatgpt', 'gemini']}
-          onClose={() => setRunConfirmPrompts(null)}
-          onConfirm={() => startRun(runConfirmPrompts)}
-        />
-      )}
+      <AddPromptModal show={showAdd} onClose={() => setShowAdd(false)} onSave={saveCustom} />
+      <GeneratePromptsModal show={showGenerate} existing={result.prompts || []} onClose={() => setShowGenerate(false)} onSave={saveCustom} />
+      <RunConfirmModal
+        show={!!runConfirmPrompts}
+        promptCount={(runConfirmPrompts || []).length}
+        llmsQueried={result.llmsQueried || ['chatgpt', 'gemini']}
+        onClose={() => setRunConfirmPrompts(null)}
+        onConfirm={() => startRun(runConfirmPrompts)}
+      />
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
@@ -2728,7 +2721,6 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
   const [articleId, setArticleId] = useState(null)
   const [genError, setGenError] = useState('')
 
-  if (!open) return null
   const blogs = action?.blogs || []
 
   const handleClose = () => {
@@ -2789,10 +2781,10 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
     }
   }
 
-  if (phase === 'article') {
-    return (
+  return (
+    <>
       <ArticleEditorPanel
-        open
+        open={open && phase === 'article'}
         onClose={handleClose}
         articleId={articleId}
         title={selectedBlog?.title}
@@ -2800,107 +2792,105 @@ function ContentBriefModal({ open, onClose, featured, action, result }) {
         initialMarkdown={markdown}
         initialQuality={quality}
       />
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 bg-[#172554]/40 z-50 flex items-center justify-center p-4" onClick={handleClose}>
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-[#F0EBF8] shrink-0">
-          <div className="flex items-center gap-3">
-            {phase === 'brief' && (
-              <button onClick={() => { setPhase('topics'); setSelectedBlog(null) }} className="text-[#667085] hover:text-[#172554] text-sm">← Topics</button>
-            )}
-            <h3 className="text-lg font-bold text-[#172554]">
-              {phase === 'topics' ? 'Choose a topic' : 'Content brief'}
-            </h3>
-          </div>
-          <button onClick={handleClose} className="text-[#667085] hover:text-[#172554]">✕</button>
-        </div>
-
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-7 py-5">
-          {phase === 'generating' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <div className="w-10 h-10 border-4 border-[#BFDBFE] border-t-[#2563EB] rounded-full animate-spin" />
-              <p className="text-sm text-[#667085]">Writing your article with GPT-4o…</p>
-              <p className="text-xs text-[#94A3B8]">Takes about 20–30 seconds</p>
-            </div>
-          )}
-
-          {phase === 'topics' && (
-            <>
-              <p className="text-sm text-[#667085] mb-5">
-                Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span>
-              </p>
-              {blogs.length > 0 ? (
-                <div className="space-y-3">
-                  {blogs.map((blog, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSelectTopic(blog)}
-                      className="w-full text-left bg-[#F8FAFF] border border-[#BFDBFE] hover:border-[#2563EB] hover:bg-[#EFF6FF] rounded-xl p-4 transition-all group"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[10px] font-bold text-[#2563EB] uppercase tracking-widest mb-1">Topic {i + 1}</p>
-                          <p className="text-sm font-semibold text-[#172554] leading-snug">{blog.title}</p>
-                          {blog.h1 && blog.h1 !== blog.title && (
-                            <p className="text-xs text-[#667085] mt-1">H1: {blog.h1}</p>
-                          )}
-                          <p className="text-xs text-[#94A3B8] mt-2">{(blog.outline || []).length} sections · click to see outline</p>
-                        </div>
-                        <span className="text-[#2563EB] text-lg group-hover:translate-x-1 transition-transform shrink-0">→</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-[#667085]">No topics available for this prompt yet.</p>
+      <Modal show={open && phase !== 'article'} onClose={handleClose} panelClassName="bg-white rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col">
+        <StepTransition stepKey={phase} className="flex flex-col min-h-0 flex-1">
+          {/* Header */}
+          <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-[#F0EBF8] shrink-0">
+            <div className="flex items-center gap-3">
+              {phase === 'brief' && (
+                <button onClick={() => { setPhase('topics'); setSelectedBlog(null) }} className={`text-[#667085] hover:text-[#172554] text-sm ${btnBase}`} style={btnStyle()}>← Topics</button>
               )}
-            </>
-          )}
+              <h3 className="text-lg font-bold text-[#172554]">
+                {phase === 'topics' ? 'Choose a topic' : 'Content brief'}
+              </h3>
+            </div>
+            <button onClick={handleClose} className={`text-[#667085] hover:text-[#172554] ${btnBase}`} style={btnStyle()}>✕</button>
+          </div>
 
-          {phase === 'brief' && (
-            <>
-              <p className="text-sm text-[#667085] mb-5">Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span></p>
-              {selectedBlog ? (
-                <>
-                  <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Suggested title</p>
-                  <p className="text-sm font-semibold text-[#172554] mb-5">{selectedBlog.title}</p>
-                  <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Outline</p>
-                  <div className="space-y-3 mb-6">
-                    {(selectedBlog.outline || []).map((section, i) => (
-                      <div key={i}>
-                        <p className="text-sm font-semibold text-[#172554]">{section.h2}</p>
-                        {(section.h3s || []).map((h3, hi) => (
-                          <p key={hi} className="text-xs text-[#667085] ml-3 mt-0.5">— {h3}</p>
-                        ))}
-                      </div>
+          {/* Body */}
+          <div className="overflow-y-auto flex-1 px-7 py-5">
+            {phase === 'generating' && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <div className="w-10 h-10 border-4 border-[#BFDBFE] border-t-[#2563EB] rounded-full animate-spin" />
+                <p className="text-sm text-[#667085]">Writing your article with GPT-4o…</p>
+                <p className="text-xs text-[#94A3B8]">Takes about 20–30 seconds</p>
+              </div>
+            )}
+
+            {phase === 'topics' && (
+              <>
+                <p className="text-sm text-[#667085] mb-5">
+                  Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span>
+                </p>
+                {blogs.length > 0 ? (
+                  <div className="space-y-3">
+                    {blogs.map((blog, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSelectTopic(blog)}
+                        style={{ animationDelay: `${i * 50}ms`, ...btnStyle() }}
+                        className={`w-full text-left bg-[#F8FAFF] border border-[#BFDBFE] hover:border-[#2563EB] hover:bg-[#EFF6FF] rounded-xl p-4 transition-[background-color,border-color] group animate-fade-in-up ${btnBase}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-[#2563EB] uppercase tracking-widest mb-1">Topic {i + 1}</p>
+                            <p className="text-sm font-semibold text-[#172554] leading-snug">{blog.title}</p>
+                            {blog.h1 && blog.h1 !== blog.title && (
+                              <p className="text-xs text-[#667085] mt-1">H1: {blog.h1}</p>
+                            )}
+                            <p className="text-xs text-[#94A3B8] mt-2">{(blog.outline || []).length} sections · click to see outline</p>
+                          </div>
+                          <span className="text-[#2563EB] text-lg group-hover:translate-x-1 transition-transform shrink-0">→</span>
+                        </div>
+                      </button>
                     ))}
                   </div>
-                  {genError && (
-                    <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 mb-4">
-                      <p className="text-xs text-red-600">{genError}</p>
+                ) : (
+                  <p className="text-sm text-[#667085]">No topics available for this prompt yet.</p>
+                )}
+              </>
+            )}
+
+            {phase === 'brief' && (
+              <>
+                <p className="text-sm text-[#667085] mb-5">Target query: <span className="font-medium text-[#172554]">"{featured?.prompt}"</span></p>
+                {selectedBlog ? (
+                  <>
+                    <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-1">Suggested title</p>
+                    <p className="text-sm font-semibold text-[#172554] mb-5">{selectedBlog.title}</p>
+                    <p className="text-xs font-bold text-[#667085] uppercase tracking-wide mb-2">Outline</p>
+                    <div className="space-y-3 mb-6">
+                      {(selectedBlog.outline || []).map((section, i) => (
+                        <div key={i}>
+                          <p className="text-sm font-semibold text-[#172554]">{section.h2}</p>
+                          {(section.h3s || []).map((h3, hi) => (
+                            <p key={hi} className="text-xs text-[#667085] ml-3 mt-0.5">— {h3}</p>
+                          ))}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  <button
-                    onClick={handleGenerate}
-                    className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-                  >
-                    Write full article with AI →
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-[#667085]">No outline available for this prompt yet.</p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+                    {genError && (
+                      <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 mb-4">
+                        <p className="text-xs text-red-600">{genError}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleGenerate}
+                      className={`w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold py-3 rounded-xl transition-colors text-sm ${btnBase}`}
+                      style={btnStyle()}
+                    >
+                      Write full article with AI →
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-sm text-[#667085]">No outline available for this prompt yet.</p>
+                )}
+              </>
+            )}
+          </div>
+        </StepTransition>
+      </Modal>
+    </>
   )
 }
 
@@ -2910,7 +2900,7 @@ function StickyActionFooter({ visible, onGenerateBrief }) {
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#BFDBFE] shadow-[0_-4px_16px_rgba(20,24,43,0.06)] z-40 print:hidden">
       <div className="max-w-[1180px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
         <p className="text-sm font-medium text-[#172554]">Next step: Create your content brief</p>
-        <button onClick={onGenerateBrief} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-2 rounded-xl text-sm flex-shrink-0">
+        <button onClick={onGenerateBrief} className={`bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold px-5 py-2 rounded-xl text-sm flex-shrink-0 ${btnBase}`} style={btnStyle()}>
           Generate brief →
         </button>
       </div>
@@ -3027,7 +3017,9 @@ function ActionPlanTab({ result, isGated }) {
           <p className="text-[#667085] mb-6">Every content opportunity found in this run, not just the top pick above.</p>
           <div className="space-y-4">
             {actions.map((action, i) => (
-              <ActionCard key={i} action={action} index={i} />
+              <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
+                <ActionCard action={action} index={i} />
+              </div>
             ))}
           </div>
         </div>
@@ -3179,7 +3171,7 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
           {OUTPUT_TABS.map(tab => (
             <div key={tab}>
               <button onClick={() => setActiveTab(tab)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-[background-color,color] ${
                   activeTab === tab
                     ? 'bg-[#DBEAFE] text-[#2563EB]'
                     : 'text-[#667085] hover:bg-[#EFF6FF] hover:text-[#172554]'
@@ -3230,7 +3222,7 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
                   activeTab === tab ? 'text-[#2563EB]' : 'text-[#667085]'
                 }`}>
                 {tab}
-                {activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#2563EB] rounded-full" />}
+                {activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#2563EB] rounded-full animate-underline-in" />}
               </button>
             ))}
           </div>
@@ -3238,6 +3230,7 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
 
         {/* Tab content */}
         <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-16">
+        <StepTransition stepKey={activeTab}>
           {activeTab === 'Overview' && (
             <OverviewTab
               result={result}
@@ -3281,6 +3274,7 @@ function UrlModeResult({ result, resultTime, onReset, onUpdateResult }) {
               <SiteAuditTab result={result} onBuildActionPlan={() => setActiveTab('Growth Actions')} />
             </GatedTabWrapper>
           )}
+        </StepTransition>
         </div>
       </div>
     </div>
@@ -3429,30 +3423,28 @@ export default function V3VisibilityFlow() {
     )
   }
 
-  const UpgradeModal = () => (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl">
-        <div className="text-2xl mb-3">🍑</div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">You've used your free check</h3>
-        <p className="text-sm text-gray-500 mb-5">
-          Upgrade to Starter ($89/mo) to run unlimited checks, track your progress, and get full competitor breakdowns.
-        </p>
-        <div className="flex gap-3">
-          <Link to="/pricing" className="flex-1 text-center bg-blue-600 text-white font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors">
-            See plans →
-          </Link>
-          <button onClick={() => setShowUpgradeModal(false)} className="text-sm text-gray-400 px-4 py-2.5 rounded-xl hover:bg-gray-50 border border-gray-200">
-            Not now
-          </button>
-        </div>
+  const upgradeModalEl = (
+    <Modal show={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} panelClassName="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl">
+      <div className="text-2xl mb-3">🍑</div>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">You've used your free check</h3>
+      <p className="text-sm text-gray-500 mb-5">
+        Upgrade to Starter ($89/mo) to run unlimited checks, track your progress, and get full competitor breakdowns.
+      </p>
+      <div className="flex gap-3">
+        <Link to="/pricing" className={`flex-1 text-center bg-blue-600 text-white font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors ${btnBase}`} style={btnStyle()}>
+          See plans →
+        </Link>
+        <button onClick={() => setShowUpgradeModal(false)} className={`text-sm text-gray-400 px-4 py-2.5 rounded-xl hover:bg-gray-50 border border-gray-200 ${btnBase}`} style={btnStyle()}>
+          Not now
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 
   if (result) {
     return (
       <div className="min-h-screen bg-[#FCFAF6]">
-        {showUpgradeModal && <UpgradeModal />}
+        {upgradeModalEl}
         <UrlModeResult
           result={result}
           resultTime={resultTime}
@@ -3469,7 +3461,7 @@ export default function V3VisibilityFlow() {
   if (savedWebsites.length > 0 && !showNewAnalysisForm) {
     return (
       <div className="min-h-screen bg-gray-50">
-        {showUpgradeModal && <UpgradeModal />}
+        {upgradeModalEl}
         <div className="max-w-2xl mx-auto px-6 py-20">
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-900 mb-3">Your websites</h1>
@@ -3512,7 +3504,7 @@ export default function V3VisibilityFlow() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {showUpgradeModal && <UpgradeModal />}
+      {upgradeModalEl}
       <div className="max-w-2xl mx-auto px-6 py-20">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">

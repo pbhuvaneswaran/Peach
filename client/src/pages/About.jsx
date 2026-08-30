@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { btnBase, btnStyle } from '../lib/motion'
 
 export default function About() {
   return (
@@ -56,7 +57,7 @@ export default function About() {
           <h2 className="text-xl font-bold text-gray-900 mb-3">Questions? Feedback?</h2>
           <p className="text-gray-500 text-sm mb-5">I read every message. Especially if you've found something broken or something missing.</p>
           <a href="mailto:hello@visibility.ai"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
+            className={`bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm ${btnBase}`} style={btnStyle()}>
             Email me →
           </a>
         </div>

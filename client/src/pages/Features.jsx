@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect } from 'react'
+import { btnBase, btnStyle } from '../lib/motion'
 
 const COMING_SOON = [
   {
@@ -166,7 +167,8 @@ export default function Features() {
           <Link
             to="/app"
             onClick={() => localStorage.removeItem('peach_last_result')}
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
+            className={`inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl transition-colors ${btnBase}`}
+            style={btnStyle()}
           >
             Try it free — no card needed
           </Link>

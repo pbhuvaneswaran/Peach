@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { ArticleExportBar } from './ArticleExportBar'
 import { EditorToolbar } from './EditorToolbar'
+import { btnBase, btnStyle } from '../lib/motion'
 
 const QUALITY_LABELS = {
   wordCountOk: 'Word count',
@@ -56,6 +57,7 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
   const [markdown, setMarkdown] = useState(initialMarkdown || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [publishVisible, setPublishVisible] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -97,6 +99,13 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
     }
   }
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- two-paint mount/reveal trick for the entrance transition
+    if (!publishOpen) { setPublishVisible(false); return }
+    const raf = requestAnimationFrame(() => setPublishVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [publishOpen])
+
   if (!editor) return null
 
   return (
@@ -104,11 +113,11 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           <button onClick={() => setMode('preview')}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${mode === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${mode === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'} ${btnBase}`} style={btnStyle()}>
             Preview
           </button>
           <button onClick={() => setMode('edit')}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${mode === 'edit' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${mode === 'edit' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'} ${btnBase}`} style={btnStyle()}>
             Edit
           </button>
         </div>
@@ -118,7 +127,8 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
             <button
               onClick={handleSave}
               disabled={saving}
-              className="text-xs font-semibold border border-gray-300 hover:bg-gray-50 disabled:opacity-60 px-4 py-1.5 rounded-lg transition-colors"
+              className={`text-xs font-semibold border border-gray-300 hover:bg-gray-50 disabled:opacity-60 px-4 py-1.5 rounded-lg transition-colors ${btnBase}`}
+              style={btnStyle()}
             >
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
             </button>
@@ -126,12 +136,20 @@ export function ArticleEditor({ articleId, title, initialHtml, initialMarkdown, 
           <div className="relative">
             <button
               onClick={() => setPublishOpen(v => !v)}
-              className="text-xs font-semibold bg-gradient-to-r from-[#2563EB] to-cyan-500 hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-opacity"
+              className={`text-xs font-semibold bg-gradient-to-r from-[#2563EB] to-cyan-500 hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-opacity ${btnBase}`}
+              style={btnStyle()}
             >
               Publish ▾
             </button>
             {publishOpen && (
-              <div className="absolute right-0 mt-2 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-80">
+              <div
+                className="absolute right-0 mt-2 z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-80 origin-top-right transition-[opacity,transform] duration-150"
+                style={{
+                  transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+                  opacity: publishVisible ? 1 : 0,
+                  transform: publishVisible ? 'scale(1)' : 'scale(0.95)',
+                }}
+              >
                 <ArticleExportBar markdown={markdown} title={title} articleId={articleId} onPublished={() => setPublishOpen(false)} />
               </div>
             )}

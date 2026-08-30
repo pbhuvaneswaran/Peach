@@ -2,12 +2,21 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import PeachLogo from './PeachLogo'
+import { btnBase, btnStyle } from '../lib/motion'
 
 export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileVisible, setMobileVisible] = useState(false)
   const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- two-paint mount/reveal trick for the entrance transition
+    if (!mobileOpen) { setMobileVisible(false); return }
+    const raf = requestAnimationFrame(() => setMobileVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [mobileOpen])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null))
@@ -49,20 +58,20 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
               <span className="text-base text-blue-200 max-w-[140px] truncate">{user.email}</span>
               <button onClick={handleSignOut}
-                className="text-base text-blue-200 hover:text-white transition-colors px-3 py-1.5">
+                className={`text-base text-blue-200 hover:text-white transition-colors px-3 py-1.5 ${btnBase}`} style={btnStyle()}>
                 Sign out
               </button>
             </div>
           ) : (
             <Link to="/login"
-              className="text-base font-medium text-white border border-white/25 px-6 py-2.5 rounded-full hover:bg-white/10 transition-colors">
+              className={`text-base font-medium text-white border border-white/25 px-6 py-2.5 rounded-full hover:bg-white/10 transition-colors ${btnBase}`} style={btnStyle()}>
               Sign in
             </Link>
           )}
         </div>
 
         {/* Mobile hamburger */}
-        <button className="md:hidden p-2 text-blue-200" onClick={() => setMobileOpen(!mobileOpen)}>
+        <button className={`md:hidden p-2 text-blue-200 ${btnBase}`} style={btnStyle()} onClick={() => setMobileOpen(!mobileOpen)}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {mobileOpen
               ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
@@ -74,19 +83,26 @@ export default function Navbar() {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-blue-800 bg-blue-900 px-6 py-5 space-y-4">
-          <Link to="/features" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Features</Link>
-          <Link to="/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Pricing</Link>
-          <Link to="/blog" onClick={() => setMobileOpen(false)} className="block text-sm text-blue-100 hover:text-white">Blog</Link>
+        <div
+          className="md:hidden border-t border-blue-800 bg-blue-900 px-6 py-5 space-y-4 transition-[opacity,transform] duration-200"
+          style={{
+            transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+            opacity: mobileVisible ? 1 : 0,
+            transform: mobileVisible ? 'translateY(0)' : 'translateY(-4px)',
+          }}
+        >
+          <Link to="/features" onClick={() => setMobileOpen(false)} className={`block text-sm text-blue-100 hover:text-white ${btnBase}`} style={btnStyle()}>Features</Link>
+          <Link to="/pricing" onClick={() => setMobileOpen(false)} className={`block text-sm text-blue-100 hover:text-white ${btnBase}`} style={btnStyle()}>Pricing</Link>
+          <Link to="/blog" onClick={() => setMobileOpen(false)} className={`block text-sm text-blue-100 hover:text-white ${btnBase}`} style={btnStyle()}>Blog</Link>
           {user ? (
             <>
               <span className="block text-sm text-blue-200 truncate">{user.email}</span>
               <button onClick={() => { setMobileOpen(false); handleSignOut() }}
-                className="block text-sm text-blue-100 hover:text-white">Sign out</button>
+                className={`block text-sm text-blue-100 hover:text-white ${btnBase}`} style={btnStyle()}>Sign out</button>
             </>
           ) : (
             <Link to="/login" onClick={() => setMobileOpen(false)}
-              className="inline-block text-sm font-medium text-white border border-white/25 px-5 py-2 rounded-full">
+              className={`inline-block text-sm font-medium text-white border border-white/25 px-5 py-2 rounded-full ${btnBase}`} style={btnStyle()}>
               Sign in
             </Link>
           )}

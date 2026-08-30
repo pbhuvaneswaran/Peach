@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { resolvePostAuthRedirect } from '../lib/postAuthIntent'
+import { btnBase, btnStyle } from '../lib/motion'
 
 function GoogleIcon() {
   return (
@@ -140,7 +141,8 @@ export default function Login() {
 
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors"
+                className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors ${btnBase}`}
+                style={btnStyle()}
               >
                 Continue
               </button>
@@ -155,7 +157,8 @@ export default function Login() {
             <button
               onClick={handleGoogle}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-blue-600 rounded-xl py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-60 transition-colors"
+              className={`w-full flex items-center justify-center gap-3 bg-white border-2 border-blue-600 rounded-xl py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-60 transition-colors ${btnBase}`}
+              style={btnStyle()}
             >
               <GoogleIcon />
               Continue with Google

@@ -1,3 +1,5 @@
+import { btnBase, btnStyle } from '../lib/motion'
+
 const cases = [
   {
     title: 'B2B SaaS — Track brand visibility across AI search',
@@ -58,7 +60,7 @@ export default function UseCases() {
         <div className="bg-blue-600 rounded-2xl p-10 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">See how it works for your brand</h2>
           <p className="text-blue-200 mb-6 text-sm">Run a visibility check in under 3 minutes.</p>
-          <a href="/v2/app" className="bg-white text-blue-600 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+          <a href="/v2/app" className={`bg-white text-blue-600 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm ${btnBase}`} style={btnStyle()}>
             Try it free →
           </a>
         </div>

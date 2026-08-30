@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { btnBase, btnStyle } from '../lib/motion'
 
 function Stat({ value, label }) {
   return (
@@ -56,13 +57,15 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/app"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-base"
+            className={`bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-base ${btnBase}`}
+            style={btnStyle()}
           >
             Check my AI visibility →
           </Link>
           <Link
             to="/pricing"
-            className="bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-6 py-3.5 rounded-xl transition-colors text-base"
+            className={`bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-6 py-3.5 rounded-xl transition-colors text-base ${btnBase}`}
+            style={btnStyle()}
           >
             See pricing
           </Link>
@@ -161,7 +164,7 @@ export default function Home() {
           No credits. No per-report charges. One domain or unlimited — pick what fits your team.
           Starting at <strong className="text-gray-900">₹2,999/month</strong>.
         </p>
-        <Link to="/pricing" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors">
+        <Link to="/pricing" className={`bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors ${btnBase}`} style={btnStyle()}>
           See all plans →
         </Link>
       </section>
@@ -171,7 +174,7 @@ export default function Home() {
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Find out where you stand in AI search</h2>
           <p className="text-indigo-200 mb-8">Results in under 3 minutes. No setup required.</p>
-          <Link to="/app" className="bg-white text-indigo-600 font-bold px-6 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors text-base">
+          <Link to="/app" className={`bg-white text-indigo-600 font-bold px-6 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors text-base ${btnBase}`} style={btnStyle()}>
             Check my AI visibility →
           </Link>
         </div>

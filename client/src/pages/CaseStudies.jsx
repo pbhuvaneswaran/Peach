@@ -1,3 +1,5 @@
+import { btnBase, btnStyle } from '../lib/motion'
+
 const studies = [
   {
     company: 'TechFlow SaaS',
@@ -55,7 +57,7 @@ export default function CaseStudies() {
         <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 rounded-2xl p-10 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">Your brand could be next</h2>
           <p className="text-blue-100 mb-6 text-sm">Find out where you stand in AI search — in under 3 minutes.</p>
-          <a href="/v2/app" className="bg-white text-blue-700 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+          <a href="/v2/app" className={`bg-white text-blue-700 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm ${btnBase}`} style={btnStyle()}>
             Run your first report →
           </a>
         </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { marked } from 'marked'
 import { useAuth } from '../context/AuthContext'
 import { PublishConnectModal } from './PublishConnectModal'
+import { btnBase, btnStyle } from '../lib/motion'
 
 const TYPE_LABELS = {
   wordpress: 'WordPress',
@@ -125,11 +126,11 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
         <button onClick={copyMarkdown}
-          className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
+          className={`flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors ${btnBase}`} style={btnStyle()}>
           {copied === 'md' ? '✓ Copied!' : '⬇ Copy Markdown'}
         </button>
         <button onClick={copyHtml}
-          className="flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors">
+          className={`flex items-center gap-1.5 text-xs font-semibold border border-[#BFDBFE] text-[#2563EB] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] transition-colors ${btnBase}`} style={btnStyle()}>
           {copied === 'html' ? '✓ Copied!' : '⬇ Copy HTML'}
         </button>
       </div>
@@ -153,7 +154,7 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
                   </a>
                 ) : (
                   <button onClick={() => handlePublish(t)} disabled={busy}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-60">
+                    className={`text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-60 ${btnBase}`} style={btnStyle()}>
                     {busy ? 'Publishing…' : needsSetup ? 'Set up →' : 'Publish →'}
                   </button>
                 )}
@@ -164,7 +165,7 @@ export function ArticleExportBar({ markdown, title, articleId, onPublished }) {
       )}
 
       <button onClick={() => setConnectOpen(true)}
-        className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+        className={`text-xs font-semibold text-blue-600 hover:text-blue-800 ${btnBase}`} style={btnStyle()}>
         + Connect an integration
       </button>
 

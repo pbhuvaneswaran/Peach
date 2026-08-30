@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { ScoreBar } from '../../components/VisibilityComponents'
 import { ArticleEditorPanel } from '../../components/ArticleEditorPanel'
+import { btnBase, btnStyle, StepTransition, Modal } from '../../lib/motion'
 
 const TOPIC_STATUS_LABEL = { proposed: 'Proposed', approved: 'Approved', rejected: 'Rejected' }
 const TOPIC_STATUS_COLOR = {
@@ -65,8 +66,6 @@ function AddTopicModal({ open, onClose, onAdd }) {
   const [targetQuery, setTargetQuery] = useState('')
   const [saving, setSaving] = useState(false)
 
-  if (!open) return null
-
   const submit = async () => {
     if (!title.trim()) return
     setSaving(true)
@@ -80,36 +79,35 @@ function AddTopicModal({ open, onClose, onAdd }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#172554]/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Add a topic</h3>
-        <div className="space-y-3 mb-5">
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Article title"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <textarea value={reasoning} onChange={e => setReasoning(e.target.value)} placeholder="Why this topic? (optional)" rows={2}
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input value={targetQuery} onChange={e => setTargetQuery(e.target.value)} placeholder="Target keyword (optional)"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="text-sm font-semibold text-gray-500 px-4 py-2">Cancel</button>
-          <button onClick={submit} disabled={saving || !title.trim()}
-            className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg">
-            {saving ? 'Adding…' : 'Add topic'}
-          </button>
-        </div>
+    <Modal show={open} onClose={onClose} panelClassName="bg-white rounded-2xl w-full max-w-md p-6">
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Add a topic</h3>
+      <div className="space-y-3 mb-5">
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Article title"
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <textarea value={reasoning} onChange={e => setReasoning(e.target.value)} placeholder="Why this topic? (optional)" rows={2}
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input value={targetQuery} onChange={e => setTargetQuery(e.target.value)} placeholder="Target keyword (optional)"
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
-    </div>
+      <div className="flex gap-2 justify-end">
+        <button onClick={onClose} className={`text-sm font-semibold text-gray-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>Cancel</button>
+        <button onClick={submit} disabled={saving || !title.trim()}
+          className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
+          {saving ? 'Adding…' : 'Add topic'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 
 // ─── Left column: compact selectable topic list ─────────────────────────────
 
-function TopicListItem({ topic, article, selected, onSelect }) {
+function TopicListItem({ topic, article, selected, onSelect, style }) {
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left px-3.5 py-3 rounded-xl border transition-colors ${
+      style={{ ...style, ...btnStyle() }}
+      className={`w-full text-left px-3.5 py-3 rounded-xl border transition-colors animate-fade-in-up ${btnBase} ${
         selected ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
       }`}
     >
@@ -141,18 +139,18 @@ function TopicDetailCard({ topic, busy, onApprove, onReject, onGenerateOutline }
       {topic.status === 'proposed' && (
         <div className="flex gap-2">
           <button disabled={busy} onClick={onApprove}
-            className="text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl">
+            className={`text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl ${btnBase}`} style={btnStyle()}>
             Approve topic
           </button>
           <button disabled={busy} onClick={onReject}
-            className="text-sm font-semibold text-gray-500 hover:text-red-500 px-4 py-2">
+            className={`text-sm font-semibold text-gray-500 hover:text-red-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>
             Reject
           </button>
         </div>
       )}
       {topic.status === 'approved' && (
         <button disabled={busy} onClick={onGenerateOutline}
-          className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl">
+          className={`text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl ${btnBase}`} style={btnStyle()}>
           {busy ? 'Generating outline…' : 'Generate outline →'}
         </button>
       )}
@@ -237,11 +235,11 @@ function OutlineDetailPanel({ outline, busy, onSave, onApproveAndWrite }) {
       <button onClick={addSection} className="text-xs font-semibold text-blue-500 hover:text-blue-700 mb-6">+ Add section</button>
 
       <div className="flex items-center gap-3">
-        <button onClick={save} disabled={saving} className="text-sm font-semibold border border-gray-300 px-4 py-2 rounded-xl hover:bg-gray-50">
+        <button onClick={save} disabled={saving} className={`text-sm font-semibold border border-gray-300 px-4 py-2 rounded-xl hover:bg-gray-50 ${btnBase}`} style={btnStyle()}>
           {saving ? 'Saving…' : 'Save edits'}
         </button>
         <button disabled={busy} onClick={() => onApproveAndWrite({ h1, target_keyword: targetKeyword, angle, outline_json: sections })}
-          className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl">
+          className={`text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl ${btnBase}`} style={btnStyle()}>
           {busy ? 'Writing…' : 'Approve & write article →'}
         </button>
       </div>
@@ -261,7 +259,7 @@ function ArticleDetailCard({ article, onOpen }) {
         {article.quality_status === 'pass' ? '✓ Quality checks passed' : article.quality_status === 'flagged' ? '⚠ Needs review' : 'Draft'}
       </span>
       <p className="text-sm text-gray-500 mb-6">{article.word_count ? `${article.word_count} words` : ''}</p>
-      <button onClick={onOpen} className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl">
+      <button onClick={onOpen} className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl ${btnBase}`} style={btnStyle()}>
         Open article →
       </button>
     </div>
@@ -416,10 +414,10 @@ export default function ArticlesTab() {
 
           <div className="flex flex-col gap-2 mb-4">
             <button onClick={generateTopics} disabled={generatingTopics}
-              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl">
+              className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-4 py-2 rounded-xl ${btnBase}`} style={btnStyle()}>
               {generatingTopics ? 'Generating…' : topics.length > 0 ? 'Regenerate topics' : "Generate this month's topics"}
             </button>
-            <button onClick={() => setAddModalOpen(true)} className="text-sm font-semibold border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-xl">
+            <button onClick={() => setAddModalOpen(true)} className={`text-sm font-semibold border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-xl ${btnBase}`} style={btnStyle()}>
               + Add topic
             </button>
           </div>
@@ -431,7 +429,7 @@ export default function ArticlesTab() {
           )}
 
           <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-            {topics.map(topic => {
+            {topics.map((topic, i) => {
               const outline = outlineByTopicId[topic.id]
               const article = outline ? articleByOutlineId[outline.id] : null
               return (
@@ -441,6 +439,7 @@ export default function ArticlesTab() {
                   article={article}
                   selected={selectedTopic ? topic.id === selectedTopic.id : false}
                   onSelect={() => setSelectedTopicId(topic.id)}
+                  style={{ animationDelay: `${i * 40}ms` }}
                 />
               )
             })}
@@ -449,28 +448,30 @@ export default function ArticlesTab() {
 
         {/* Right: detail panel */}
         <div className="flex-1 min-w-0">
-          {!selectedTopic ? (
-            <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
-              <p className="text-sm text-gray-400">Select a topic from the list to see its details.</p>
-            </div>
-          ) : selectedArticle ? (
-            <ArticleDetailCard article={selectedArticle} onOpen={() => openArticlePanel(selectedArticle, selectedTopic.title)} />
-          ) : selectedOutline ? (
-            <OutlineDetailPanel
-              outline={selectedOutline}
-              busy={busyTopicId === selectedTopic.id}
-              onSave={(fields) => saveOutline(selectedOutline, fields)}
-              onApproveAndWrite={(fields) => approveAndWrite(selectedOutline, selectedTopic, fields)}
-            />
-          ) : (
-            <TopicDetailCard
-              topic={selectedTopic}
-              busy={busyTopicId === selectedTopic.id}
-              onApprove={() => approveTopic(selectedTopic)}
-              onReject={() => rejectTopic(selectedTopic)}
-              onGenerateOutline={() => generateOutlineFor(selectedTopic)}
-            />
-          )}
+          <StepTransition stepKey={`${selectedTopic?.id || 'none'}:${selectedArticle ? 'article' : selectedOutline ? 'outline' : 'topic'}`}>
+            {!selectedTopic ? (
+              <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+                <p className="text-sm text-gray-400">Select a topic from the list to see its details.</p>
+              </div>
+            ) : selectedArticle ? (
+              <ArticleDetailCard article={selectedArticle} onOpen={() => openArticlePanel(selectedArticle, selectedTopic.title)} />
+            ) : selectedOutline ? (
+              <OutlineDetailPanel
+                outline={selectedOutline}
+                busy={busyTopicId === selectedTopic.id}
+                onSave={(fields) => saveOutline(selectedOutline, fields)}
+                onApproveAndWrite={(fields) => approveAndWrite(selectedOutline, selectedTopic, fields)}
+              />
+            ) : (
+              <TopicDetailCard
+                topic={selectedTopic}
+                busy={busyTopicId === selectedTopic.id}
+                onApprove={() => approveTopic(selectedTopic)}
+                onReject={() => rejectTopic(selectedTopic)}
+                onGenerateOutline={() => generateOutlineFor(selectedTopic)}
+              />
+            )}
+          </StepTransition>
         </div>
       </div>
 

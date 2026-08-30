@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { btnBase, btnStyle, StepTransition, Modal } from '../lib/motion'
 
 function WordPressWizard({ onConnected, onCancel }) {
   const { session } = useAuth()
@@ -174,38 +175,6 @@ function PeachHostedWizard({ onConnected, onCancel }) {
 
 const POLL_MS = 10000
 const POLL_TIMEOUT_MS = 5 * 60 * 1000
-
-// Shared press-feedback + custom ease-out for every button in this file's wizards.
-// cubic-bezier curve per the emil-design-eng standard — stronger than the built-in
-// CSS ease-out, gives buttons a more intentional, responsive feel on click.
-const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
-const btnBase = 'transition-transform duration-150 active:scale-[0.97]'
-function btnStyle() { return { transitionTimingFunction: EASE_OUT } }
-
-// Wraps a wizard step's content so switching steps (e.g. none -> pending_dns -> verified)
-// fades + scales in instead of hard-cutting, per emil-design-eng: never animate from
-// scale(0), start from a barely-smaller scale + opacity so it reads as one continuous
-// surface rather than two different screens.
-function StepTransition({ stepKey, children }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(false)
-    const raf = requestAnimationFrame(() => setMounted(true))
-    return () => cancelAnimationFrame(raf)
-  }, [stepKey])
-  return (
-    <div
-      className="transition-[opacity,transform] duration-200"
-      style={{
-        transitionTimingFunction: EASE_OUT,
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? 'scale(1)' : 'scale(0.97)',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
 
 // A labeled, copyable code block — used by the reverse-proxy setup snippets.
 function CodeBlock({ label, code }) {
@@ -541,8 +510,6 @@ export function PublishConnectModal({ open, onClose, onConnected }) {
   const { session } = useAuth()
   const [picked, setPicked] = useState(null) // null | 'wordpress_com' | 'wordpress' | 'github' | 'peach_hosted' | 'custom_domain'
 
-  if (!open) return null
-
   const cards = [
     { id: 'peach_hosted', name: 'Peach-hosted blog', desc: 'No setup — always ready, works for any site' },
     { id: 'custom_domain', name: 'Custom domain', desc: 'Your own domain, no Peach branding — Growth & Enterprise' },
@@ -557,15 +524,16 @@ export function PublishConnectModal({ open, onClose, onConnected }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#172554]/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+    <Modal show={open} onClose={onClose} panelClassName="bg-white rounded-2xl w-full max-w-md p-6">
+      <StepTransition stepKey={picked || 'chooser'}>
         {!picked ? (
           <>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Connect an integration</h3>
             <div className="space-y-2">
               {cards.map((c) => (
                 <button key={c.id} onClick={() => setPicked(c.id)}
-                  className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                  className={`w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors ${btnBase}`}
+                  style={btnStyle()}>
                   <p className="text-sm font-semibold text-gray-900">{c.name}</p>
                   <p className="text-xs text-gray-500">{c.desc}</p>
                 </button>
@@ -587,15 +555,15 @@ export function PublishConnectModal({ open, onClose, onConnected }) {
               You'll be redirected to {picked === 'wordpress_com' ? 'WordPress.com' : 'GitHub'} to approve access, then brought back here to finish setup.
             </p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setPicked(null)} className="text-sm font-semibold text-gray-500 px-4 py-2">← Back</button>
+              <button onClick={() => setPicked(null)} className={`text-sm font-semibold text-gray-500 px-4 py-2 ${btnBase}`} style={btnStyle()}>← Back</button>
               <button onClick={() => startOAuth(picked)}
-                className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                className={`text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg ${btnBase}`} style={btnStyle()}>
                 Continue →
               </button>
             </div>
           </>
         )}
-      </div>
-    </div>
+      </StepTransition>
+    </Modal>
   )
 }

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import PeachLogo from './PeachLogo'
+import { btnBase, btnStyle } from '../lib/motion'
 
 export default function Footer() {
   return (
@@ -28,9 +29,9 @@ export default function Footer() {
             <p className="text-xs uppercase tracking-[0.12em] text-blue-400 mb-3.5">Follow Peach</p>
             <div className="flex gap-2.5">
               <a href="https://www.linkedin.com/company/gotopeach" target="_blank" rel="noopener noreferrer" aria-label="Peach on LinkedIn"
-                className="w-9 h-9 rounded-lg border border-blue-800 grid place-items-center text-blue-200 text-sm font-bold hover:bg-blue-900 hover:text-white transition-colors">in</a>
+                className={`w-9 h-9 rounded-lg border border-blue-800 grid place-items-center text-blue-200 text-sm font-bold hover:bg-blue-900 hover:text-white transition-colors ${btnBase}`} style={btnStyle()}>in</a>
               <a href="https://x.com/go2peach" target="_blank" rel="noopener noreferrer" aria-label="Peach on X"
-                className="w-9 h-9 rounded-lg border border-blue-800 grid place-items-center text-blue-200 text-sm font-bold hover:bg-blue-900 hover:text-white transition-colors">X</a>
+                className={`w-9 h-9 rounded-lg border border-blue-800 grid place-items-center text-blue-200 text-sm font-bold hover:bg-blue-900 hover:text-white transition-colors ${btnBase}`} style={btnStyle()}>X</a>
             </div>
           </div>
         </div>
