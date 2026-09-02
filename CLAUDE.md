@@ -4,6 +4,14 @@
 
 ---
 
+## Latest Instructions (2026-09-02)
+
+- **Signup flow audited and one bug fixed.** Full path checked live (not just read): `signInWithOtp` tested directly against Supabase's `/auth/v1/otp` (200 — email magic-link works), `signInWithOAuth('google')` tested directly against `/auth/v1/authorize?provider=google` (302 to a valid `accounts.google.com` URL — Google OAuth is correctly configured in Supabase). Both auth mechanisms were already solid; login/session issuance was never the problem.
+- **Bug fixed — onboarding "Skip for now" caused a login loop.** `Onboarding.jsx`'s `handleSkip` redirected without ever calling `/api/profile/save`, so no `profiles` row was created. Since `Login.jsx`/`AuthCallback.jsx` route users to `/onboarding` vs `/app` based on whether a `profiles` row exists, a user who skipped got sent back to `/onboarding` on every future login (not a lockout — they could re-skip indefinitely, or reach `/app` directly since it has no auth gate right now — but a real annoyance). Fixed: `handleSkip` now POSTs to `/api/profile/save` with blank `company_name`/`industry`/`role` (keeps any prefilled `website_url`) before redirecting, so a `profiles` row always exists post-skip.
+- **Reminder, still true:** `/app` has no auth gate currently (intentionally disabled for local testing, per the 2026-07-22 entry below) — nothing today actually forces a visitor through login/signup before using the tool.
+
+---
+
 ## Latest Instructions (2026-08-28)
 
 - **Dashboard page removed entirely.** The separate `/dashboard` route (5-tab layout: Overview, AI Answers, Content Gaps, Action Plan, Site Audit) duplicated the main results page and diverged from it, and its data source (`GET /api/runs`, reading `output/runs/*.json` off local disk) doesn't work reliably on Vercel serverless anyway. Its useful content was folded into the main report (`VisibilityFlow.jsx`): the Overview tab now opens with a "Mentions over time" trend chart + Leaderboard (fetched client-side from `/api/runs`, same data source as before); a new **AI Answers** tab (positioned above Prompts in the sidebar) shows the full prompt-by-prompt breakdown table; Growth Actions gained an "All recommended actions" section listing every action from the run, not just the top pick. Content Gaps was dropped entirely — it only ever showed "0 topics missing" in practice, not worth porting. `Dashboard.jsx` deleted, `/dashboard` route and sidebar link removed.

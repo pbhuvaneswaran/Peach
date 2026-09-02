@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
+import { btnBase, btnStyle } from '../../lib/motion'
 
 const CLEAR = () => localStorage.removeItem('peach_last_result')
 
@@ -51,7 +52,8 @@ function Checker({ dark = false }) {
       />
       <button
         type="submit"
-        className="shrink-0 bg-blue-700 hover:bg-blue-800 text-white text-base font-semibold px-6 py-4 rounded-xl transition-colors"
+        className={`shrink-0 bg-blue-700 hover:bg-blue-800 text-white text-base font-semibold px-6 py-4 rounded-xl transition-colors ${btnBase}`}
+        style={btnStyle()}
       >
         Check my brand →
       </button>

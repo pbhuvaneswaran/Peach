@@ -32,7 +32,7 @@ function QuotaMeter({ quota }) {
       </div>
     )
   }
-  const pct = quota.remaining === Infinity ? 0 : Math.min(100, Math.round((quota.used / quota.limit) * 100))
+  const pct = quota.remaining === Infinity || !quota.limit ? 0 : Math.min(100, Math.round((quota.used / quota.limit) * 100))
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
       <ScoreBar brand="Articles this month" pct={pct} highlight />
@@ -282,6 +282,7 @@ export default function ArticlesTab() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [error, setError] = useState('')
   const [articleDetails, setArticleDetails] = useState({}) // id -> full row
+  const [articleErrors, setArticleErrors] = useState({}) // id -> true if last fetch failed
   const [openArticle, setOpenArticle] = useState(null) // { id, title } | null
   const [selectedTopicId, setSelectedTopicId] = useState('')
   const [busyTopicId, setBusyTopicId] = useState('')
@@ -376,7 +377,10 @@ export default function ArticlesTab() {
   const openArticlePanel = (article, title) => {
     setOpenArticle({ id: article.id, title })
     if (!articleDetails[article.id]) {
-      api(`/api/articles/${article.id}`).then(data => setArticleDetails(prev => ({ ...prev, [article.id]: data }))).catch(() => {})
+      setArticleErrors(prev => ({ ...prev, [article.id]: false }))
+      api(`/api/articles/${article.id}`)
+        .then(data => setArticleDetails(prev => ({ ...prev, [article.id]: data })))
+        .catch(() => setArticleErrors(prev => ({ ...prev, [article.id]: true })))
     }
   }
 
@@ -482,7 +486,9 @@ export default function ArticlesTab() {
         onClose={() => setOpenArticle(null)}
         articleId={openArticle?.id}
         title={openArticle?.title}
-        loading={!!openArticle && !articleDetails[openArticle.id]}
+        loading={!!openArticle && !articleDetails[openArticle.id] && !articleErrors[openArticle.id]}
+        error={!!openArticle && articleErrors[openArticle.id]}
+        onRetry={() => openArticle && openArticlePanel({ id: openArticle.id }, openArticle.title)}
         initialHtml={openArticle ? articleDetails[openArticle.id]?.content_html : ''}
         initialMarkdown={openArticle ? articleDetails[openArticle.id]?.content_markdown : ''}
         initialQuality={openArticle ? articleDetails[openArticle.id]?.quality_json : null}

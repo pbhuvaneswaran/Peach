@@ -3316,6 +3316,26 @@ export default function V3VisibilityFlow() {
       .catch(() => setSavedRuns([]))
   }, [result, session])
 
+  // A cached report in localStorage belongs to whichever account produced it (or 'anon' for
+  // a pre-signup free scan). If the signed-in account changes — including a stale cache with
+  // no owner tag at all, from before this check existed — the cached report isn't this
+  // account's to see, so drop it and let the per-account /api/v3/runs fetch above take over.
+  useEffect(() => {
+    const currentOwner = session?.user?.id || 'anon'
+    const storedOwner = localStorage.getItem('peach_last_result_owner')
+    if (!localStorage.getItem('peach_last_result')) return
+    if (storedOwner === currentOwner) return
+    if (storedOwner === 'anon' && currentOwner !== 'anon') {
+      localStorage.setItem('peach_last_result_owner', currentOwner)
+      return
+    }
+    localStorage.removeItem('peach_last_result')
+    localStorage.removeItem('peach_last_result_time')
+    localStorage.removeItem('peach_last_result_owner')
+    setResult(null)
+    setResultTime(null)
+  }, [session?.user?.id])
+
   // One card per distinct hostname — most recent run for that host, since a free-tier
   // account can have up to 3 re-runs of the same site (server.js's run-limit logic).
   const savedWebsites = (() => {
@@ -3344,6 +3364,7 @@ export default function V3VisibilityFlow() {
       const now = Date.now()
       localStorage.setItem('peach_last_result', JSON.stringify(data))
       localStorage.setItem('peach_last_result_time', String(now))
+      localStorage.setItem('peach_last_result_owner', session?.user?.id || 'anon')
       setResult(data)
       setResultTime(now)
     } catch {
@@ -3356,6 +3377,7 @@ export default function V3VisibilityFlow() {
   const handleReset = () => {
     localStorage.removeItem('peach_last_result')
     localStorage.removeItem('peach_last_result_time')
+    localStorage.removeItem('peach_last_result_owner')
     setResult(null)
     setShowNewAnalysisForm(false)
   }
@@ -3400,6 +3422,7 @@ export default function V3VisibilityFlow() {
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
       localStorage.setItem('peach_last_result', JSON.stringify(data))
       localStorage.setItem('peach_last_result_time', String(Date.now()))
+      localStorage.setItem('peach_last_result_owner', session?.user?.id || 'anon')
       setResult(data)
       setResultTime(Date.now())
       setReportReady(true)

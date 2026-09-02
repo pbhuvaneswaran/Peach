@@ -70,6 +70,21 @@ export default function Onboarding() {
 
   const handleSkip = async () => {
     const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { navigate('/login'); return }
+
+    try {
+      await fetch('/api/profile/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ company_name: '', industry: '', website_url: form.website_url, role: '' }),
+      })
+    } catch {
+      // ignore — resolvePostAuthRedirect still proceeds; worst case is they're asked again next time
+    }
+
     await resolvePostAuthRedirect(navigate, session)
   }
 

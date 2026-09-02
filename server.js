@@ -1275,6 +1275,7 @@ app.get('/api/auth/github/callback', async (req, res) => {
     const tokenData = await tokenRes.json();
     if (!tokenData.access_token) throw new Error(tokenData.error_description || 'No access token returned');
 
+    await supabaseAdmin.from('publish_targets').delete().eq('user_id', userId).eq('type', 'github');
     const { data, error: insErr } = await supabaseAdmin
       .from('publish_targets').insert({ user_id: userId, type: 'github', config_json: { token: tokenData.access_token } }).select().single();
     if (insErr) throw new Error(insErr.message);
@@ -1341,6 +1342,7 @@ app.get('/api/auth/wordpress/callback', async (req, res) => {
     const tokenData = await tokenRes.json();
     if (!tokenData.access_token) throw new Error(tokenData.error_description || 'No access token returned');
 
+    await supabaseAdmin.from('publish_targets').delete().eq('user_id', userId).eq('type', 'wordpress_com');
     const { data, error: insErr } = await supabaseAdmin
       .from('publish_targets').insert({ user_id: userId, type: 'wordpress_com', config_json: { token: tokenData.access_token } }).select().single();
     if (insErr) throw new Error(insErr.message);

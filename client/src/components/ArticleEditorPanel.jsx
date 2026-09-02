@@ -3,7 +3,7 @@ import { Drawer, btnBase, btnStyle } from '../lib/motion'
 
 // Full-screen document-editing experience — opened from a list (ArticlesTab, ContentBriefModal)
 // rather than embedded inline, so writing an article feels like opening a doc, not filling a form field.
-export function ArticleEditorPanel({ open, onClose, articleId, title, initialHtml, initialMarkdown, initialQuality, angle, loading }) {
+export function ArticleEditorPanel({ open, onClose, articleId, title, initialHtml, initialMarkdown, initialQuality, angle, loading, error, onRetry }) {
   return (
     // No onClose wired to the backdrop on purpose — an accidental click outside the panel must
     // never discard an in-progress edit. Closing only happens via the explicit control below.
@@ -15,7 +15,12 @@ export function ArticleEditorPanel({ open, onClose, articleId, title, initialHtm
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-6">
-        {loading ? (
+        {error ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-3">
+            <p className="text-sm text-gray-500">Couldn't load this article.</p>
+            <button onClick={onRetry} className={`text-sm font-semibold text-blue-600 hover:text-blue-800 ${btnBase}`} style={btnStyle()}>Try again</button>
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
           </div>
