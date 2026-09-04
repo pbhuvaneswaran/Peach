@@ -4,6 +4,22 @@
 
 ---
 
+## Latest Instructions (2026-09-04)
+
+- **Supabase's built-in auth mailer is fully bypassed now — no Supabase Dashboard config needed at all.** Supersedes the 2026-09-03 entry below (the custom-SMTP / dashboard-template-rebrand plan was abandoned once the dashboard nav proved painful to find and the user asked for a Resend-only approach instead). New `POST /api/auth/send-magic-link` (`server.js`) calls `supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', ... })` — this generates the real Supabase auth link *without* Supabase auto-sending anything — then sends a Peach-branded HTML email through Resend itself (dynamic greeting: "Welcome to Peach, {first_name}!" for signups, "Your sign-in link" for returning users). `Login.jsx` now POSTs to this endpoint instead of calling `supabase.auth.signInWithOtp` directly. `AuthCallback.jsx` needed no changes — Supabase's generated `action_link` produces the same URL-fragment session format either way. Google OAuth (`signInWithOAuth`) is untouched, still goes straight through Supabase as before (no branded-email concern there — Google's own consent screen is what users see).
+- **Verified live**, not just read: restarted the local server, curl-tested `/api/auth/send-magic-link` with and without `first_name` against a real inbox — both returned `{"sent":true}`. **Not yet verified by the user:** actually clicking the link in a received email through to a completed sign-in — worth a real end-to-end click-through before considering this fully done.
+- **The custom-SMTP / Supabase-dashboard-template path (previous entry below) is now dead — do not resume it.** `sql/add_first_name_to_profiles.sql` (still needed, unrelated to which email-sending approach is used) must still be run manually in the Supabase SQL editor for `profiles.first_name` to exist.
+
+---
+
+## Latest Instructions (2026-09-03) — superseded, see above
+
+- **Auth emails were 100% Supabase-default** (the "powered by Supabase" branded "Confirm your email address" / "Your sign-in link" emails) — not sent by any code in this repo. There's no `supabase/` config directory, so email templates + SMTP live only in the Supabase Dashboard for project `olwcmaabbsnqhmbiybsk`, not in git.
+- **Added a real `first_name` field** — didn't exist anywhere before (onboarding only had `company_name`/`industry`/`role`/`website_url`). New column `profiles.first_name` (**`sql/add_first_name_to_profiles.sql` — must be run manually in the Supabase SQL editor**, same as the other files in `sql/`). `Onboarding.jsx` has a required First name field, auto-prefilled from `user_metadata.first_name`/`full_name`/`name` (covers Google OAuth too, which already provides a real name). `POST /api/profile/save` (`server.js`) now persists it.
+- ~~Custom SMTP + re-branded email templates are dashboard-only config~~ — abandoned in favor of the 2026-09-04 approach above.
+
+---
+
 ## Latest Instructions (2026-09-02)
 
 - **Signup flow audited and one bug fixed.** Full path checked live (not just read): `signInWithOtp` tested directly against Supabase's `/auth/v1/otp` (200 — email magic-link works), `signInWithOAuth('google')` tested directly against `/auth/v1/authorize?provider=google` (302 to a valid `accounts.google.com` URL — Google OAuth is correctly configured in Supabase). Both auth mechanisms were already solid; login/session issuance was never the problem.

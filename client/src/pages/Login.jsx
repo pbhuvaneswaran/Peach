@@ -19,6 +19,7 @@ export default function Login() {
   useEffect(() => { document.title = 'Sign in — Peach' }, [])
   const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'check-email'
   const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -41,27 +42,38 @@ export default function Login() {
   const handleEmail = async (e) => {
     e.preventDefault()
     if (!email.trim()) return setError('Enter your email address.')
+    if (mode === 'signup' && !firstName.trim()) return setError('Enter your first name.')
     setError('')
 
-    // Show "check your email" immediately — don't wait for Supabase round-trip
+    const isSignup = mode === 'signup'
+    // Show "check your email" immediately — don't wait for the round-trip
     setMode('check-email')
 
-    // Fire OTP request in background
-    supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    }).then(({ error: err }) => {
-      if (err) {
-        console.error('Supabase auth error full:', JSON.stringify(err))
-        setMode('signin')
-        const raw = err?.message || err?.error_description || err?.msg || err?.code || JSON.stringify(err)
-        const isRateLimit = raw.toLowerCase().includes('rate') || raw.toLowerCase().includes('too many') || raw.includes('429')
-        setError(
-          isRateLimit
-            ? 'Too many requests — wait 60 seconds then try again, or use Google sign-in.'
-            : raw || 'Email sending failed. Try Google sign-in or contact hello@gotopeach.com.'
-        )
+    // Fire the magic-link request in background — our own backend generates the
+    // link via Supabase's admin API and sends the email itself via Resend, so no
+    // Supabase-branded email goes out and the copy is fully ours.
+    fetch('/api/auth/send-magic-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        ...(isSignup ? { first_name: firstName.trim() } : {}),
+      }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Email sending failed.')
       }
+    }).catch((err) => {
+      console.error('Magic-link error:', err)
+      setMode('signin')
+      const raw = err?.message || 'Email sending failed. Try Google sign-in or contact hello@gotopeach.com.'
+      const isRateLimit = raw.toLowerCase().includes('rate') || raw.toLowerCase().includes('too many') || raw.includes('429')
+      setError(
+        isRateLimit
+          ? 'Too many requests — wait 60 seconds then try again, or use Google sign-in.'
+          : raw
+      )
     })
   }
 
@@ -120,6 +132,19 @@ export default function Login() {
             </p>
 
             <form onSubmit={handleEmail} className="space-y-3 mb-5">
+              {mode === 'signup' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">First name</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jamie"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
                 <input

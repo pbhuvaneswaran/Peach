@@ -34,16 +34,27 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
+    first_name: '',
     company_name: '',
     industry: '',
     website_url: localStorage.getItem('peach_prefill_url') || '',
     role: '',
   })
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const meta = session?.user?.user_metadata
+      if (!meta) return
+      const prefill = meta.first_name || meta.full_name?.split(' ')[0] || meta.name?.split(' ')[0] || ''
+      if (prefill) setForm(prev => ({ ...prev, first_name: prev.first_name || prefill }))
+    })
+  }, [])
+
   const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!form.first_name.trim()) return setError('First name is required.')
     if (!form.company_name.trim()) return setError('Company name is required.')
     setError('')
     setSaving(true)
@@ -79,7 +90,7 @@ export default function Onboarding() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ company_name: '', industry: '', website_url: form.website_url, role: '' }),
+        body: JSON.stringify({ first_name: form.first_name, company_name: '', industry: '', website_url: form.website_url, role: '' }),
       })
     } catch {
       // ignore — resolvePostAuthRedirect still proceeds; worst case is they're asked again next time
@@ -113,6 +124,21 @@ export default function Onboarding() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
+          {/* First name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              First name <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.first_name}
+              onChange={set('first_name')}
+              placeholder="Jamie"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoFocus
+            />
+          </div>
+
           {/* Company name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -124,7 +150,6 @@ export default function Onboarding() {
               onChange={set('company_name')}
               placeholder="Acme Inc."
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
             />
           </div>
 

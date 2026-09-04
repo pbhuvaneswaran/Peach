@@ -41,6 +41,20 @@ const supabaseAdmin = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_
 const hasKey = (name) => !!process.env[name];
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
+// Short branded redirect links for magic-link emails (auth/confirm?token=... instead of
+// exposing the raw supabase.co verify URL). In-memory, single-server — fine at Peach's scale.
+const shortLinks = new Map();
+const SHORT_LINK_TTL_MS = 60 * 60 * 1000; // matches Supabase's default OTP expiry
+const makeShortLink = (destinationUrl) => {
+  const token = crypto.randomBytes(8).toString('hex');
+  shortLinks.set(token, { url: destinationUrl, expiresAt: Date.now() + SHORT_LINK_TTL_MS });
+  return `${APP_URL}/auth/confirm?token=${token}`;
+};
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, { expiresAt }] of shortLinks) if (expiresAt < now) shortLinks.delete(token);
+}, 10 * 60 * 1000).unref();
+
 // Shared auth helper — used by every /api/articles/* and /api/v3/runs route below.
 async function authenticateUser(req) {
   if (!supabaseAdmin) return { error: 'no_supabase' };
@@ -83,6 +97,14 @@ const htmlToMarkdown = (html) => turndownService.turndown(html || '');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.get('/auth/confirm', (req, res) => {
+  const rec = shortLinks.get(req.query.token);
+  if (!rec || rec.expiresAt < Date.now()) {
+    return res.status(410).send('This link has expired. Go back to Peach and request a new one.');
+  }
+  res.redirect(302, rec.url);
+});
 
 
 function isUrlInput(str) {
@@ -1377,6 +1399,80 @@ app.get('/api/wordpress/sites', async (req, res) => {
 
 
 
+// ─── Magic-link sign-in, sent via Resend instead of Supabase's built-in mailer ──
+app.post('/api/auth/send-magic-link', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase not configured' });
+  if (!hasKey('RESEND_API_KEY')) return res.status(503).json({ error: 'Email not configured — add RESEND_API_KEY to .env' });
+
+  const { email, first_name } = req.body;
+  if (!email || !email.trim()) return res.status(400).json({ error: 'Email is required' });
+
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'magiclink',
+    email: email.trim(),
+    options: {
+      redirectTo: `${APP_URL}/auth/callback`,
+      ...(first_name ? { data: { first_name: first_name.trim() } } : {}),
+    },
+  });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const actionLink = makeShortLink(data?.properties?.action_link);
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const name = first_name ? esc(first_name.trim()) : '';
+
+  const headline = first_name ? `${name}, does AI even know you exist?` : 'Sign in to Peach';
+  const bodyCopy = first_name
+    ? 'Right now, someone is asking ChatGPT for a company like yours. Peach checks whether it mentions your brand, or points them to a competitor instead.'
+    : 'Click the button below to sign in. This link expires shortly and can only be used once.';
+  const ctaText = first_name ? 'Confirm email & run my first check' : 'Sign in to Peach';
+
+  const preheader = first_name
+    ? `${name}, does AI even know you exist? Here's how to find out.`
+    : 'Click below to sign in to Peach.';
+
+  const html = `
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0">${preheader}${'&nbsp;&zwnj;'.repeat(80)}</div>
+<div style="background:#eff6ff;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:520px;margin:0 auto;background:white;border-radius:16px;padding:40px 32px">
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:32px;line-height:1.25;color:#172554;margin:0 0 20px">${headline}</h1>
+    <p style="font-size:16px;line-height:1.6;color:#677085;margin:0 0 28px">${bodyCopy}</p>
+    <a href="${actionLink}" style="display:inline-block;background:#3b74e8;color:white;padding:16px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">${ctaText}</a>
+    <p style="font-size:13px;color:#94a3b8;margin:28px 0 4px">Trouble with the button? Paste this link instead:</p>
+    <a href="${actionLink}" style="font-size:13px;color:#3b74e8;word-break:break-all">${actionLink}</a>
+    <p style="font-size:14px;color:#374151;margin:36px 0 0">— Bhuvanesh, Founder<br/><span style="color:#94a3b8">Peach</span></p>
+  </div>
+  <p style="text-align:center;font-size:13px;color:#94a3b8;margin-top:20px">
+    Peach · <a href="mailto:hello@gotopeach.com" style="color:#94a3b8">hello@gotopeach.com</a> · <a href="https://gotopeach.com" style="color:#94a3b8">gotopeach.com</a>
+  </p>
+</div>`;
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Peach <hello@gotopeach.com>',
+        to: [email.trim()],
+        subject: first_name ? `heyyy ${first_name.trim()} 👋 welcome to the peach fam` : 'Your Peach sign-in link',
+        html,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      console.error('Resend error:', err);
+      return res.status(500).json({ error: 'Failed to send email' });
+    }
+    res.json({ sent: true });
+  } catch (err) {
+    console.error('Magic-link email error:', err.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
 // ─── Profile save (onboarding) ───────────────────────────────────────────────
 app.post('/api/profile/save', async (req, res) => {
   if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase not configured' });
@@ -1385,9 +1481,9 @@ app.post('/api/profile/save', async (req, res) => {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { company_name, industry, website_url, role } = req.body;
+  const { first_name, company_name, industry, website_url, role } = req.body;
   const { error } = await supabaseAdmin.from('profiles').upsert(
-    { id: user.id, company_name, industry, website_url, role },
+    { id: user.id, first_name, company_name, industry, website_url, role },
     { onConflict: 'id' }
   );
   if (error) return res.status(500).json({ error: error.message });
