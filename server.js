@@ -42,18 +42,20 @@ const hasKey = (name) => !!process.env[name];
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 // Short branded redirect links for magic-link emails (auth/confirm?token=... instead of
-// exposing the raw supabase.co verify URL). In-memory, single-server — fine at Peach's scale.
-const shortLinks = new Map();
+// exposing the raw supabase.co verify URL). Stored in Supabase, not in-memory — Vercel
+// serverless instances don't share memory (and redeploys wipe it), so an in-memory Map
+// meant the request that creates the link and the one that resolves it could land on
+// different instances and see the link as instantly "expired".
 const SHORT_LINK_TTL_MS = 60 * 60 * 1000; // matches Supabase's default OTP expiry
-const makeShortLink = (destinationUrl) => {
+const makeShortLink = async (destinationUrl) => {
   const token = crypto.randomBytes(8).toString('hex');
-  shortLinks.set(token, { url: destinationUrl, expiresAt: Date.now() + SHORT_LINK_TTL_MS });
+  await supabaseAdmin.from('magic_link_redirects').insert({
+    token,
+    url: destinationUrl,
+    expires_at: new Date(Date.now() + SHORT_LINK_TTL_MS).toISOString(),
+  });
   return `${APP_URL}/api/auth/confirm?token=${token}`;
 };
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, { expiresAt }] of shortLinks) if (expiresAt < now) shortLinks.delete(token);
-}, 10 * 60 * 1000).unref();
 
 // Shared auth helper — used by every /api/articles/* and /api/v3/runs route below.
 async function authenticateUser(req) {
@@ -98,9 +100,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/auth/confirm', (req, res) => {
-  const rec = shortLinks.get(req.query.token);
-  if (!rec || rec.expiresAt < Date.now()) {
+app.get('/api/auth/confirm', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).send('Not configured.');
+  const { data: rec } = await supabaseAdmin
+    .from('magic_link_redirects')
+    .select('url, expires_at')
+    .eq('token', req.query.token)
+    .maybeSingle();
+  if (!rec || new Date(rec.expires_at) < new Date()) {
     return res.status(410).send('This link has expired. Go back to Peach and request a new one.');
   }
   res.redirect(302, rec.url);
@@ -1417,7 +1424,7 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
   });
   if (error) return res.status(500).json({ error: error.message });
 
-  const actionLink = makeShortLink(data?.properties?.action_link);
+  const actionLink = await makeShortLink(data?.properties?.action_link);
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const name = first_name ? esc(first_name.trim()) : '';
 
