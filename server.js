@@ -1438,13 +1438,8 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
     <h1 style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:32px;line-height:1.25;color:#172554;margin:0 0 20px">${headline}</h1>
     <p style="font-size:16px;line-height:1.6;color:#677085;margin:0 0 28px">${bodyCopy}</p>
     <a href="${actionLink}" style="display:inline-block;background:#3b74e8;color:white;padding:16px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px">${ctaText}</a>
-    <p style="font-size:13px;color:#94a3b8;margin:28px 0 4px">Trouble with the button? Paste this link instead:</p>
-    <a href="${actionLink}" style="font-size:13px;color:#3b74e8;word-break:break-all">${actionLink}</a>
-    <p style="font-size:14px;color:#374151;margin:36px 0 0">— Bhuvanesh, Founder<br/><span style="color:#94a3b8">Peach</span></p>
+    <p style="font-size:14px;color:#374151;margin:36px 0 0">bhuvanesh<br/>Founder, Peach</p>
   </div>
-  <p style="text-align:center;font-size:13px;color:#94a3b8;margin-top:20px">
-    Peach · <a href="mailto:hello@gotopeach.com" style="color:#94a3b8">hello@gotopeach.com</a> · <a href="https://gotopeach.com" style="color:#94a3b8">gotopeach.com</a>
-  </p>
 </div>`;
 
   try {
