@@ -48,7 +48,7 @@ const SHORT_LINK_TTL_MS = 60 * 60 * 1000; // matches Supabase's default OTP expi
 const makeShortLink = (destinationUrl) => {
   const token = crypto.randomBytes(8).toString('hex');
   shortLinks.set(token, { url: destinationUrl, expiresAt: Date.now() + SHORT_LINK_TTL_MS });
-  return `${APP_URL}/auth/confirm?token=${token}`;
+  return `${APP_URL}/api/auth/confirm?token=${token}`;
 };
 setInterval(() => {
   const now = Date.now();
@@ -98,7 +98,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/auth/confirm', (req, res) => {
+app.get('/api/auth/confirm', (req, res) => {
   const rec = shortLinks.get(req.query.token);
   if (!rec || rec.expiresAt < Date.now()) {
     return res.status(410).send('This link has expired. Go back to Peach and request a new one.');
