@@ -1428,15 +1428,13 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const name = first_name ? esc(first_name.trim()) : '';
 
-  const headline = first_name ? `${name}, does AI even know you exist?` : 'Sign in to Peach';
-  const bodyCopy = first_name
-    ? 'Right now, someone is asking ChatGPT for a company like yours. Peach checks whether it mentions your brand, or points them to a competitor instead.'
-    : 'Click the button below to sign in. This link expires shortly and can only be used once.';
-  const ctaText = first_name ? 'Confirm email & run my first check' : 'Sign in to Peach';
+  const headline = first_name ? `${name}, does AI even know you exist?` : 'Welcome back. Does AI even know you exist?';
+  const bodyCopy = 'Right now, someone is asking ChatGPT for a company like yours. Peach checks whether it mentions your brand, or points them to a competitor instead.';
+  const ctaText = first_name ? 'Confirm email & run my first check' : 'Sign in & check now';
 
   const preheader = first_name
     ? `${name}, does AI even know you exist? Here's how to find out.`
-    : 'Click below to sign in to Peach.';
+    : "Does AI even know you exist? Here's how to find out.";
 
   const html = `
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0">${preheader}${'&nbsp;&zwnj;'.repeat(80)}</div>
