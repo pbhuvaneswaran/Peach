@@ -1411,7 +1411,9 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
   if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase not configured' });
   if (!hasKey('RESEND_API_KEY')) return res.status(503).json({ error: 'Email not configured — add RESEND_API_KEY to .env' });
 
-  const { email, first_name } = req.body;
+  const { email } = req.body;
+  let { first_name } = req.body;
+  const isNewSignup = !!first_name;
   if (!email || !email.trim()) return res.status(400).json({ error: 'Email is required' });
 
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
@@ -1424,13 +1426,24 @@ app.post('/api/auth/send-magic-link', async (req, res) => {
   });
   if (error) return res.status(500).json({ error: error.message });
 
+  // Returning users don't type their name at sign-in — look up what they gave us at signup
+  // so the email is personalized either way, not just on the very first send.
+  if (!first_name && data?.user?.id) {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('first_name')
+      .eq('id', data.user.id)
+      .maybeSingle();
+    first_name = profile?.first_name || undefined;
+  }
+
   const actionLink = await makeShortLink(data?.properties?.action_link);
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const name = first_name ? esc(first_name.trim()) : '';
 
   const headline = first_name ? `${name}, does AI even know you exist?` : 'Welcome back. Does AI even know you exist?';
   const bodyCopy = 'Right now, someone is asking ChatGPT for a company like yours. Peach checks whether it mentions your brand, or points them to a competitor instead.';
-  const ctaText = first_name ? 'Confirm email & run my first check' : 'Sign in & check now';
+  const ctaText = isNewSignup ? 'Confirm email & run my first check' : 'Sign in & check now';
 
   const preheader = first_name
     ? `${name}, does AI even know you exist? Here's how to find out.`
